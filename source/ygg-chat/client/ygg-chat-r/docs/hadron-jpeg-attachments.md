@@ -19,3 +19,5 @@ Limits: five total attachments per selection, and five pictures per selected con
 - The live acceptance check on the development PC passed for Claude Sonnet and GPT-6.1-Sol: both identified the red square on the left and blue circle on the right. This verifies provider image understanding for the fixture; the multi-stage workflow checks use deterministic service fixtures.
 
 The in-app How to use Hadron guide includes these attachment instructions. Release 6.0.4 also stores picture bytes separately from legacy job envelopes, preserving the old text budgets. Tests include pictures larger than 64 KiB in independent and shared workflows. Missing admissions are closed with a durable host fence before the chat is unlocked; a delayed Start for the same ID cannot launch work. Original questions, pictures and drafts remain saved.
+
+Release 6.0.5 completes retry handling: follow-ups after a failed/stopped/unavailable task use the selected saved text and pictures, rather than reusing an invalid native parent job.

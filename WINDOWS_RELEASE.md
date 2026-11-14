@@ -1,6 +1,6 @@
-# Hadron Harness - Release 6.0.4
+# Hadron Harness - Release 6.0.5
 
-Install **Hadron-Harness-6.0.4-win-x64.exe** on Windows x64. The installer lets you choose a location and creates a desktop shortcut. Close the installed copy of Hadron before upgrading. Its saved chats, projects and account connections remain in `%APPDATA%\Hadron-Harness`; uninstall also preserves that data. The local test build uses this same profile, so close it before opening the installed app.
+Install **Hadron-Harness-6.0.5-win-x64.exe** on Windows x64. The installer lets you choose a location and creates a desktop shortcut. Close the installed copy of Hadron before upgrading. Its saved chats, projects and account connections remain in `%APPDATA%\Hadron-Harness`; uninstall also preserves that data. The local test build uses this same profile, so close it before opening the installed app.
 
 ## Using Hadron
 
@@ -20,7 +20,12 @@ ChatGPT defaults to the official Codex browser OAuth flow. Device-code sign-in i
 
 The custom Tool library is in **Settings > Agents and tools > Tool library**. The installed library is `%APPDATA%\Hadron-Harness\hadron-tools`. Normal file-reading, editing and coding tools are built in; they do not require you to add a custom tool. New custom tools are disabled until reviewed and enabled.
 
-## New in release 6.0.4
+## New in release 6.0.5
+
+- Follow-ups after a failed, stopped or unavailable independent task use the selected saved conversation text and pictures, without trying to reuse the failed native task as a parent. This lets the user send again after recovery unlocks the controls.
+- Supersedes the initial 6.0.4 backup with the complete retry fix; earlier release assets are retained unchanged.
+
+## Included from release 6.0.4
 
 - Attach JPEG pictures using the existing paperclip. ChatGPT and Claude receive actual image content in single-agent, shared and continuous conversations. Pictures remain with their saved message and selected branch; the in-app guide is updated.
 - Image bytes are stored separately from legacy 64 KiB job envelopes. Ordinary pictures no longer fail job admission because their encoded size exceeds that old text limit. Existing task tables and saved work are preserved.

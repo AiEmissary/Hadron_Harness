@@ -112,3 +112,17 @@ it('shows the failed stage and completed peer review alongside saved work when s
  expect(f.client.start).toHaveBeenCalledTimes(1)
 })
 import {fixtureImage} from '../../../../../shared/__fixtures__/hadronImage'
+it('sends a follow-up from saved text and pictures without reusing a failed native parent',async()=>{
+ const input=request('individual');input.agent='b';input.images=[fixtureImage]
+ input.path=[{id:'saved-q',parentId:null,role:'user',text:'Add the logo to the brochure.',state:'completed',images:[fixtureImage]},
+ {id:'orphan',parentId:'saved-q',role:'assistant',agent:'b',provider:'claudecode',modelName:'model-b',text:'Saved partial output.',state:'failed',origin:{kind:'independent',id:'missing-native-job',nodeId:'missing-run'}}]
+ let saved:any=null
+ const client={prepare:vi.fn(async(value:any)=>({...value,conversationId:'native',anchorMessageId:'anchor'})),start:vi.fn(async(value:any)=>({schemaVersion:1 as const,id:value.id,conversationId:'native',status:'running',revision:1,provider:'claudecode' as const,modelName:'model-b',runId:'run',streamId:'stream'})),status:vi.fn(),stop:vi.fn(),transcript:vi.fn(),stream:vi.fn(async()=>({cursor:0,terminal:true as const}))}
+ const handle=individualWorkspaceTransport({client,workspaceId:'workspace',store:()=>({read:()=>saved,write:value=>{saved=value},clear:()=>{saved=null}}),pollMs:100000}).create(input,()=>{});handles.push(handle)
+ await handle.start()
+ expect(client.prepare.mock.calls[0][0].parent).toBeUndefined()
+ expect(client.start.mock.calls[0][0]).toMatchObject({images:[fixtureImage],provider:'claudecode'})
+ expect(client.start.mock.calls[0][0].context).toContain('Add the logo to the brochure.')
+ expect(client.start.mock.calls[0][0].context).toContain('Saved partial output.')
+ expect(JSON.stringify(client.prepare.mock.calls[0][0])).not.toContain('missing-native-job')
+})

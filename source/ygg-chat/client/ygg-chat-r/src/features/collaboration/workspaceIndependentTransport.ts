@@ -17,7 +17,7 @@ export function individualWorkspaceTransport(deps:{client:Client;workspaceId:str
   const model=request.models[request.agent]
   if(!model?.provider||!model.modelName)throw Error('Choose the agent provider and model')
   const parent=request.path.at(-1)
-  const nativeParent=workspaceHistorySize(request.path)<20000&&!request.path.some(message=>message.edited||message.note)&&parent?.role==='assistant'&&parent.agent===request.agent&&parent.provider===model.provider&&parent.origin?.kind==='independent'?{jobId:parent.origin.id,kind:'response' as const}:undefined
+  const nativeParent=workspaceHistorySize(request.path)<20000&&!request.path.some(message=>message.edited||message.note)&&parent?.role==='assistant'&&parent.state==='completed'&&parent.agent===request.agent&&parent.provider===model.provider&&parent.origin?.kind==='independent'?{jobId:parent.origin.id,kind:'response' as const}:undefined
   // Native branch continuity is rebuilt by the host. Imported text remains explicit context.
   const context=workspaceHandoverContext(nativeParent?[]:request.path,request.question.context??'',request.agent)
   const store=deps.store(request)
