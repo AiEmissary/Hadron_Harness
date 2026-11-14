@@ -1,5 +1,6 @@
 {
   "files": {
+    ".gitattributes": "100b552a1834655218089bbfaa11433d8be13b185d2c3b92f06a09e382d78bb5",
     ".gitignore": "02c1193d4c294f4f661e2486ffc9353916e4a27d9860f78e7c546cd464dcf34a",
     "AGENTS.md": "ec1ed589f18ab9d073d55785eea0f14b031217579616c26c3d05093d1f19db33",
     "GITHUB_BACKUP.md": "ac493b3dca965380b3edbf7ee33849af37c957751b9e826b85677161493629df",
@@ -2748,7 +2749,7 @@
     "source/ygg-chat/test_wsl2.js": "2885e7e9397f5126d60c497763ec6ca8d4652683ddf0101723cc054aada07561",
     "source/ygg-chat/theme_system_context.md": "d2ba2ed4fefcf56b5a5e3ad6fa6ce87247b3940d3778b3f02951a662b024e6e6",
     "source/ygg-chat/vercel.json": "bd5b46cc8b25a66d782b11e25becfb3f784b3ec3160f63e7801952867d126b28",
-    "tools/Sync-Hadron-GitHub.py": "c7adc91505cedff09b3f6fc82fd5f1142cfac9160887a5953103baa7ba06a144"
+    "tools/Sync-Hadron-GitHub.py": "bbb96f56fd0efa99fef154287e19f54d1578ea08438493a39ea2f7cb81647c12"
   },
   "product": "Hadron Harness",
   "scope": "Committed application sources and build materials; local account settings and personal data excluded",

@@ -12,7 +12,7 @@ OWNER='AiEmissary'
 REPOSITORY='Hadron_Harness'
 REMOTE=f'https://{OWNER}@github.com/{OWNER}/{REPOSITORY}.git'
 API=f'https://api.github.com/repos/{OWNER}/{REPOSITORY}'
-ENV={**{k:v for k,v in os.environ.items() if not k.upper().startswith(('GIT_TRACE','GCM_TRACE')) and k.upper()!='GIT_CURL_VERBOSE'},'GIT_TERMINALPROMPT':'0','GIT_TERMINAL_PROMPT':'0','GCM_INTERACTIVE':'Never'}
+ENV={**{k:v for k,v in os.environ.items() if not k.upper().startswith(('GIT_TRACE','GCM_TRACE')) and k.upper()!='GIT_CURL_VERBOSE'},'GIT_TERMINAL_PROMPT':'0','GCM_INTERACTIVE':'Never'}
 FORBIDDEN={'.git','node_modules','.codex','.claude','.qubit','.agents','__pycache__'}
 PRIVATE_SUFFIXES={'.db','.sqlite','.sqlite3','.pfx','.p12','.pem','.key'}
 PRIVATE_NAMES={'auth.json','credentials.json','cookies.json'}
@@ -137,6 +137,7 @@ On a restored clone, normal Git commits and pushes can be used.
 """
     write('README.md',readme.encode())
     write('.gitignore',b'**/node_modules/\n**/.codex/\n**/.claude/\n**/.qubit/\n**/.env*\n**/auth.json\n*.db\n*.sqlite*\n*.exe\n*.log\n')
+    write('.gitattributes',b'# Preserve exact exported file bytes and SHA256 manifest values.\n* -text\n')
     write('tools/Sync-Hadron-GitHub.py',Path(__file__).read_bytes())
     manifest={'product':'Hadron Harness','version':version,'sourceRevision':revision,'scope':'Committed application sources and build materials; local account settings and personal data excluded','files':managed.copy()}
     write('SOURCE_REVISION.json',json.dumps(manifest,indent=2,sort_keys=True).encode())
