@@ -20,6 +20,6 @@ This is a repeatable update step, not a scheduled background backup. Keep the pr
 
 The latest upload result is saved locally in test-results/github-backup-result.json.
 
-## Local test changes after 6.0.2 — 14 November 2026
+## Release 6.0.3 — 14 November 2026
 
-The main source backup now includes reuse of an existing Claude Code CLI sign-in (with older Hadron sign-ins retained) and sharper tree zoom rendering. These changes have local automated/UI checks and a production build. The 6.0.2 installer release remains the previously packaged version; these newer changes await the user's next installer-build authorization.
+The user authorized an installer update containing reuse of an existing Claude Code CLI sign-in (with older Hadron sign-ins retained) and sharper tree zoom rendering. These changes have local automated/UI checks and a production build. The 6.0.3 installer and source snapshot are backed up together after installer verification.

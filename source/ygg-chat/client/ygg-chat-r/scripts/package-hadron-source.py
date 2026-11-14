@@ -15,7 +15,7 @@ entries = []
 excluded = []
 for name in filter(None, names):
     relative = Path(name)
-    if any(part.startswith('.env') or part in {'.git', 'node_modules', '.codex', '.claude'} for part in relative.parts) or relative.suffix.lower() in {'.db', '.sqlite', '.sqlite3', '.pfx', '.p12', '.key', '.pem'}:
+    if any(part.startswith('.env') or part in {'.git', 'node_modules', '.codex', '.claude', '.qubit', '.agents'} for part in relative.parts) or relative.name.lower() in {'auth.json', 'credentials.json', 'cookies.json'} or relative.suffix.lower() in {'.db', '.sqlite', '.sqlite3', '.pfx', '.p12', '.key', '.pem'}:
         excluded.append(name)
         continue
     file = repo / relative

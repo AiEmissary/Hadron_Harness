@@ -1,6 +1,6 @@
-# Hadron Harness - Release 6.0.2
+# Hadron Harness - Release 6.0.3
 
-Install **Hadron-Harness-6.0.2-win-x64.exe** on Windows x64. The installer lets you choose a location and creates a desktop shortcut. Close the installed copy of Hadron before upgrading. Its saved chats, projects and account connections remain in `%APPDATA%\Hadron-Harness`; uninstall also preserves that data. The local test build uses this same profile, so close it before opening the installed app.
+Install **Hadron-Harness-6.0.3-win-x64.exe** on Windows x64. The installer lets you choose a location and creates a desktop shortcut. Close the installed copy of Hadron before upgrading. Its saved chats, projects and account connections remain in `%APPDATA%\Hadron-Harness`; uninstall also preserves that data. The local test build uses this same profile, so close it before opening the installed app.
 
 ## Using Hadron
 
@@ -16,11 +16,17 @@ Install **Hadron-Harness-6.0.2-win-x64.exe** on Windows x64. The installer lets 
 
 Electron, its Node engine, the Windows worker, Codex 0.166.0, Claude Code 2.1.318 and the native runtime dependencies are bundled. You do not need to install Electron or Visual Studio Code. Connect your own ChatGPT and/or Claude subscription after opening Hadron. Internet access is needed for sign-in and AI work. Project-specific language toolchains or programs may still need installing; Setup reports optional software.
 
-ChatGPT now defaults to the official Codex browser OAuth flow. Device-code sign-in is an optional alternative and may require enabling in account security settings or by your workspace administrator. Claude uses the official Claude Code sign-in and non-interactive print mode. The provider CLI notice in Settings and the setup popup explains account eligibility, provider terms, workspace rules and allowances. Browser sign-in does not bypass a workspace restriction on Codex access.
+ChatGPT defaults to the official Codex browser OAuth flow. Device-code sign-in is an optional alternative and may require enabling in account security settings or by your workspace administrator. Claude automatically reuses your normal Claude Code subscription sign-in and runs requests through the bundled official CLI's non-interactive print mode (claude -p / --print). Existing Hadron-only sign-ins remain usable as a fallback. No separate Hadron login is needed when Claude Code is already connected. If no sign-in is available, Connect Claude uses the official CLI's normal login. The provider CLI notice in Settings and the setup popup explains account eligibility, provider terms, workspace rules and allowances. Browser sign-in does not bypass a workspace restriction on Codex access.
 
 The custom Tool library is in **Settings > Agents and tools > Tool library**. The installed library is `%APPDATA%\Hadron-Harness\hadron-tools`. Normal file-reading, editing and coding tools are built in; they do not require you to add a custom tool. New custom tools are disabled until reviewed and enabled.
 
-## New in release 6.0.2
+## New in release 6.0.3
+
+- Reuse an existing Claude Code CLI sign-in automatically, retaining older Hadron connections. The account card identifies the connection and avoids another Connect action while already connected. Hadron does not copy credentials or import the user's global hooks, plugins or project instructions.
+- Tree nodes and text are laid out at the actual zoomed pixel size, keeping them sharp. Panning, dragging, hover actions and group selection remain available. Checked at 300% zoom on 100% and 150% display scaling.
+- Source archives also exclude local AI account metadata folders.
+
+## Included from release 6.0.2
 
 - Browser OAuth is the normal ChatGPT sign-in; device codes are optional. Pending OAuth details stay in the host and are cleared when sign-in finishes or is cancelled.
 - Interrupted or incomplete jobs show **Not finished** in replies, branches and completion alerts. Completed file operations stay saved even when a later stage fails.
@@ -44,4 +50,4 @@ This Windows installer is unsigned. Windows may identify the publisher as unknow
 
 ## Source and notices
 
-The matching source archive is **Hadron-Harness-6.0.2-source.zip**. It includes build instructions, a source-revision manifest and dependency/provider notices. Preserve the inherited AGPL licence and third-party attribution. These build materials do not represent certification of third-party redistribution permissions. No public upload is performed by this release process.
+The matching source archive is **Hadron-Harness-6.0.3-source.zip**. It includes build instructions, a source-revision manifest and dependency/provider notices. Preserve the inherited AGPL licence and third-party attribution. These build materials do not represent certification of third-party redistribution permissions. No public upload is performed by this release process.

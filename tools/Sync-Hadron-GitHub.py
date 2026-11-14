@@ -184,7 +184,11 @@ def backup_installer(token,version,commit):
     tag='v'+version
     release=api(token,'/releases/tags/'+tag,missing=True)
     if not release:
-        release=api(token,'/releases',method='POST',data={'tag_name':tag,'target_commitish':commit,'name':f'Hadron Harness {version}','draft':True,'prerelease':False,'body':'Windows x64 installer backup. Browser OAuth sign-in, optional device codes, CLI notices, updated help, and improved unfinished-job/context handling. Installer is unsigned. Close Hadron before installing. Source and build instructions are in the repository.'})
+        notes=(ROOT/'WINDOWS_RELEASE.md').read_text(encoding='utf-8')
+        heading=f'## New in release {version}'
+        changes=notes.split(heading,1)[1].split('\n## ',1)[0].strip() if heading in notes else 'See WINDOWS_RELEASE.md for the included changes.'
+        body='Windows x64 installer backup.\n\n'+changes+'\n\nInstaller is unsigned. Close Hadron before installing. Matching source and build instructions are in this repository.'
+        release=api(token,'/releases',method='POST',data={'tag_name':tag,'target_commitish':commit,'name':f'Hadron Harness {version}','draft':True,'prerelease':False,'body':body})
     existing={asset['name']:asset for asset in api(token,f"/releases/{release['id']}/assets?per_page=100")}
     checksum=ROOT/'test-results'/f'GitHub-SHA256SUMS-{version}.txt'
     checksum.write_text(f'{digest}  {installer.name}\n',encoding='utf-8')
