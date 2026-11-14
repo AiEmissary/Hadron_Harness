@@ -5,7 +5,7 @@ import type {WorkspaceRunRequest,WorkspaceRunTransport,WorkspaceRunEvent} from '
 import {workspaceReplyState} from './workspaceHistory'
 import {workspaceHandoverContext,workspaceHistorySize} from './workspaceContext'
 
-type Client=Pick<ReturnType<typeof createIndependentJobClient>,'prepare'|'start'|'status'|'stop'|'transcript'|'stream'>
+type Client=Pick<ReturnType<typeof createIndependentJobClient>,'prepare'|'start'|'status'|'stop'|'transcript'|'stream'> & Partial<Pick<ReturnType<typeof createIndependentJobClient>,'closeUnstarted'>>
 
 /** Uses the existing durable native job admission and replay; no inference on navigation. */
 export function individualWorkspaceTransport(deps:{client:Client;workspaceId:string;store(request:WorkspaceRunRequest):JobStore;pollMs?:number;

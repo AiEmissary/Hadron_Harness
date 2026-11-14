@@ -143,3 +143,12 @@ it('validates history paging parameters before reading and requires an authorize
   expect((await request('/workspace?conversationId=c1&slot=a&cursor=3:j')).body.page).toEqual({nextCursor:null,size:32})
   expect(generate).not.toHaveBeenCalled()
 })
+it('closes only an owned unstarted admission and fences a late POST without invoking a provider',async()=>{
+ const body={schemaVersion:1,sourceConversationId:'c1',slot:'a'}
+ expect((await request('/closed/close-unstarted','POST',body,'intruder')).status).toBe(403)
+ expect((await request('/closed/close-unstarted','POST',body)).body).toMatchObject({id:'closed',closed:true})
+ expect((await request('','POST',{...a,id:'closed'})).status).toBe(409)
+ expect(pending).toHaveLength(0)
+ await request('','POST',a)
+ expect((await request('/a/close-unstarted','POST',body)).body.closed).toBe(false)
+})

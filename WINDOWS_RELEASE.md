@@ -1,6 +1,6 @@
-# Hadron Harness - Release 6.0.3
+# Hadron Harness - Release 6.0.4
 
-Install **Hadron-Harness-6.0.3-win-x64.exe** on Windows x64. The installer lets you choose a location and creates a desktop shortcut. Close the installed copy of Hadron before upgrading. Its saved chats, projects and account connections remain in `%APPDATA%\Hadron-Harness`; uninstall also preserves that data. The local test build uses this same profile, so close it before opening the installed app.
+Install **Hadron-Harness-6.0.4-win-x64.exe** on Windows x64. The installer lets you choose a location and creates a desktop shortcut. Close the installed copy of Hadron before upgrading. Its saved chats, projects and account connections remain in `%APPDATA%\Hadron-Harness`; uninstall also preserves that data. The local test build uses this same profile, so close it before opening the installed app.
 
 ## Using Hadron
 
@@ -20,7 +20,13 @@ ChatGPT defaults to the official Codex browser OAuth flow. Device-code sign-in i
 
 The custom Tool library is in **Settings > Agents and tools > Tool library**. The installed library is `%APPDATA%\Hadron-Harness\hadron-tools`. Normal file-reading, editing and coding tools are built in; they do not require you to add a custom tool. New custom tools are disabled until reviewed and enabled.
 
-## New in release 6.0.3
+## New in release 6.0.4
+
+- Attach JPEG pictures using the existing paperclip. ChatGPT and Claude receive actual image content in single-agent, shared and continuous conversations. Pictures remain with their saved message and selected branch; the in-app guide is updated.
+- Image bytes are stored separately from legacy 64 KiB job envelopes. Ordinary pictures no longer fail job admission because their encoded size exceeds that old text limit. Existing task tables and saved work are preserved.
+- A missing task admission no longer leaves the chat locked forever. Hadron confirms and durably closes the pending admission before unlocking it, retains the question/picture/draft, and prevents a late request from starting that same job. It never automatically repeats coding work.
+
+## Included from release 6.0.3
 
 - Reuse an existing Claude Code CLI sign-in automatically, retaining older Hadron connections. The account card identifies the connection and avoids another Connect action while already connected. Hadron does not copy credentials or import the user's global hooks, plugins or project instructions.
 - Tree nodes and text are laid out at the actual zoomed pixel size, keeping them sharp. Panning, dragging, hover actions and group selection remain available. Checked at 300% zoom on 100% and 150% display scaling.

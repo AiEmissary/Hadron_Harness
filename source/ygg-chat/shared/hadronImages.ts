@@ -3,20 +3,21 @@ export interface HadronImage {id:string;name:string;dataUrl:string}
 export const HADRON_IMAGE_MAX_BYTES=1024*1024
 export const HADRON_IMAGE_MAX_DATA_URL_LENGTH=Math.ceil(HADRON_IMAGE_MAX_BYTES/3)*4+23
 export const HADRON_IMAGE_MAX_COUNT=5
-export function jpegDimensions(bytes:Uint8Array):{width:number;height:number}{
- if(bytes.length<4||bytes[0]!==255||bytes[1]!==216)throw Error('This file is not a JPEG image.')
+export function jpegDimensions(bytes:Uint8Array|string):{width:number;height:number}{
+ const byte=(offset:number)=>typeof bytes==='string'?bytes.charCodeAt(offset):bytes[offset]
+ if(bytes.length<4||byte(0)!==255||byte(1)!==216)throw Error('This file is not a JPEG image.')
  let offset=2
  while(offset+3<bytes.length){
-  if(bytes[offset++]!==255)throw Error('Invalid JPEG image.')
-  while(bytes[offset]===255)offset++
-  const marker=bytes[offset++]
+  if(byte(offset++)!==255)throw Error('Invalid JPEG image.')
+  while(byte(offset)===255)offset++
+  const marker=byte(offset++)
   if(marker===217||marker===218)break
   if(marker===1||marker>=208&&marker<=215)continue
-  const length=bytes[offset]*256+bytes[offset+1]
+  const length=byte(offset)*256+byte(offset+1)
   if(length<2||offset+length>bytes.length)break
   if([192,193,194,195,197,198,199,201,202,203,205,206,207].includes(marker)){
    if(length<8)break
-   const height=bytes[offset+3]*256+bytes[offset+4],width=bytes[offset+5]*256+bytes[offset+6]
+   const height=byte(offset+3)*256+byte(offset+4),width=byte(offset+5)*256+byte(offset+6)
    if(!width||!height||width*height>40000000)throw Error('JPEG dimensions exceed the 40 megapixel limit.')
    return {width,height}
   }
@@ -34,8 +35,8 @@ export function parseHadronImages(value:unknown):HadronImage[]{
   if(encoded.length%4)throw Error('Invalid JPEG attachment encoding.')
   const binary=atob(encoded)
   if(binary.length>HADRON_IMAGE_MAX_BYTES)throw Error('Prepared JPEG exceeds 1 MiB.')
-  const bytes=Uint8Array.from(binary,char=>char.charCodeAt(0)),dimensions=jpegDimensions(bytes)
-  if(Math.max(dimensions.width,dimensions.height)>2048||bytes.at(-2)!==255||bytes.at(-1)!==217)throw Error('Invalid prepared JPEG dimensions or incomplete image.')
+  const dimensions=jpegDimensions(binary)
+  if(Math.max(dimensions.width,dimensions.height)>2048||binary.charCodeAt(binary.length-2)!==255||binary.charCodeAt(binary.length-1)!==217)throw Error('Invalid prepared JPEG dimensions or incomplete image.')
   ids.add(image.id)
   return {id:image.id,name:image.name,dataUrl:image.dataUrl}
  })

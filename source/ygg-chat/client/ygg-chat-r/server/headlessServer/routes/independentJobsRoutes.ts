@@ -57,6 +57,10 @@ export function registerIndependentJobsRoutes(app: Express, deps: { enabled: boo
     try { const status = deps.service.status(principal, req.params.id as string); if (!status) { res.status(404).json({ error: 'not_found' }); return } res.json(status) }
     catch (error) { fail(res, error) }
   })
+  app.post(`${base}/:id/close-unstarted`,(req,res)=>{
+    const principal=owner(req,res);if(!principal)return
+    try{res.json(deps.contexts.closeUnstarted(principal,{...req.body,id:req.params.id}))}catch(error){fail(res,error,true)}
+  })
   app.post(`${base}/:id/stop`, (req, res) => {
     const principal = owner(req, res); if (!principal) return
     try {

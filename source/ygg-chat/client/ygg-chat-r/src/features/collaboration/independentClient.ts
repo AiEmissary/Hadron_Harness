@@ -5,6 +5,7 @@ import { consumeCollaborationStream, type CollaborationFrame } from './stream'
 import { CollaborationReplayUnavailable } from './client'
 import { parseJournal } from './journal'
 
+export class IndependentJobMissing extends Error {}
 const states = ['created', 'running', 'stopping', 'completed', 'cancelled', 'failed', 'interrupted']
 
 /** One explicit launch per job; reads and Stop never launch or retry inference. */
@@ -16,6 +17,7 @@ export function createIndependentJobClient(getCapability: () => Promise<string>)
       method, signal, headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
       body: body === undefined ? undefined : JSON.stringify(body),
     })
+    if(response.status===404&&id&&method==='GET'&&!suffix)throw new IndependentJobMissing('The task was never admitted or is no longer available')
     if (!response.ok) throw new Error(`Independent job request failed (${response.status})`)
     return response.json()
   }
@@ -29,6 +31,11 @@ export function createIndependentJobClient(getCapability: () => Promise<string>)
     return value
   }
   return {
+    closeUnstarted:async(id:string,workspace:string,slot:'a'|'b'):Promise<boolean>=>{
+      const result=await request(id,'POST','/close-unstarted',{schemaVersion:1,sourceConversationId:workspace,slot})
+      if(result?.schemaVersion!==1||result.id!==id||typeof result.closed!=='boolean')throw Error('Unstarted task closure could not be confirmed')
+      return result.closed
+    },
     openWorkspace: async (conversationId: string, signal?: AbortSignal): Promise<import('../../../../../shared/independentJobs').AgentWorkspaceNavigation> => {
       const result = await request(null, 'GET', `/open?conversationId=${encodeURIComponent(conversationId)}`, undefined, signal)
       if (result?.schemaVersion !== 1 || result.requestedConversationId !== conversationId ||
@@ -108,7 +115,8 @@ export function createIndependentJobClient(getCapability: () => Promise<string>)
         headers: { authorization: `Bearer ${token}`, accept: 'text/event-stream' }, signal,
       })
       if (response.status === 410) throw new CollaborationReplayUnavailable()
-      if (!response.ok) throw new Error(`Independent job replay unavailable (${response.status})`)
+
+    if (!response.ok) throw new Error(`Independent job replay unavailable (${response.status})`)
       return consumeCollaborationStream(response, fromSeq, signal, onFrame)
     },
     transcript: async (id: string, signal?: AbortSignal): Promise<{schemaVersion: 1; id: string; status: string; text: string; verified: false}> => {

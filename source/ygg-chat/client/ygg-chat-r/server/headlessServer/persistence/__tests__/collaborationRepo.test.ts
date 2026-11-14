@@ -258,3 +258,12 @@ it('reopens the most recently created session rather than the greatest random ID
   expect(repo.listIds('owner', 'c', 2, 'm-middle')).toEqual(['z-old'])
   expect(repo.listIds('owner', 'c', 2, 'foreign')).toEqual([])
 })
+import {largeFixtureImage} from '../../../../../../shared/__fixtures__/hadronImage.js'
+it('round-trips a JPEG larger than 64 KiB without widening or rebuilding the shared session table',()=>{
+ const f=fixture(),configJson=JSON.stringify({mode:'proposal',images:[largeFixtureImage]}),input={...f.input,configJson}
+ expect(configJson.length).toBeGreaterThan(65536)
+ expect(f.repo.create(input).config_json).toBe(configJson)
+ expect(f.repo.create(input).config_json).toBe(configJson)
+ expect(f.db.prepare('SELECT length(config_json) AS size FROM hadron_sessions').get().size).toBeLessThan(65536)
+ expect(()=>f.repo.get(input.id,'intruder')).toThrow()
+})

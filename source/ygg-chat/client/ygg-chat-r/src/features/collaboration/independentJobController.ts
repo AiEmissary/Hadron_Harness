@@ -1,8 +1,9 @@
+import {IndependentJobMissing} from './independentClient'
 import { parseIndependentJob, type IndependentJobInput, type IndependentJobStatus, AgentBranchParent } from '../../../../../shared/independentJobs'
 import type { createIndependentJobClient } from './independentClient'
 import { CollaborationReplayUnavailable } from './client'
 
-type Client = Pick<ReturnType<typeof createIndependentJobClient>, 'prepare' | 'start' | 'status' | 'stop' | 'transcript' | 'stream'>
+type Client = Pick<ReturnType<typeof createIndependentJobClient>, 'prepare' | 'start' | 'status' | 'stop' | 'transcript' | 'stream'> & Partial<Pick<ReturnType<typeof createIndependentJobClient>,'closeUnstarted'>>
 export interface JobReference { schemaVersion: 1; id: string; sourceConversationId: string; slot: 'a' | 'b'; stage: 'preparing' | 'submitted'; conversationId: string | null }
 export interface JobStore { read(): JobReference | null; write(value: JobReference): void; clear(): void }
 export interface IndependentJobView {
@@ -104,13 +105,20 @@ export class IndependentJobController {
         } else { this.loadedTranscript = true; this.update({ outputComplete: true }) }
       }
       this.schedule()
-    } catch {
-      if (!this.disposed) this.update({ error: 'Job status or saved output is unavailable. No new job has been launched.' })
+    } catch(error) {
+      if(!this.disposed&&error instanceof IndependentJobMissing&&this.client.closeUnstarted){
+        try{if(await this.client.closeUnstarted(id,this.sourceConversationId,this.slot)){
+          if(this.disposed)return
+          this.store.clear();this.reference=undefined;this.stream?.abort()
+          this.update({...emptyIndependentJob(),error:'Hadron could not recover this task. Its pending start is closed; your saved question is available to send again.'});return
+        }}catch{ /* Only a confirmed host fence may unlock a missing task. */ }
+      }
+      if (!this.disposed) {this.update({ error: 'Job status or saved output is unavailable. No new job has been launched.' });this.schedule()}
     }
   }
   private schedule() {
     if (this.poll) clearTimeout(this.poll)
-    if (!this.disposed && this.view.status && !jobTerminal(this.view.status.status)) {
+    if (!this.disposed && this.reference?.stage==='submitted' && (!this.view.status || !jobTerminal(this.view.status.status) || !this.view.outputComplete)) {
       this.poll = setTimeout(() => void this.recover(), this.pollMs)
     }
   }

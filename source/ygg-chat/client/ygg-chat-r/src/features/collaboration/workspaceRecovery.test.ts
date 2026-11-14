@@ -2,6 +2,22 @@ import {afterEach,expect,it,vi} from 'vitest'
 import {WorkspaceSession} from './workspaceSession'
 import {observeWorkspaceJob} from './workspaceRecovery'
 import {blankWorkspaceChat} from './unifiedWorkspace'
+import {IndependentJobMissing} from './independentClient'
+it('unlocks an orphaned admission only after the host fences late Start, retaining saved output and the unsent draft',async()=>{
+ const f=fixture();f.deps.independent.status=vi.fn(async()=>{throw new IndependentJobMissing()})
+ f.deps.independent.closeUnstarted=vi.fn(async()=>true)
+ observeWorkspaceJob(f.session,'chat',f.deps);await wait(()=>f.chat().jobState==='idle')
+ expect(f.deps.independent.closeUnstarted).toHaveBeenCalledWith('native','chat','a')
+ expect(f.chat().messages.at(-1)).toMatchObject({text:'Partial saved output',state:'failed'})
+ expect(f.chat().draft).toBe('My next unsent question');expect(f.dispatch).not.toHaveBeenCalled()
+ expect(f.session.getSnapshot().errors.chat).toContain('unavailable task is closed')
+})
+it('keeps controls fenced when a missing admission cannot be closed or a network check fails',async()=>{
+ const f=fixture();f.deps.independent.status=vi.fn(async()=>{throw new IndependentJobMissing()})
+ f.deps.independent.closeUnstarted=vi.fn(async()=>false)
+ observeWorkspaceJob(f.session,'chat',f.deps);await wait(()=>f.deps.independent.closeUnstarted.mock.calls.length>0)
+ expect(f.chat().jobState).not.toBe('idle');expect(f.chat().messages.at(-1)?.text).toBe('Partial saved output');expect(f.dispatch).not.toHaveBeenCalled()
+})
 const sessions:WorkspaceSession[]=[]
 afterEach(()=>{sessions.forEach(session=>session.dispose());sessions.length=0;vi.unstubAllGlobals()})
 const wait=async(check:()=>boolean)=>{for(let i=0;i<100;i++){if(check())return;await new Promise(resolve=>setImmediate(resolve))}throw Error('Recovery did not settle')}

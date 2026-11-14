@@ -1,3 +1,4 @@
+import {storeJobImages,restoreJobImages} from './savedJobImages.js'
 export type CollaborationStatus = 'created' | 'running' | 'stopping' | 'completed' | 'cancelled' | 'failed' | 'interrupted'
 export class CollaborationOwnerMismatch extends Error {
   constructor() { super('Collaboration owner mismatch') }
@@ -66,7 +67,7 @@ export class CollaborationRepo {
   get(id: string, ownerId: string): CollaborationSessionRow | null {
     const row = this.db.prepare('SELECT * FROM hadron_sessions WHERE id = ?').get(id)
     if (row && row.owner_id !== ownerId) throw new CollaborationOwnerMismatch()
-    return row ?? null
+    return row?{...row,config_json:restoreJobImages(this.db,'shared',row)}:null
   }
 
   private require(id: string, ownerId: string): CollaborationSessionRow {
@@ -78,7 +79,7 @@ export class CollaborationRepo {
   create(input: CreateCollaborationInput): CollaborationSessionRow {
     const { id, ownerId, conversationId, sourceLineageId, anchorMessageId, configJson, configHash, participantIds } = input
     if (![id, ownerId, conversationId, sourceLineageId, anchorMessageId, configHash].every(v => typeof v === 'string' && v.length > 0)
-      || typeof configJson !== 'string' || Buffer.byteLength(configJson, 'utf8') > 65536
+      || typeof configJson !== 'string' || Buffer.byteLength(configJson, 'utf8') > 8*1024*1024
       || !Array.isArray(participantIds) || participantIds.length < 1 || participantIds.length > 32
       || participantIds.some(p => typeof p !== 'string' || !p.length) || new Set(participantIds).size !== participantIds.length) {
       throw new Error('Invalid collaboration configuration')
@@ -98,7 +99,7 @@ export class CollaborationRepo {
       if (lineage?.conversation_id !== conversationId || anchor?.conversation_id !== conversationId) throw new Error('Collaboration scope mismatch')
       this.db.prepare(`INSERT INTO hadron_sessions
         (id, owner_id, conversation_id, source_lineage_id, anchor_message_id, config_json, config_hash)
-        VALUES (?, ?, ?, ?, ?, ?, ?)`).run(id, ownerId, conversationId, sourceLineageId, anchorMessageId, configJson, configHash)
+        VALUES (?, ?, ?, ?, ?, ?, ?)`).run(id, ownerId, conversationId, sourceLineageId, anchorMessageId, storeJobImages(this.db,'shared',id,ownerId,conversationId,configJson), configHash)
       const insert = this.db.prepare('INSERT INTO hadron_participants (session_id, participant_id) VALUES (?, ?)')
       for (const participantId of participantIds) insert.run(id, participantId)
       return this.require(id, ownerId)

@@ -1,4 +1,4 @@
-import {fixtureImage} from '../../../../../../shared/__fixtures__/hadronImage.js'
+import {largeFixtureImage as fixtureImage} from '../../../../../../shared/__fixtures__/hadronImage.js'
 import { describe, expect, it, vi } from 'vitest'
 import type { ProviderRouter } from '../providerRouter.js'
 import { ProposalSpike } from '../collaboration/proposalSpike.js'

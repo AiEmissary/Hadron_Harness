@@ -1,4 +1,4 @@
-import {fixtureImage} from '../../../../../../shared/__fixtures__/hadronImage.js'
+import {fixtureImage,largeFixtureImage} from '../../../../../../shared/__fixtures__/hadronImage.js'
 import { expect, it, vi } from 'vitest'
 import type { ProviderRouter } from '../providerRouter.js'
 import { proposalSqlite } from './fixtures/proposalSqlite.js'
@@ -12,7 +12,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-function fixture(verify = false) {
+function fixture(verify = false,largeImage=false) {
   const pending: Array<(text: string) => void> = [], failures:Array<(error:Error)=>void>=[], packets: any[] = []
   const generate = vi.fn(async (_provider: string, request: any) => new Promise((resolve, reject) => {
     packets.push(request)
@@ -36,7 +36,7 @@ function fixture(verify = false) {
   const service = new ProposalSessionService(deps)
   const input = { schemaVersion: 1 as const, workflow: verify ? 'review_verify_and_synthesis' as const : 'review_and_synthesis' as const, sessionId: 'full',
     conversationId: 'c1', sourceLineageId: f.source.id, anchorMessageId: f.anchor.id,
-    images:[fixtureImage], task: 'Choose a plan', context: 'Only supplied evidence', participants: [
+    images:[largeImage?largeFixtureImage:fixtureImage], task: 'Choose a plan', context: 'Only supplied evidence', participants: [
       { id: 'a', provider: 'openaichatgpt' as const, modelName: 'a-model' },
       { id: 'b', provider: 'openaichatgpt' as const, modelName: 'b-model' },
     ] }
@@ -47,7 +47,7 @@ const observe = <T>(promise: Promise<T>) => promise.then(value => ({ value, erro
 const count = async (f: ReturnType<typeof fixture>, n: number) => vi.waitFor(() => expect(f.pending).toHaveLength(n))
 
 it('executes independent proposals, both canonical cross-reviews and one final using A, with durable logs and no replay', async () => {
-  const f = fixture(), result = observe(f.service.start('owner', f.input))
+  const f = fixture(false,true), result = observe(f.service.start('owner', f.input))
   try {
     await count(f, 2)
     expect(f.service.start('owner', f.input)).toBeInstanceOf(Promise)
@@ -77,7 +77,7 @@ it('executes independent proposals, both canonical cross-reviews and one final u
     expect(run.model_name).toBe('a-model')
     expect(packet.reviews.map((review: any) => review.text)).toEqual(['A review: accept B with uncertainty', 'B review: retain dissent'])
     expect(run.system_prompt).toContain('Do not claim unanimous consensus where there is dissent')
-    expect(f.packets).toHaveLength(5);expect(f.packets.every(request=>request.images?.[0]?.dataUrl===fixtureImage.dataUrl)).toBe(true)
+    expect(f.packets).toHaveLength(5);expect(f.packets.every(request=>request.images?.[0]?.dataUrl===largeFixtureImage.dataUrl)).toBe(true)
     f.pending[4]('Combined plan. Remaining disagreements: deadline uncertain.')
     expect((await result).error).toBeNull()
     const status = f.service.status('owner', 'full')!

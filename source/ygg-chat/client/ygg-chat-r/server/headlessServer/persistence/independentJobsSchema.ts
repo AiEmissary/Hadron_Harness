@@ -15,6 +15,8 @@ export function createIndependentJobsSchema(db: { exec(sql: string): unknown }):
       stream_id TEXT UNIQUE,
       CHECK ((run_id IS NULL AND handle IS NULL AND stream_id IS NULL) OR (run_id IS NOT NULL AND handle IS NOT NULL AND stream_id IS NOT NULL))
     );
+    CREATE TABLE IF NOT EXISTS hadron_closed_job_admissions (
+      id TEXT PRIMARY KEY,owner_id TEXT NOT NULL,source_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE);
     CREATE INDEX IF NOT EXISTS idx_hadron_jobs_owner_conversation ON hadron_independent_jobs(owner_id, conversation_id, id);
     CREATE TRIGGER IF NOT EXISTS hadron_job_delete_guard BEFORE DELETE ON hadron_independent_jobs
     WHEN OLD.status IN ('created','running','stopping') BEGIN

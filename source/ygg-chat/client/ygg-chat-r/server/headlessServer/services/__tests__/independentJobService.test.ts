@@ -1,4 +1,4 @@
-import {fixtureImage} from '../../../../../../shared/__fixtures__/hadronImage.js'
+import {largeFixtureImage as fixtureImage} from '../../../../../../shared/__fixtures__/hadronImage.js'
 import { expect, it, vi } from 'vitest'
 import { proposalSqlite } from './fixtures/proposalSqlite.js'
 import { createIndependentJobsSchema } from '../../persistence/independentJobsSchema.js'

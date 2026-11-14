@@ -1,3 +1,4 @@
+import {storeJobImages,restoreJobImages} from './savedJobImages.js'
 import { CollaborationOwnerMismatch } from './collaborationRepo.js'
 export interface IndependentJobRow {
   id: string; owner_id: string; conversation_id: string; anchor_message_id: string
@@ -9,13 +10,14 @@ export class IndependentJobsRepo {
   get(id: string, ownerId: string): IndependentJobRow | null {
     const row = this.db.prepare('SELECT * FROM hadron_independent_jobs WHERE id = ?').get(id)
     if (row && row.owner_id !== ownerId) throw new CollaborationOwnerMismatch()
-    return row ?? null
+    return row?{...row,config_json:restoreJobImages(this.db,'independent',row)}:null
   }
   create(input: { id: string; ownerId: string; conversationId: string; anchorMessageId: string; configJson: string; configHash: string }): IndependentJobRow {
     if (![input.id, input.ownerId, input.conversationId, input.anchorMessageId, input.configHash].every(value => typeof value === 'string' && value.length > 0 && value.length <= 128) ||
-      Buffer.byteLength(input.configJson, 'utf8') > 65536) throw new Error('Invalid independent job')
+      Buffer.byteLength(input.configJson, 'utf8') > 8*1024*1024) throw new Error('Invalid independent job')
     JSON.parse(input.configJson)
     return this.db.transaction(() => {
+      if(this.db.prepare('SELECT 1 FROM hadron_closed_job_admissions WHERE id=?').get(input.id))throw Error('This unstarted admission was closed; use a new task ID')
       const existing = this.get(input.id, input.ownerId)
       if (existing) {
         if (existing.conversation_id !== input.conversationId || existing.anchor_message_id !== input.anchorMessageId || existing.config_hash !== input.configHash || existing.config_json !== input.configJson) throw new Error('Job configuration conflict')
@@ -24,8 +26,17 @@ export class IndependentJobsRepo {
       const anchor = this.db.prepare('SELECT conversation_id FROM messages WHERE id = ?').get(input.anchorMessageId)
       if (anchor?.conversation_id !== input.conversationId) throw new Error('Invalid job anchor')
       this.db.prepare('INSERT INTO hadron_independent_jobs (id, owner_id, conversation_id, anchor_message_id, config_json, config_hash) VALUES (?, ?, ?, ?, ?, ?)')
-        .run(input.id, input.ownerId, input.conversationId, input.anchorMessageId, input.configJson, input.configHash)
+        .run(input.id, input.ownerId, input.conversationId, input.anchorMessageId, storeJobImages(this.db,'independent',input.id,input.ownerId,input.conversationId,input.configJson), input.configHash)
       return this.get(input.id, input.ownerId)!
+    })()
+  }
+  closeUnstarted(id:string,ownerId:string,sourceId:string):boolean{
+    return this.db.transaction(()=>{
+      if(this.get(id,ownerId))return false
+      const old=this.db.prepare('SELECT owner_id,source_id FROM hadron_closed_job_admissions WHERE id=?').get(id)
+      if(old&&(old.owner_id!==ownerId||old.source_id!==sourceId))throw new CollaborationOwnerMismatch()
+      this.db.prepare('INSERT OR IGNORE INTO hadron_closed_job_admissions(id,owner_id,source_id) VALUES (?,?,?)').run(id,ownerId,sourceId)
+      return true
     })()
   }
   claim(id: string, ownerId: string): boolean {

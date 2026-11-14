@@ -23,3 +23,7 @@ The latest upload result is saved locally in test-results/github-backup-result.j
 ## Release 6.0.3 — 14 November 2026
 
 The user authorized an installer update containing reuse of an existing Claude Code CLI sign-in (with older Hadron sign-ins retained) and sharper tree zoom rendering. These changes have local automated/UI checks and a production build. The 6.0.3 installer and source snapshot are backed up together after installer verification.
+
+## Release 6.0.4 — 14 November 2026
+
+The user authorized the installer update after fixing JPEG admission and stuck task recovery. Pictures have separate durable storage so they do not hit the legacy 64 KiB job envelope. Missing admissions are fenced against late Start before the chat is unlocked; status/output checks retry without repeating model requests. JPEG attachment/vision support and its updated guide are included. Source, installer integrity and packaged startup have local verification; fresh-PC sign-in remains a user acceptance test.

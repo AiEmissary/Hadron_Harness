@@ -1,3 +1,4 @@
+import {IndependentJobMissing} from './independentClient'
 import {workspaceSharedFailureText} from './workspaceSharedFailure'
 import {workspaceActivity,sharedWorkspaceActivity} from './workspaceActivity'
 import {IndependentJobController,browserJobStore,jobTerminal} from './independentJobController'
@@ -43,7 +44,9 @@ export function observeWorkspaceJob(session:WorkspaceSession,chatId:string,deps:
      const store=browserJobStore(workspace,initial.agent,`unified:${chatId}`)
      store.write({schemaVersion:1,id,sourceConversationId:workspace,slot:initial.agent,stage:'submitted',conversationId:status.conversationId})
      const native=new IndependentJobController(deps.independent,workspace,initial.agent,store,view=>{
-      if(disposed||!view.status)return
+      if(disposed)return
+      if(view.phase==='ready'&&!view.id){reply('Hadron could not recover this task. Your question is saved above.','failed',{kind:'independent',id,nodeId:id});error(view.error);settle(true);return}
+      if(!view.status)return
       const ended=jobTerminal(view.status.status)&&view.outputComplete
       if(view.text||view.outputComplete||view.status.toolActivity?.length)reply(view.text,ended?workspaceReplyState(view.status.status,view.text):'running',{kind:'independent',id,nodeId:view.status.runId??id},workspaceActivity(view.status.toolActivity,[{id:initial.agent,status:view.status.status}]))
       error(view.error);settle(ended)
@@ -98,7 +101,18 @@ export function observeWorkspaceJob(session:WorkspaceSession,chatId:string,deps:
     for(const message of projected.messages)write(message)
     error(view.failure??null);settle(view.workersEnded)
    }
-  }catch{error('The saved task status is temporarily unavailable. Hadron is checking it; no new task was started.')}
+  }catch(cause){
+   if(reference.kind==='independent'&&cause instanceof IndependentJobMissing){
+    try{if(await deps.independent.closeUnstarted(id,workspace,initial.agent)){
+      if(disposed)return
+      browserJobStore(workspace,initial.agent,`unified:${chatId}`).clear()
+      const old=current().messages.findLast(message=>message.role==='assistant'&&message.state==='running')
+      reply(old?.text||'Hadron could not recover this task. Your question is saved above.','failed',{kind:'independent',id,nodeId:id})
+      error('The unavailable task is closed. The saved question and your next draft are safe. You can choose an agent and send again.');settle(true);return
+    }}catch{ /* Only a confirmed host fence may unlock a missing admission. */ }
+   }
+   error('The saved task status is temporarily unavailable. Hadron is checking it; no new task was started.')
+  }
   if(!disposed&&current().jobState!=='idle'&&!timer)timer=setTimeout(()=>{timer=undefined;void recover()},deps.pollMs??1500)
  }
  const recover=()=>reading??=(read().finally(()=>{reading=undefined}))

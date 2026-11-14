@@ -71,3 +71,22 @@ it('atomically caps active jobs at two per owner, including jobs still draining 
   repo.finish('a','owner','cancelled')
   expect(repo.claim('c','owner')).toBe(true)
 })
+import {largeFixtureImage} from '../../../../../../shared/__fixtures__/hadronImage.js'
+it('stores JPEG bytes outside the legacy 64 KiB envelope, retains exact replay identity, and cleans them up with the job',()=>{
+ const f=fixture(),configJson=JSON.stringify({task:'Inspect the attached picture',images:[largeFixtureImage]}),input={...f.input,configJson}
+ expect(configJson.length).toBeGreaterThan(65536)
+ expect(f.repo.create(input).config_json).toBe(configJson);expect(f.repo.create(input).config_json).toBe(configJson)
+ expect(f.db.prepare('SELECT length(config_json) AS size FROM hadron_independent_jobs WHERE id=?').get(input.id).size).toBeLessThan(65536)
+ expect(f.db.prepare('SELECT length(images_json) AS size FROM hadron_saved_job_images').get().size).toBeGreaterThan(65536)
+ expect(()=>f.repo.get(input.id,'intruder')).toThrow()
+ f.repo.claim(input.id,'owner');f.repo.finish(input.id,'owner','cancelled');f.db.prepare('DELETE FROM hadron_independent_jobs WHERE id=?').run(input.id)
+ expect(f.db.prepare('SELECT count(*) AS n FROM hadron_saved_job_images').get().n).toBe(0)
+})
+it('fences an absent admission atomically and refuses to close an existing job',()=>{
+ const f=fixture()
+ expect(f.repo.closeUnstarted('missing','owner','c1')).toBe(true)
+ expect(f.repo.closeUnstarted('missing','owner','c1')).toBe(true)
+ expect(()=>f.repo.create({...f.input,id:'missing'})).toThrow('closed')
+ f.repo.create(f.input);expect(f.repo.closeUnstarted(f.input.id,'owner','c1')).toBe(false)
+ expect(()=>f.repo.closeUnstarted('missing','intruder','c1')).toThrow()
+})

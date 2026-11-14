@@ -1,6 +1,6 @@
 # JPEG attachments in Hadron
 
-Implemented after release 6.0.3. The existing 6.0.3 installer does not contain this change.
+Included in release 6.0.4. Earlier installers do not contain this change.
 
 Use the paperclip → Attach files and select `.jpg` or `.jpeg`. No folder or coding permission is needed to discuss an attached picture. The current Chat/Agent permissions still govern file and coding tools.
 
@@ -18,4 +18,4 @@ Limits: five total attachments per selection, and five pictures per selected con
 - `node scripts/check-hadron-live-vision.mjs --run-live --profile <Hadron profile>` is an explicitly opted-in check that spends one subscription request per provider. It sends only the synthetic fixture JPEG, asks a question with no description of its contents, and checks the returned shapes/colours/order. It never signs in/out, resets a lock, opens personal chats or reads credentials. It requires an already-connected idle profile.
 - The live acceptance check on the development PC passed for Claude Sonnet and GPT-6.1-Sol: both identified the red square on the left and blue circle on the right. This verifies provider image understanding for the fixture; the multi-stage workflow checks use deterministic service fixtures.
 
-The in-app How to use Hadron guide includes these attachment instructions. Do not rebuild an installer until the user authorizes it.
+The in-app How to use Hadron guide includes these attachment instructions. Release 6.0.4 also stores picture bytes separately from legacy job envelopes, preserving the old text budgets. Tests include pictures larger than 64 KiB in independent and shared workflows. Missing admissions are closed with a durable host fence before the chat is unlocked; a delayed Start for the same ID cannot launch work. Original questions, pictures and drafts remain saved.

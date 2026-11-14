@@ -1,3 +1,5 @@
+import {IndependentJobsRepo} from '../../persistence/independentJobsRepo.js'
+import {restoreJobImages} from '../../persistence/savedJobImages.js'
 import {HadronRecycleBin,ensureRecycleBin,activeConversationSql} from '../../../hadronTools/recycleBin.js'
 import { createHash } from 'node:crypto'
 import { parseIndependentJobContext, parseIndependentJob, type IndependentJobInput, type IndependentJobContext, type IndependentJobContextInput, type AgentConversationTree } from '../../../../../../shared/independentJobs.js'
@@ -69,7 +71,7 @@ export class IndependentJobContexts {
     const participant = this.db.prepare('SELECT * FROM hadron_participants WHERE session_id=? AND participant_id=?').get(session.id, match[2])
     const run = participant?.run_id ? this.db.prepare('SELECT * FROM subagent_runs WHERE id=?').get(participant.run_id) : null
     if (!run || run.status !== 'completed' || run.conversation_id !== session.conversation_id || run.parent_message_id !== session.anchor_message_id) throw new Error('Shared proposal unavailable')
-    const packet = JSON.parse(session.config_json), selection = packet.participants.find((item: any) => item.id === match[2])
+    const packet = JSON.parse(restoreJobImages(this.db,'shared',session)), selection = packet.participants.find((item: any) => item.id === match[2])
     if (!selection || !['openaichatgpt','claudecode'].includes(selection.provider)) throw new Error('Unsupported proposal connection')
     const text = run.final_response ?? ''
     if (!text || text.length > 1_000_000) throw new Error('Shared proposal text unavailable')
@@ -101,7 +103,7 @@ export class IndependentJobContexts {
     if (meta.ownerId !== ownerId || prepared.id !== row.id) throw new ProposalAccessDenied()
     const source = this.source(ownerId, prepared.sourceConversationId), conversation = this.source(ownerId, row.conversation_id)
     if (source.project_id !== conversation.project_id) throw new ProposalAccessDenied()
-    const config = parseIndependentJob(Object.fromEntries(Object.entries(JSON.parse(row.config_json)).filter(([key]) => key !== 'deadlineMs')))
+    const config = parseIndependentJob(Object.fromEntries(Object.entries(JSON.parse(restoreJobImages(this.db,'independent',row))).filter(([key]) => key !== 'deadlineMs')))
     if (config.id !== row.id || config.conversationId !== row.conversation_id || config.anchorMessageId !== row.anchor_message_id) throw new Error('Branch record mismatch')
     return { row, prepared, config }
   }
@@ -145,6 +147,11 @@ export class IndependentJobContexts {
     if (!Array.isArray(children)) throw new Error('Invalid branch children')
     if (!children.includes(childId)) this.db.prepare('UPDATE messages SET children_ids=? WHERE id=?').run(JSON.stringify([...children, childId]), parentId)
   }
+  closeUnstarted(ownerId:string,raw:unknown){
+    const input=parseIndependentJobContext(raw)
+    this.source(ownerId,input.sourceConversationId)
+    return {schemaVersion:1 as const,id:input.id,closed:new IndependentJobsRepo(this.db).closeUnstarted(input.id,ownerId,input.sourceConversationId)}
+  }
   prepare(ownerId: string, raw: unknown): IndependentJobContext {
     const input = parseIndependentJobContext(raw)
     if (input.id.startsWith('proposal:')) throw new Error('Reserved proposal identity')
@@ -186,9 +193,9 @@ export class IndependentJobContexts {
     if (meta.ownerId !== ownerId || prepared.id !== input.id) throw new ProposalAccessDenied()
     const source = this.source(ownerId, prepared.sourceConversationId), own = this.source(ownerId, input.conversationId)
     if (source.project_id !== own.project_id) throw new ProposalAccessDenied()
-    const existing = this.db.prepare('SELECT config_json FROM hadron_independent_jobs WHERE id=?').get(input.id)
+    const existing = this.db.prepare('SELECT * FROM hadron_independent_jobs WHERE id=?').get(input.id)
     if (existing) {
-      const config = parseIndependentJob(Object.fromEntries(Object.entries(JSON.parse(existing.config_json)).filter(([key]) => key !== 'deadlineMs')))
+      const config = parseIndependentJob(Object.fromEntries(Object.entries(JSON.parse(restoreJobImages(this.db,'independent',existing))).filter(([key]) => key !== 'deadlineMs')))
       if (JSON.stringify(config) !== JSON.stringify(input)) throw new Error('Job configuration conflict')
     }
     const result: Array<{ role: 'user' | 'assistant'; content: string; status?: string }> = [], seen = new Set<string>()
