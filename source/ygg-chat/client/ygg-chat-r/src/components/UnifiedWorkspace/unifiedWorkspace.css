@@ -97,4 +97,9 @@ html[data-hadron-text] .hadron-v2-message-text {color:var(--hadron-reading)!impo
 .hadron-v2-tree-controls{position:absolute;left:14px;top:12px;z-index:3;display:flex;align-items:center;gap:3px;background:var(--hp-soft,#eef3f7);border-radius:14px;padding:3px;font-size:12px}.hadron-v2-tree-controls button{padding:5px 8px;border-radius:10px}.hadron-v2-tree-controls button:hover{background:var(--hp-panel,#fff)}.hadron-v2-tree-scroll{cursor:grab;touch-action:none}.hadron-v2-tree-scroll:active{cursor:grabbing}.hadron-v2-tree-scroll>svg{min-width:0}.hadron-v2-tree-node{cursor:pointer}.hadron-v2-search{width:clamp(90px,30%,155px)}
 .hadron-v2-tree-scroll{position:relative;padding:0;overflow:hidden}.hadron-v2-tree-scroll>svg{position:absolute;left:50%;top:60px;margin:0;transform-origin:0 0}.hadron-v2-tree-node{cursor:grab}.hadron-v2-tree-node:active{cursor:grabbing}
 
-.hadron-v2-tree-scroll>svg{will-change:transform;overflow:visible}
+/* Lay out node text at its final pixel size. Scaling HTML foreignObject layers
+   through the SVG/compositor magnifies a cached bitmap and blurs zoomed text. */
+.hadron-v2-tree-scroll>svg{overflow:visible}
+.hadron-v2-tree-item{width:calc(160px * var(--tree-zoom,1));height:calc(74px * var(--tree-zoom,1))}
+.hadron-v2-tree-node{width:calc(156px * var(--tree-zoom,1));height:calc(66px * var(--tree-zoom,1));padding:calc(8px * var(--tree-zoom,1)) calc(10px * var(--tree-zoom,1));font-size:calc(10px * var(--tree-zoom,1));border-radius:calc(15px * var(--tree-zoom,1))}
+body.hadron-app .hadron-desktop-workspace .hadron-v2-tree-node:not(:disabled):not([aria-disabled='true']){border-radius:calc(15px * var(--tree-zoom,1))!important}

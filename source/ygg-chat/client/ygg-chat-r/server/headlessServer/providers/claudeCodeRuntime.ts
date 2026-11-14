@@ -5,6 +5,7 @@ import { mkdirSync, readFileSync, realpathSync, writeFileSync, unlinkSync } from
 import {randomUUID} from 'node:crypto'
 import {isDeepStrictEqual} from 'node:util'
 import path from 'node:path'
+import os from 'node:os'
 import {WindowsOwnedWorkerHost} from '../../auth/windowsOwnedWorker.js'
 import {executionStartup} from '../../hadronTools/executionStartup.js'
 import type {ProviderGenerateInput,ProviderGenerateOutput,ProviderStreamEventHandler} from './openRouterProvider.js'
@@ -90,12 +91,15 @@ export function claudeNativePackage(platform: NodeJS.Platform, arch: string): st
   return `@anthropic-ai/claude-code-${platform}-${arch}`
 }
 
-/** Inherit OS necessities only. No other app's API tokens, Claude profile or Node injection. */
-export function claudeRuntimeEnvironment(profileDirectory: string, inherited: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+/** Share only the official CLI's account location when requested, never copy credentials
+ * or inherit API tokens, routing, plugins or Node injection. */
+export function claudeRuntimeEnvironment(profileDirectory: string, inherited: NodeJS.ProcessEnv = process.env, accountSource:'claude_code'|'hadron'='hadron'): NodeJS.ProcessEnv {
   if (!path.isAbsolute(profileDirectory)) throw new Error('Absolute Hadron profile required')
   const names = new Set(['path', 'systemroot', 'windir', 'comspec', 'pathext', 'temp', 'tmp', 'localappdata', 'appdata', 'userprofile', 'home', 'lang', 'lc_all'])
   const environment = Object.fromEntries(Object.entries(inherited).filter(([key, value]) => names.has(key.toLowerCase()) && value !== undefined))
-  return { ...environment, CLAUDE_CONFIG_DIR: path.join(profileDirectory, 'claude-code'),
+  const config=inherited.CLAUDE_CONFIG_DIR
+  if(accountSource==='claude_code'&&config&&!path.isAbsolute(config))throw Error('Absolute Claude Code config directory required')
+  return { ...environment, ...(accountSource==='hadron'?{CLAUDE_CONFIG_DIR:path.join(profileDirectory,'claude-code')}:config?{CLAUDE_CONFIG_DIR:config}:{}),
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1', CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1',
     CLAUDE_CODE_MAX_RETRIES: '0', CLAUDE_CODE_RETRY_WATCHDOG: '0', CLAUDE_CODE_AUTO_CONNECT_IDE: '0', CLAUDE_CODE_ENABLE_CFC: '0' }
 }
@@ -136,12 +140,18 @@ export function claudeFailureCategory(raw:string,reason:string):string{
 }
 
 
-/** Owns an unmodified vendor binary and a separate Hadron config; never reads credential files. */
+type ClaudeAccountSource='claude_code'|'hadron'
+/** Official CLI owns its account storage. Prefer its existing login; retain older
+ * Hadron accounts as a compatibility fallback. Never read/copy credential files. */
 export class ClaudeCodeRuntime {
   private lastAllowance:ProviderAllowance|null=null
   async usage(){return (await this.status()).connected?this.lastAllowance:null}
 
-  private readonly environment: NodeJS.ProcessEnv
+  private readonly environments:Record<ClaudeAccountSource,NodeJS.ProcessEnv>
+  private accountSource:ClaudeAccountSource='claude_code'
+  private accountResolved=false
+  private localConfigurationValid=true
+  private statusPending?:Promise<ClaudeRuntimeStatus>
   readonly workingDirectory: string
   private login?: AbortController
   private loginFailed = false
@@ -153,8 +163,12 @@ export class ClaudeCodeRuntime {
   private readonly toolJobs=new Map<Promise<void>,AbortController>()
   private readonly captures=new Map<Promise<Capture>,AbortController>()
   get generation(): number { return this.epoch }
-  constructor(private readonly options: { runtimeDirectory: string; profileDirectory: string; platform?: NodeJS.Platform; arch?: string;nativeHostDirectory?:string;onJobDiagnostic?(value:ClaudeJobDiagnostic):void }) {
-    this.environment = claudeRuntimeEnvironment(options.profileDirectory)
+  constructor(private readonly options: { runtimeDirectory: string; profileDirectory: string; platform?: NodeJS.Platform; arch?: string;nativeHostDirectory?:string;reuseExistingLogin?:boolean;onJobDiagnostic?(value:ClaudeJobDiagnostic):void }) {
+    const hadron=claudeRuntimeEnvironment(options.profileDirectory)
+    let local=hadron
+    try{local=claudeRuntimeEnvironment(options.profileDirectory,process.env,'claude_code')}catch{this.localConfigurationValid=false}
+    this.environments={claude_code:local,hadron}
+    if(options.reuseExistingLogin===false){this.accountSource='hadron';this.accountResolved=true}
     this.workingDirectory = path.join(options.profileDirectory, 'claude-runtime-work')
   }
   binary(): string {
@@ -169,25 +183,26 @@ export class ClaudeCodeRuntime {
     if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('Claude binary must belong to Hadron vendor directory')
     return binary
   }
-  private async capture(args: string[], options: { timeoutMs: number; signal?: AbortSignal; input?: string; keepInputOpen?: boolean;maxOutputBytes?:number } ): Promise<Capture> {
+  private async capture(args: string[], options: { timeoutMs: number; signal?: AbortSignal; input?: string; keepInputOpen?: boolean;maxOutputBytes?:number;accountSource?:ClaudeAccountSource } ): Promise<Capture> {
     if(this.closing)throw Error('Claude runtime is closing')
     const controller=new AbortController(),signal=options.signal?AbortSignal.any([controller.signal,options.signal]):controller.signal
-    const pending=this.captureChild(args,{...options,signal});this.captures.set(pending,controller)
+    const pending=this.captureChild(args,{...options,signal,accountSource:options.accountSource??this.accountSource});this.captures.set(pending,controller)
     try{return await pending}finally{this.captures.delete(pending)}
   }
-  private runChild<T>(binary:string,args:string[],signal:AbortSignal|undefined,consume:(child:ChildProcessWithoutNullStreams)=>Promise<T>):Promise<T>{
+  private runChild<T>(binary:string,args:string[],environment:NodeJS.ProcessEnv,signal:AbortSignal|undefined,consume:(child:ChildProcessWithoutNullStreams)=>Promise<T>):Promise<T>{
     if(process.platform==='win32'&&this.options.nativeHostDirectory){
       this.nativeHost??=new WindowsOwnedWorkerHost(this.options.nativeHostDirectory,this.options.profileDirectory,executionStartup.workerEpochId())
-      return this.nativeHost.run({executable:binary,args,cwd:this.workingDirectory,env:this.environment,signal,consume})
+      return this.nativeHost.run({executable:binary,args,cwd:this.workingDirectory,env:environment,signal,consume})
     }
-    return consume(spawn(binary,args,{cwd:this.workingDirectory,env:this.environment,shell:false,windowsHide:true,stdio:'pipe'}))
+    return consume(spawn(binary,args,{cwd:this.workingDirectory,env:environment,shell:false,windowsHide:true,stdio:'pipe'}))
   }
-  private async captureChild(args:string[],options:{timeoutMs:number;signal?:AbortSignal;input?:string;keepInputOpen?:boolean;maxOutputBytes?:number}):Promise<Capture>{
+  private async captureChild(args:string[],options:{timeoutMs:number;signal?:AbortSignal;input?:string;keepInputOpen?:boolean;maxOutputBytes?:number;accountSource?:ClaudeAccountSource}):Promise<Capture>{
     options.signal?.throwIfAborted()
     const binary = this.binary()
-    mkdirSync(this.environment.CLAUDE_CONFIG_DIR!, { recursive: true })
+    const source=options.accountSource??this.accountSource,environment=this.environments[source]
+    if(source==='hadron')mkdirSync(environment.CLAUDE_CONFIG_DIR!, { recursive: true })
     mkdirSync(this.workingDirectory, { recursive: true })
-    return this.runChild(binary,args,options.signal,child=>new Promise<Capture>((resolve, reject) => {
+    return this.runChild(binary,args,environment,options.signal,child=>new Promise<Capture>((resolve, reject) => {
       const chunks: Buffer[] = []; let bytes = 0, failure: Error | undefined, force: ReturnType<typeof setTimeout> | undefined
       const stop = (error: Error) => {
         failure ??= error
@@ -212,7 +227,7 @@ export class ClaudeCodeRuntime {
       if (!options.keepInputOpen) child.stdin.end(options.input)
     }))
   }
-  async models(){const epoch=this.epoch;if(!(await this.status()).connected||epoch!==this.epoch||this.closing){this.allowedModels.clear();return []}this.allowedModels.clear();for(const model of CLAUDE_CHAT_MODELS)this.allowedModels.add(model.id);return [...CLAUDE_CHAT_MODELS]}
+  async models(){const epoch=this.epoch;if(!(await this.status()).connected||epoch!==this.epoch||this.closing||this.login){this.allowedModels.clear();return []}this.allowedModels.clear();for(const model of CLAUDE_CHAT_MODELS)this.allowedModels.add(model.id);return [...CLAUDE_CHAT_MODELS]}
   async generate(input:ProviderGenerateInput,emit?:ProviderStreamEventHandler):Promise<ProviderGenerateOutput>{
     if(!input.hadronToolSession)return this.generateText(input,emit)
     if(!isHadronToolSession(input.hadronToolSession)||input.requestPolicy!=='single_attempt'||input.tools?.length||!this.allowedModels.has(input.modelName)||this.closing||this.login||this.toolJobs.size>=2)throw Error('Claude tool capability was not admitted')
@@ -269,9 +284,13 @@ export class ClaudeCodeRuntime {
   startSignIn(): void {
     this.lastAllowance=null
     if(this.closing)throw Error('Claude runtime is closing')
+    if(this.options.reuseExistingLogin!==false&&!this.localConfigurationValid)throw Error('Claude Code requires an absolute CLAUDE_CONFIG_DIR')
     if (this.login) return
     this.cancelJobs()
     this.binary()
+    // Sign in to the normal CLI account when no reusable sign-in is available.
+    if(this.options.reuseExistingLogin!==false)this.accountSource='claude_code'
+    this.accountResolved=true
     const controller = new AbortController(); this.login = controller; this.loginFailed = false; this.generationNeedsSignIn=false; this.epoch++;this.allowedModels.clear()
     void this.capture(['auth', 'login'], { timeoutMs: 600000, signal: controller.signal, keepInputOpen: true })
       .then(result => { if (result.code !== 0 && !controller.signal.aborted) this.loginFailed = true })
@@ -280,25 +299,39 @@ export class ClaudeCodeRuntime {
   }
   cancelSignIn(): void { this.login?.abort(); this.loginFailed = false; this.epoch++ }
   async status(): Promise<ClaudeRuntimeStatus> {
-    const status = await this.probe()
-    return { ...status, loginState: this.login ? 'running' : this.loginFailed ? 'failed' : 'idle' }
+    const status = await (this.statusPending??=this.probe().finally(()=>{this.statusPending=undefined}))
+    return { ...status, accountSource:this.accountSource, loginState: this.login ? 'running' : this.loginFailed ? 'failed' : 'idle' }
   }
   private async probe(): Promise<ClaudeRuntimeStatus> {
     try { this.binary() } catch (error) {
       return { installed: false, version: null, connected: false, reason: (error as Error).message.includes('version') ? 'unsupported_version' : 'not_installed' }
     }
     let version: string | null = null
+    const epoch=this.epoch
+    if(this.accountSource==='claude_code'&&!this.localConfigurationValid)return {installed:true,version:null,connected:false,reason:'status_unavailable'}
     try {
-      const result = await this.capture(['--version'], { timeoutMs: 15000 })
-      version = result.stdout.trim().match(/^(\d+\.\d+\.\d+)\b/)?.[1] ?? null
-      if (result.code !== 0 || version !== PINNED_CLAUDE_CODE_VERSION) return { installed: true, version, connected: false, reason: 'unsupported_version' }
-      const auth = await this.capture(['auth', 'status'], { timeoutMs: 15000 })
-      const state = JSON.parse(auth.stdout)
-      const expected = path.resolve(this.environment.CLAUDE_CONFIG_DIR!)
-      if (typeof state.configDirectory !== 'string' || path.resolve(state.configDirectory) !== expected) return { installed: true, version, connected: false, reason: 'profile_mismatch' }
-      if (auth.code !== 0 || state.loggedIn !== true) return { installed: true, version, connected: false, reason: 'signed_out' }
+      const versionResult = await this.capture(['--version'], { timeoutMs: 15000 })
+      version = versionResult.stdout.trim().match(/^(\d+\.\d+\.\d+)\b/)?.[1] ?? null
+      if (versionResult.code !== 0 || version !== PINNED_CLAUDE_CODE_VERSION) return { installed: true, version, connected: false, reason: 'unsupported_version' }
+      const check=async(source:ClaudeAccountSource):Promise<ClaudeRuntimeStatus>=>{
+        const auth=await this.capture(['auth','status'],{timeoutMs:15000,accountSource:source}),state=JSON.parse(auth.stdout)
+        const expected=path.resolve(this.environments[source].CLAUDE_CONFIG_DIR??path.join(os.homedir(),'.claude'))
+        if(typeof state.configDirectory!=='string'||path.resolve(state.configDirectory)!==expected)return {installed:true,version,connected:false,reason:'profile_mismatch'}
+        if(auth.code!==0||state.loggedIn!==true)return {installed:true,version,connected:false,reason:'signed_out'}
+        return {installed:true,version,connected:state.authMethod==='claude.ai',reason:state.authMethod==='claude.ai'?'ready':'different_auth_method'}
+      }
+      let selected=this.accountSource,result=await check(selected)
+      if(!this.accountResolved&&selected==='claude_code'&&['signed_out','different_auth_method'].includes(result.reason)){
+        const legacy=await check('hadron')
+        if(legacy.connected){selected='hadron';result=legacy}
+      }
+      if(epoch!==this.epoch||this.closing)return {installed:true,version,connected:false,reason:'status_unavailable'}
+      if(result.connected){
+        if(selected!==this.accountSource){this.accountSource=selected;this.allowedModels.clear()}
+        this.accountResolved=true
+      }
       if(this.generationNeedsSignIn)return {installed:true,version,connected:false,reason:'signed_out'}
-      return { installed: true, version, connected: state.authMethod === 'claude.ai', reason: state.authMethod === 'claude.ai' ? 'ready' : 'different_auth_method' }
+      return result
     } catch { return { installed: true, version, connected: false, reason: 'status_unavailable' } }
   }
 }

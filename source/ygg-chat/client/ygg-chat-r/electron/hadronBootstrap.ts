@@ -45,6 +45,7 @@ if (lstatSync(toolRoot).isSymbolicLink()) throw new Error('Hadron tool library c
 const toolGuide = path.join(app.isPackaged ? process.resourcesPath : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'), 'hadron-tools', 'TOOL_DEVELOPMENT.md')
 if (existsSync(toolGuide) && !existsSync(path.join(toolRoot, 'TOOL_DEVELOPMENT.md'))) copyFileSync(toolGuide, path.join(toolRoot, 'TOOL_DEVELOPMENT.md'), constants.COPYFILE_EXCL)
 installClaudeRuntime(new ClaudeCodeRuntime({ profileDirectory: dataDir,
+  reuseExistingLogin:!hadronIsolatedTestProfile,
   onJobDiagnostic:value=>{try{writeFileSync(path.join(dataDir,'claude-runtime-work','last-job-diagnostic.json'),JSON.stringify(value),{mode:0o600})}catch{}},
   nativeHostDirectory:app.isPackaged?path.join(process.resourcesPath,'hadron-worker'):path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..','vendor','hadron-worker'),
   runtimeDirectory: app.isPackaged ? path.join(process.resourcesPath, 'claude-code') : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'vendor', 'claude-code') }))

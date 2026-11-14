@@ -14,14 +14,14 @@ import{SubscriptionConnections}from'./src/components/CollaborationPanel/Subscrip
 import{UnifiedWorkspace}from'./src/components/UnifiedWorkspace/UnifiedWorkspace';
 import{UnifiedWorkspaceHelp}from'./src/components/UnifiedWorkspace/UnifiedWorkspaceHelp';
 import{WorkspaceSession}from'./src/features/collaboration/workspaceSession';
-window.fixture={starts:[],opens:0,cancels:0,connected:false,loginState:'idle',method:undefined,claudeStarts:0,claudeState:'idle'};
+window.fixture={starts:[],opens:0,cancels:0,connected:false,loginState:'idle',method:undefined,claudeStarts:0,claudeState:'idle',claudeConnected:false};
 const f=window.fixture;
 window.electronAPI={collaboration:{providerAllowance:async()=>null,
 codexStatus:async()=>({installed:true,connected:f.connected,reason:f.connected?'ready':'signed_out',loginState:f.loginState,loginMethod:f.method,...(f.loginState==='running'?(f.method==='device'?{device:{verificationUri:'https://auth.openai.com/codex/device',userCode:'TEST-CODE'}}:{browserReady:true}):{})}),
 codexSignIn:async(method)=>{f.starts.push(method);f.method=method;f.loginState='running'},
 codexOpenSignIn:async()=>{f.opens++},codexCancelSignIn:async()=>{f.cancels++;f.loginState='idle';f.method=undefined},
 codexDisconnect:async()=>{f.connected=false},codexTest:async()=>{throw Error('Provider test prohibited')},
-claudeStatus:async()=>({installed:true,connected:false,reason:'signed_out',loginState:f.claudeState}),
+claudeStatus:async()=>({installed:true,connected:f.claudeConnected,reason:f.claudeConnected?'ready':'signed_out',accountSource:'claude_code',loginState:f.claudeState}),
 claudeSignIn:async()=>{f.claudeStarts++;f.claudeState='running'},claudeCancelSignIn:async()=>{f.claudeState='idle'}}};
 const session=new WorkspaceSession('fixture-project','fixture-chat',{create:()=>{throw Error('Provider calls prohibited')}});
 session.dispatch({type:'draft',chatId:'fixture-chat',text:'Unsent question stays here'});
@@ -58,6 +58,9 @@ app.whenReady().then(async()=>{let win;const report={success:false,realProviderR
  await click('Cancel ChatGPT sign-in');await wait('document.body.textContent.includes("Continue with ChatGPT")');
  report.accountsIndependent=await run('fixture.claudeState==="running"&&fixture.cancels===1');
  await click('Cancel Claude sign-in');
+ await run('fixture.claudeConnected=true;true');await click('Check Claude');
+ await wait('document.body.textContent.includes("Connected using your Claude Code sign-in")');
+ report.existingClaudeLoginReusedWithoutAnotherPrompt=await run('fixture.claudeStarts===1&&!Array.from(document.querySelectorAll("button")).some(b=>b.textContent==="Connect Claude")&&document.body.textContent.includes("claude -p")');
  await run('Array.from(document.querySelectorAll("details")).find(d=>d.querySelector("summary")?.textContent==="Optional: device-code sign-in").open=true;true');
  await click('Sign in with a device code');await wait('document.body.textContent.includes("TEST-CODE")');
  report.explicitDeviceFlow=await run('fixture.starts.length===2&&fixture.starts[1]==="device"');

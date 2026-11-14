@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { CodexConnection } from './CodexConnection'
 import { ProviderCliNotice } from './ProviderCliNotice'
 
-interface Status { connected: boolean; reason: string; loginState?: 'idle' | 'running' | 'failed'; installed?: boolean; loginError?: { code: string; message: string } }
+interface Status { connected: boolean; reason: string; loginState?: 'idle' | 'running' | 'failed'; installed?: boolean; accountSource?:'claude_code'|'hadron';loginError?: { code: string; message: string } }
 interface Connection {
   status(): Promise<Status>; signIn(): Promise<unknown>; cancel(): Promise<unknown>; disconnect?(): Promise<unknown>
 }
@@ -95,17 +95,20 @@ function AccountConnection({ name, connection,compact=false }: {compact?:boolean
   const description = !connection ? 'Desktop connection unavailable' : error ? 'Connection check failed. Try again.' :
     !status ? 'Checking connection...' : running ? 'Finish signing in in your browser' :
     status.loginState === 'failed' && status.loginError ? `${status.loginError.message} [${status.loginError.code}]` :
-    status.connected ? 'Subscription connected' : status.reason === 'not_installed' ? 'Claude runtime is not installed' :
+    status.connected ? name==='Claude' ? status.accountSource==='hadron'?'Connected using your existing Hadron sign-in':'Connected using your Claude Code sign-in' : 'Subscription connected' : status.reason === 'not_installed' ? 'Claude runtime is not installed' :
     status.reason === 'storage_unavailable' ? 'Protected account storage is unavailable' :
+    status.reason === 'profile_mismatch' ? 'Claude Code returned an unexpected account location. Check your CLI configuration.' :
+    status.reason === 'status_unavailable' ? 'The account could not be checked. Try Check again.' :
     status.loginState === 'failed' ? 'Sign-in did not finish. Try again.' :
     status.reason === 'different_auth_method' ? 'Use your Claude subscription to sign in' :
     ['expired', 'reconnect_required'].includes(status.reason) ? 'Sign in again to reconnect' : 'Not connected'
   return <div data-auth-method={name === 'ChatGPT' ? 'siwc' : undefined} className='min-w-0 rounded-lg border bg-white p-3 dark:bg-neutral-900'>
     <h3 className='font-medium'>{name}</h3>
+    {name==='Claude'&&<p className='mt-2 text-xs text-neutral-500'>Claude Code CLI · claude -p. Reuses your existing CLI sign-in automatically. No separate Hadron sign-in is needed.</p>}
     <p role='status' className='my-2 text-xs text-neutral-500'>{description}</p>
     <div className='flex flex-wrap gap-2 text-xs'>
       {running ? <button type='button' disabled={pending} onClick={() => void act(connection?.cancel)} className='rounded-full border px-3 py-2 disabled:opacity-50'>Cancel {name} sign-in</button> :
-        <button type='button' disabled={!connection || pending || status?.installed === false} onClick={() => void act(connection?.signIn)} className='rounded-full border px-3 py-2 disabled:opacity-50'>{name === 'ChatGPT' ? 'Continue with ChatGPT' : 'Connect Claude'}</button>}
+        !status?.connected&&<button type='button' disabled={!connection || pending || status?.installed === false} onClick={() => void act(connection?.signIn)} className='rounded-full border px-3 py-2 disabled:opacity-50'>{name === 'ChatGPT' ? 'Continue with ChatGPT' : 'Connect Claude'}</button>}
       <button type='button' disabled={!connection || pending} onClick={() => void act(async () => {})} className='rounded-full border px-3 py-2 disabled:opacity-50'>Check {name}</button>
       {status?.connected && connection?.disconnect && <button type='button' disabled={pending} onClick={() => void act(connection.disconnect)} className='rounded-full border px-3 py-2 disabled:opacity-50'>Disconnect {name}</button>}
     </div>
@@ -123,7 +126,7 @@ export function SubscriptionConnections({compact=false}:{compact?:boolean}={}) {
   } : undefined
   return <section aria-label='Hadron subscription connections' className='mb-4 rounded-xl border p-3'>
     <h2 className='text-sm font-semibold'>Subscriptions</h2>
-    <p className='mb-3 text-xs text-neutral-500'>Connect your accounts separately for Hadron.</p>
+    <p className='mb-3 text-xs text-neutral-500'>ChatGPT connects here. Claude reuses your Claude Code sign-in.</p>
     <ProviderCliNotice />
     <div className={compact ? 'grid gap-3' : 'grid gap-3 sm:grid-cols-2'}>
       <div className='min-w-0'>{bridge?.codexStatus ? <>

@@ -19,3 +19,7 @@ Source, dependency locks, build guides and licences are included. Saved chat dat
 This is a repeatable update step, not a scheduled background backup. Keep the private repository current after completed, checked Hadron work. A restored clone can use normal Git commits and pushes; the export script is intended for the original development workspace.
 
 The latest upload result is saved locally in test-results/github-backup-result.json.
+
+## Local test changes after 6.0.2 — 14 November 2026
+
+The main source backup now includes reuse of an existing Claude Code CLI sign-in (with older Hadron sign-ins retained) and sharper tree zoom rendering. These changes have local automated/UI checks and a production build. The 6.0.2 installer release remains the previously packaged version; these newer changes await the user's next installer-build authorization.

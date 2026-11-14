@@ -123,7 +123,8 @@ export function UnifiedChatSurface(props:UnifiedChatSurfaceProps){
  const layout=layoutAgentBranches(nodes)
  const pointFor=(svg:SVGSVGElement,x:number,y:number)=>{
   const matrix=svg.getScreenCTM();if(!matrix)return null
-  return new DOMPoint(x,y).matrixTransform(matrix.inverse())
+  const point=new DOMPoint(x,y).matrixTransform(matrix.inverse())
+  return {x:point.x/treeZoom,y:point.y/treeZoom}
  }
  return <div className='hadron-v2-workspace' data-unified-workspace='true'>
   <section className='hadron-v2-chat' aria-label='Conversation'>
@@ -181,7 +182,7 @@ export function UnifiedChatSurface(props:UnifiedChatSurfaceProps){
     onPointerUp={event=>{pan.current=null;if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId)}} onPointerCancel={()=>{pan.current=null}}
     onClickCapture={event=>{if(suppressTreeClick.current){event.preventDefault();event.stopPropagation();suppressTreeClick.current=false}}}
     onKeyDown={event=>{if(event.target!==event.currentTarget)return;if(event.key==='+'||event.key==='='||event.key==='-'){event.preventDefault();zoomTree(treeZoom*(event.key==='-'?1/1.2:1.2))}}}>
-    <svg ref={treeSvg} width={layout.width*treeZoom} height={layout.height*treeZoom} style={{width:layout.width*treeZoom,height:layout.height*treeZoom,transform:`translate(calc(-50% + ${treeOffset.current.x}px), ${treeOffset.current.y}px)`}} viewBox={`0 0 ${layout.width} ${layout.height}`} preserveAspectRatio='xMidYMin meet' role='group' aria-label='Conversation branches'
+    <svg ref={treeSvg} width={layout.width*treeZoom} height={layout.height*treeZoom} style={{'--tree-zoom':treeZoom,width:layout.width*treeZoom,height:layout.height*treeZoom,transform:`translate(calc(-50% + ${treeOffset.current.x}px), ${treeOffset.current.y}px)`} as React.CSSProperties} viewBox={`0 0 ${layout.width*treeZoom} ${layout.height*treeZoom}`} preserveAspectRatio='xMidYMin meet' role='group' aria-label='Conversation branches'
      onPointerDown={event=>{
       if(event.button!==0||!event.shiftKey||(event.target as Element).closest('.hadron-v2-tree-item'))return
       const point=pointFor(event.currentTarget,event.clientX,event.clientY);if(!point)return
@@ -197,14 +198,14 @@ export function UnifiedChatSurface(props:UnifiedChatSurfaceProps){
       if(right-left<4&&bottom-top<4)return
       props.onSelection(chat.messages.filter(message=>{const point=layout.points.get(message.id)!;return point.x+80>=left&&point.x-80<=right&&point.y+30>=top&&point.y-30<=bottom}).map(message=>message.id))
      }} onPointerCancel={()=>{drag.current=null;setSelection(null)}}>
-     {nodes.filter(node=>node.parentId).map(node=>{const parent=layout.points.get(node.parentId!)!,child=layout.points.get(node.id)!;return <path key={node.id} d={`M ${parent.x} ${parent.y+30} V ${(parent.y+child.y)/2} H ${child.x} V ${child.y-30}`} fill='none' stroke='#81afbf' strokeWidth={2}/>})}
-     {chat.messages.map((message,index)=>{const point=layout.points.get(message.id)!;return <foreignObject key={message.id} x={point.x-80} y={point.y-30} width={160} height={74} style={{overflow:'visible'}}>
+     {nodes.filter(node=>node.parentId).map(node=>{const parent=layout.points.get(node.parentId!)!,child=layout.points.get(node.id)!;return <path key={node.id} d={`M ${parent.x*treeZoom} ${(parent.y+30)*treeZoom} V ${(parent.y+child.y)/2*treeZoom} H ${child.x*treeZoom} V ${(child.y-30)*treeZoom}`} fill='none' stroke='#81afbf' strokeWidth={2*treeZoom}/>})}
+     {chat.messages.map((message,index)=>{const point=layout.points.get(message.id)!;return <foreignObject key={message.id} x={(point.x-80)*treeZoom} y={(point.y-30)*treeZoom} width={160*treeZoom} height={74*treeZoom} style={{overflow:'visible'}}>
       <div className='hadron-v2-tree-item' onContextMenu={event=>openContext(event,message,false)} data-search-match={!!search.trim()&&message.text.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())}>
       {toolbar(message)}
       <button className='hadron-v2-tree-node' style={{background:colorAt(index),'--branch-color':colorAt(index)} as React.CSSProperties} aria-label={`Select branch: ${message.text.slice(0,60)}`} aria-pressed={chat.selectedId===message.id||props.selectedIds?.has(message.id)} onClick={event=>onSelect(message.id,event.ctrlKey||event.metaKey||event.shiftKey)}>{message.role==='assistant'&&(message.state==='failed'||message.state==='stopped'||isHadronIncompleteRecord(message.text))&&<strong>Not finished · </strong>}{message.text||(message.state==='running'?'Working…':'No answer text')}</button>
       </div>
      </foreignObject>})}
-     {selection&&<rect x={Math.min(selection.x,selection.endX)} y={Math.min(selection.y,selection.endY)} width={Math.abs(selection.x-selection.endX)} height={Math.abs(selection.y-selection.endY)} fill='#4a90d922' stroke='#4a90d9' pointerEvents='none'/>}
+     {selection&&<rect x={Math.min(selection.x,selection.endX)*treeZoom} y={Math.min(selection.y,selection.endY)*treeZoom} width={Math.abs(selection.x-selection.endX)*treeZoom} height={Math.abs(selection.y-selection.endY)*treeZoom} fill='#4a90d922' stroke='#4a90d9' strokeWidth={treeZoom} pointerEvents='none'/>}
     </svg>
    </div>}
   </section>

@@ -135,6 +135,92 @@ it('keeps a separate config and drops inherited tokens, injection, routing and p
   expect(JSON.stringify(env)).not.toMatch(/must-not-inherit|injected|other-app|BEDROCK|NODE_OPTIONS/)
   expect(() => claudeRuntimeEnvironment('relative')).toThrow('Absolute')
 })
+
+it('reuses the standard Claude Code account without changing HOME or copying credentials',()=>{
+ const env=claudeRuntimeEnvironment(os.tmpdir(),{USERPROFILE:'fixture-home',ANTHROPIC_API_KEY:'private',CLAUDE_CODE_OAUTH_TOKEN:'private',NODE_OPTIONS:'injected'},'claude_code')
+ expect(env.USERPROFILE).toBe('fixture-home');expect(env).not.toHaveProperty('CLAUDE_CONFIG_DIR')
+ expect(JSON.stringify(env)).not.toMatch(/private|injected/)
+ const custom=path.join(os.tmpdir(),'existing-cli-account')
+ expect(claudeRuntimeEnvironment(os.tmpdir(),{CLAUDE_CONFIG_DIR:custom},'claude_code').CLAUDE_CONFIG_DIR).toBe(custom)
+})
+it('handles invalid local configuration without crashing startup or opening sign-in',async()=>{
+ vi.stubEnv('CLAUDE_CONFIG_DIR','relative-account')
+ try{
+  const runtime=new ClaudeCodeRuntime({runtimeDirectory:os.tmpdir(),profileDirectory:os.tmpdir()})
+  vi.spyOn(runtime,'binary').mockReturnValue('official-fixture')
+  const capture=vi.spyOn(runtime as any,'capture')
+  expect(await runtime.status()).toMatchObject({connected:false,reason:'status_unavailable'})
+  expect(capture).not.toHaveBeenCalled()
+  expect(()=>runtime.startSignIn()).toThrow('absolute')
+ }finally{vi.unstubAllEnvs()}
+})
+
+function accountFixture(local=true,legacy=false){
+ const profile=path.join(os.tmpdir(),'hadron-cli-reuse-fixture'),runtime=new ClaudeCodeRuntime({runtimeDirectory:os.tmpdir(),profileDirectory:profile,platform:'win32',nativeHostDirectory:os.tmpdir()})
+ const accounts={claude_code:local,hadron:legacy}
+ vi.spyOn(runtime,'binary').mockReturnValue('official-fixture')
+ const capture=vi.spyOn(runtime as any,'captureChild').mockImplementation(async(args:any,options:any)=>{
+  if(args[0]==='--version')return {code:0,stdout:'2.1.318 (Claude Code)'}
+  if(args[0]==='auth'&&args[1]==='status'){
+   const source=options.accountSource as keyof typeof accounts
+   return {code:accounts[source]?0:1,stdout:JSON.stringify({loggedIn:accounts[source],authMethod:accounts[source]?'claude.ai':'none',configDirectory:source==='hadron'?path.join(profile,'claude-code'):(process.env.CLAUDE_CONFIG_DIR??path.join(os.homedir(),'.claude'))})}
+  }
+  if(args.includes('--print'))return {code:0,stdout:frames()}
+  if(args[0]==='auth'&&args[1]==='login'){accounts.claude_code=true;return {code:0,stdout:''}}
+  throw Error('Unexpected fixture invocation')
+ })
+ return {runtime,capture,accounts}
+}
+it('automatically recognises an existing CLI login and uses it for print requests without another sign-in',async()=>{
+ const f=accountFixture(true,true)
+ expect(await f.runtime.models()).toHaveLength(3)
+ expect(await f.runtime.status()).toMatchObject({connected:true,accountSource:'claude_code'})
+ expect(await f.runtime.generate({modelName:'sonnet',requestPolicy:'single_attempt',history:[],userContent:'Respond.'})).toEqual({content:'Ready.'})
+ const call=f.capture.mock.calls.find(([args]:any)=>args.includes('--print'))!
+ expect(call[1]).toMatchObject({accountSource:'claude_code',input:'Respond.'})
+ expect(f.capture.mock.calls.some(([args,options]:any)=>args[1]==='login'||options.accountSource==='hadron')).toBe(false)
+})
+it('preserves an existing Hadron sign-in as fallback and admits models on the first check',async()=>{
+ const f=accountFixture(false,true)
+ expect(await f.runtime.models()).toHaveLength(3)
+ expect(await f.runtime.status()).toMatchObject({connected:true,accountSource:'hadron'})
+ f.accounts.claude_code=true
+ expect(await f.runtime.status()).toMatchObject({connected:true,accountSource:'hadron'})
+ expect(await f.runtime.generate({modelName:'haiku',requestPolicy:'single_attempt',history:[],userContent:'Respond.'})).toEqual({content:'Ready.'})
+ expect(f.capture.mock.calls.find(([args]:any)=>args.includes('--print'))![1]).toMatchObject({accountSource:'hadron'})
+ expect(f.capture.mock.calls.some(([args]:any)=>args[1]==='login')).toBe(false)
+})
+it('does not open sign-in during checks when neither account is connected; explicit login uses the normal CLI account',async()=>{
+ const f=accountFixture(false,false)
+ expect(await f.runtime.models()).toEqual([])
+ expect(await f.runtime.status()).toMatchObject({connected:false,accountSource:'claude_code'})
+ expect(f.capture.mock.calls.some(([args]:any)=>args[1]==='login')).toBe(false)
+ f.runtime.startSignIn()
+ await vi.waitFor(async()=>expect(await f.runtime.status()).toMatchObject({connected:true,accountSource:'claude_code',loginState:'idle'}))
+ expect(f.capture.mock.calls.find(([args]:any)=>args[1]==='login')![1]).toMatchObject({accountSource:'claude_code'})
+})
+it('deduplicates simultaneous account checks without inference',async()=>{
+ const f=accountFixture()
+ await Promise.all([f.runtime.status(),f.runtime.status(),f.runtime.status()])
+ expect(f.capture.mock.calls.filter(([args]:any)=>args[1]==='status')).toHaveLength(1)
+ expect(f.capture.mock.calls.some(([args]:any)=>args.includes('--print'))).toBe(false)
+})
+it('rejects unexpected credential locations without falling back or publishing account text',async()=>{
+ const f=accountFixture()
+ f.capture.mockResolvedValueOnce({code:0,stdout:'2.1.318 (Claude Code)'}).mockResolvedValueOnce({code:0,stdout:JSON.stringify({loggedIn:true,authMethod:'claude.ai',configDirectory:path.join(os.tmpdir(),'unexpected'),email:'private-account'})})
+ const status=await f.runtime.status()
+ expect(status).toMatchObject({connected:false,reason:'profile_mismatch'})
+ expect(JSON.stringify(status)).not.toContain('private-account');expect(f.capture).toHaveBeenCalledTimes(2)
+})
+it('fences an account check invalidated while it was running',async()=>{
+ const f=accountFixture();let complete!:(value:any)=>void
+ f.capture.mockImplementationOnce(async()=>({code:0,stdout:'2.1.318 (Claude Code)'})).mockImplementationOnce(()=>new Promise(resolve=>{complete=resolve}))
+ const pending=f.runtime.status()
+ await vi.waitFor(()=>expect(complete).toBeTypeOf('function'))
+ f.runtime.cancelSignIn()
+ complete({code:0,stdout:JSON.stringify({loggedIn:true,authMethod:'claude.ai',configDirectory:process.env.CLAUDE_CONFIG_DIR??path.join(os.homedir(),'.claude')})})
+ expect(await pending).toMatchObject({connected:false,reason:'status_unavailable'})
+})
 it('publishes only a completed one-turn text result and rejects tool-bearing/incomplete output',()=>{
  expect(claudeTextResult(frames())).toBe('Ready.')
  for(const raw of [frames({is_error:true}),frames({num_turns:2}),frames({permission_denials:[{tool_name:'Bash'}]}),frames().replace('"tools":[]','"tools":["Read"]'),frames().replace('"type":"text"','"type":"tool_use"'),frames().split('\n').slice(0,-1).join('\n')])expect(()=>claudeTextResult(raw)).toThrow()
