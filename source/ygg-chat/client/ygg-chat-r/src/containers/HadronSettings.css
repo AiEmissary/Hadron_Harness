@@ -1,0 +1,20 @@
+.hadron-settings-page { background: #edf0f8; }
+html.dark .hadron-settings-page { background: #111625; }
+html[data-hadron-palette] .hadron-settings-page { background: var(--hp-bg); }
+html.dark[data-hadron-palette] .hadron-settings-page { background: var(--hp-dark-bg); }
+.hadron-settings-scroll {
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: auto;
+  scrollbar-color: var(--hp-accent, #7153cc) transparent;
+}
+.hadron-settings-scroll::-webkit-scrollbar { width: 16px; }
+.hadron-settings-scroll::-webkit-scrollbar-track { background: transparent; }
+.hadron-settings-scroll::-webkit-scrollbar-thumb {
+  min-height: 44px;
+  border: 3px solid transparent;
+  border-radius: 10px;
+  background: var(--hp-accent, #7153cc);
+  background-clip: padding-box;
+}
+.hadron-settings-scroll:focus-visible { outline: 2px solid var(--hp-accent, #7153cc); outline-offset: -3px; }

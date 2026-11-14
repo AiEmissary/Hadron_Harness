@@ -1,0 +1,19 @@
+
+> graviton@0.3.20 test:headless
+> vitest run --config vitest.headless.config.ts server/headlessServer/services/__tests__/collaborationReview.test.ts
+
+
+ RUN  v2.1.9 C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r
+
+(node:51804) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ server/headlessServer/services/__tests__/collaborationReview.test.ts (15 tests) 3938ms
+   ✓ expires during cross-review, drains the pair and retains the initial proposals 524ms
+   ✓ verifies only after both reviews, persists actual host receipts independently of model claims, and never replays 301ms
+   ✓ freezes shared follow-up ancestry, explicit prior-file choice true and sibling forks 588ms
+   ✓ freezes shared follow-up ancestry, explicit prior-file choice false and sibling forks 568ms
+
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+   Start at  17:30:13
+   Duration  6.60s (transform 567ms, setup 0ms, collect 2.15s, tests 3.94s, environment 0ms, prepare 123ms)

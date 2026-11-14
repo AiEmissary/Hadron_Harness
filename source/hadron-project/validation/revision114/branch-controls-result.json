@@ -1,0 +1,14 @@
+{
+  "success": true,
+  "editPreservesParent": true,
+  "regenerateExcludesOriginalAnswer": true,
+  "preparationRequests": 0,
+  "conversationBinRestore": true,
+  "binRequests": 0,
+  "archiveNativeIpcRoundTrip": true,
+  "archiveImportIdempotent": true,
+  "archiveRequests": 0,
+  "realProviderRequests": 0,
+  "syntheticInference": true,
+  "signInProtocolPreserved": true
+}

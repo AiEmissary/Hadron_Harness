@@ -1,0 +1,7 @@
+{
+  "name": "hadron-codex-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pinned unmodified official Codex runtime for isolated Hadron ChatGPT sign-in",
+  "dependencies": { "@openai/codex": "0.166.0" }
+}

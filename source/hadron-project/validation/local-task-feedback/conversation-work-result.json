@@ -1,0 +1,22 @@
+{
+  "success": true,
+  "agentBWorksAlone": true,
+  "agentBSavedFileReceipt": true,
+  "fileAndStageInspectionKeepFeedback": true,
+  "selfCheckLabelHonest": true,
+  "bothAgentsWork": true,
+  "selectedConversationCarried": true,
+  "selectedFolderCarried": true,
+  "continueFromWorkToAgentA": true,
+  "actualCodeApplied": true,
+  "actualNodeTestsPassed": true,
+  "approvalAtExecution": true,
+  "extraPreparationNotRequired": true,
+  "sharedGoWorks": true,
+  "automaticGoWorks": true,
+  "manualGoWorks": true,
+  "agentAWorksAlone": true,
+  "reopenStartsNoNewTasks": true,
+  "realProviderRequests": 0,
+  "signInProtocolPreserved": true
+}

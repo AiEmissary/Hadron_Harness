@@ -1,0 +1,24 @@
+Full Hadron desktop smoke: C:\Users\rajka\AppData\Local\Temp\hadron-desktop-smoke-7YUOlX
+{
+  "success": true,
+  "freshInspectionOriginal": true,
+  "additiveSourceSelection": true,
+  "twoSelectedPathsVisible": true,
+  "missingRequirementsExplained": true,
+  "rejectedDirectoryExplained": true,
+  "nativeSelectionFixture": true,
+  "actualFrozenSource": true,
+  "actualProtectedWorkerEngine": true,
+  "exactPeerReview": true,
+  "threePanePlacement": true,
+  "fileDiffPreview": true,
+  "keepAndClearFiles": true,
+  "stopConfirmed": true,
+  "savedProposalReopened": true,
+  "gracefulQuitRequested": true,
+  "editingUnavailable": true,
+  "projectWrites": 0,
+  "projectCommands": 0,
+  "realProviderRequests": 0
+}
+Clean Quit joined project workers, closed the idle socket and released the execution scope.

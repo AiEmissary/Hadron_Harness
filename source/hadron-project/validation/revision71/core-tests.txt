@@ -1,0 +1,16 @@
+
+> graviton@0.3.20 test:server
+> vitest run --config vitest.server.config.ts server/__tests__/hadronToolLibrary.test.ts server/__tests__/hadronToolProtocol.test.ts server/__tests__/hadronToolNative.test.ts server/__tests__/hadronPublicWeb.test.ts
+
+
+ RUN  v2.1.9 C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r
+
+ ✓ server/__tests__/hadronToolNative.test.ts (3 tests) 16ms
+ ✓ server/__tests__/hadronPublicWeb.test.ts (4 tests) 20ms
+ ✓ server/__tests__/hadronToolProtocol.test.ts (24 tests) 26ms
+ ✓ server/__tests__/hadronToolLibrary.test.ts (10 tests) 615ms
+
+ Test Files  4 passed (4)
+      Tests  41 passed (41)
+   Start at  16:36:56
+   Duration  1.57s (transform 270ms, setup 0ms, collect 1.05s, tests 676ms, environment 1ms, prepare 661ms)

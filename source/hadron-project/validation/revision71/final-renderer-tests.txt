@@ -1,0 +1,27 @@
+ ✓ src/features/collaboration/previewState.test.ts (2 tests) 7ms
+ ✓ src/services/ToolJobManager.test.ts (1 test) 349ms
+   ✓ delivers pushed watcher completions once across reconnect replay 347ms
+ ✓ src/features/chats/toolDefinitions.test.ts (2 tests) 9ms
+ ✓ src/helpers/serverLoopSettings.test.ts (3 tests) 7ms
+ ✓ src/features/collaboration/context.test.ts (2 tests) 8ms
+ ✓ src/features/chats/runStatisticsRefresh.test.ts (3 tests) 14ms
+ ✓ src/features/chats/attachedImagePaths.test.ts (3 tests) 8ms
+ ✓ src/helpers/searchResultNavigation.test.ts (6 tests) 8ms
+ ✓ src/components/ChatMessage/CompactMessageNotice.test.tsx (2 tests) 29ms
+ ✓ src/components/ImageModal/ImageModal.test.tsx (2 tests) 21ms
+ ✓ src/features/chats/chatSelectionBoundary.test.ts (13 tests) 20ms
+ ✓ src/lib/auth/managed.test.ts (1 test) 9ms
+ ✓ src/components/ChatMessage/hookActivityState.test.ts (2 tests) 7ms
+ ✓ src/components/ChatMessage/chatMessageShared.test.ts (8 tests) 10ms
+ ✓ src/components/MermaidDiagram/mermaidViewport.test.ts (3 tests) 7ms
+ ✓ src/utils/mcpAppToolResult.test.ts (2 tests) 6ms
+ ✓ src/features/chats/runStatisticsMetadata.test.ts (2 tests) 11ms
+ ✓ src/components/ChatPane/sentMessageHistory.test.ts (2 tests) 6ms
+ ✓ src/components/RunningAgentsFloatingButton/AgentsViewSwitch.test.tsx (3 tests) 31ms
+ ✓ src/components/ChatMessage/HookActivitySummary.test.ts (1 test) 5ms
+ ✓ src/components/SubagentTranscript/SubagentTranscript.test.tsx (1 test) 63ms
+
+ Test Files  140 passed (140)
+      Tests  1165 passed | 1 skipped (1166)
+   Start at  16:39:14
+   Duration  18.31s (transform 27.12s, setup 0ms, collect 68.11s, tests 11.69s, environment 52ms, prepare 34.41s)

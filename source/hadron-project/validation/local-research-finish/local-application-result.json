@@ -1,0 +1,27 @@
+{
+  "localResourcePatch": true,
+  "installerRebuilt": false,
+  "exeUnchanged": true,
+  "installedExeSha256": "5147665732f85add1edffe2573fc9012a75ba675a7c7b3e307c815eedf65f14d",
+  "installerSha256": "ad2334f42f30c4ddab9c0fceeb38dcb3413da99ca8619f6c97be6c752e2bae32",
+  "applicationArchiveSha256": "9430906063d23382e0f2164d72b9e1d28b79dd9f655d77af479e9caad8759e20",
+  "data": {
+    "hadron-continuous-chat.db": {
+      "integrity": "ok",
+      "tablesCompared": 6,
+      "baselineRowsPreserved": 161
+    },
+    "hadron-project-builds.db": {
+      "integrity": "ok",
+      "tablesCompared": 15,
+      "baselineRowsPreserved": 34
+    },
+    "local-sync.db": {
+      "integrity": "ok",
+      "tablesCompared": 29,
+      "baselineRowsPreserved": 1083
+    }
+  },
+  "realProviderRequests": 0,
+  "startupPassed": true
+}

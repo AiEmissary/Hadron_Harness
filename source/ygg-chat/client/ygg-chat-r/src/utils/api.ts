@@ -1,0 +1,1148 @@
+// utils/api.ts
+import { ConversationId, StorageMode } from '../../../../shared/types'
+import { isCommunityMode } from '../config/runtimeMode'
+import { attachLocalChatErrorCode } from '../features/chats/localChatErrors'
+import { logClientError } from '../services/clientTelemetry'
+
+// Base configuration
+export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+export const environment = (typeof __IS_ELECTRON__ !== 'undefined' && __IS_ELECTRON__) ? 'electron' : import.meta.env.VITE_ENVIRONMENT || 'local'
+const DEFAULT_LOCAL_SERVER_ORIGIN = 'http://127.0.0.1:3002'
+// Explicit development override for the Ygg server origin (browser targets).
+const CONFIGURED_LOCAL_SERVER_ORIGIN = ((): string | null => {
+  const raw = import.meta.env.VITE_YGG_SERVER_ORIGIN
+  if (!raw || typeof raw !== 'string') return null
+  const trimmed = raw.trim().replace(/\/+$/, '')
+  return /^https?:\/\//i.test(trimmed) ? trimmed : null
+})()
+const LOCAL_SERVER_STATUS_CACHE_TTL_MS = 15000
+const LOCAL_SERVER_STATUS_TIMEOUT_MS = 3000
+
+const NETWORK_FAILURE_LOGGED_SYMBOL = Symbol('networkFailureLogged')
+
+type LoggedNetworkError = Error & {
+  [NETWORK_FAILURE_LOGGED_SYMBOL]?: boolean
+}
+
+type ApiErrorPayload = {
+  error?: unknown
+  message?: unknown
+}
+
+export class LocalApiError extends Error {
+  status?: number
+  statusText?: string
+  payload?: unknown
+
+  constructor(message: string, options: { status?: number; statusText?: string; payload?: unknown } = {}) {
+    super(message)
+    this.name = 'LocalApiError'
+    this.status = options.status
+    this.statusText = options.statusText
+    this.payload = options.payload
+  }
+}
+
+type NetworkFailureInput = {
+  source: string
+  endpoint: string
+  method: string
+  message: string
+  status?: number
+  statusText?: string
+  durationMs?: number
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  return String(error)
+}
+
+async function createLocalApiHttpError(response: Response): Promise<LocalApiError> {
+  let payload: unknown
+  let responseText: string | undefined
+
+  try {
+    const contentType = response.headers.get('content-type') || ''
+    if (contentType.includes('application/json')) {
+      payload = await response.json()
+    } else {
+      responseText = await response.text()
+      if (responseText) {
+        try {
+          payload = JSON.parse(responseText)
+        } catch {
+          // Keep text fallback below.
+        }
+      }
+    }
+  } catch {
+    // Ignore body parsing failures and use the HTTP status fallback.
+  }
+
+  const apiPayload = payload && typeof payload === 'object' ? (payload as ApiErrorPayload) : undefined
+  const serverMessage =
+    typeof apiPayload?.error === 'string'
+      ? apiPayload.error
+      : typeof apiPayload?.message === 'string'
+        ? apiPayload.message
+        : undefined
+  const message = serverMessage || responseText || `HTTP ${response.status}: ${response.statusText}`
+
+  return new LocalApiError(message, {
+    status: response.status,
+    statusText: response.statusText,
+    payload,
+  })
+}
+
+function markNetworkFailureLogged(error: unknown): void {
+  if (error && typeof error === 'object') {
+    ;(error as LoggedNetworkError)[NETWORK_FAILURE_LOGGED_SYMBOL] = true
+  }
+}
+
+function isNetworkFailureLogged(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  return Boolean((error as LoggedNetworkError)[NETWORK_FAILURE_LOGGED_SYMBOL])
+}
+
+function reportNetworkFailure(input: NetworkFailureInput): void {
+  logClientError({
+    type: 'network_error',
+    source: input.source,
+    endpoint: input.endpoint,
+    method: input.method,
+    status: input.status,
+    statusText: input.statusText,
+    durationMs: input.durationMs,
+    message: input.message,
+  })
+}
+
+export interface LocalServerStatus {
+  localServerRunning: boolean
+  localServerPort: number | null
+  localServerUrl: string | null
+  localServerLanUrl: string | null
+  localServerError?: string | null
+  /**
+   * Something is listening on our port but it is NOT this instance's local server
+   * (another copy of the app, or an unrelated process). Writing to it is a
+   * cross-instance data hazard, so callers must treat this as harder-than-down.
+   */
+  localServerForeign?: boolean
+}
+
+let cachedLocalServerStatus: LocalServerStatus | null = null
+let cachedLocalServerStatusAt = 0
+let pendingLocalServerStatusRequest: Promise<LocalServerStatus> | null = null
+// Set when the `sync:status` IPC itself failed/timed out. Deliberately separate from
+// `cachedLocalServerStatus`: we keep the last KNOWN-GOOD origin (better than falling
+// back to the hardcoded :3002, which may be another instance) but stop calling it verified.
+let lastLocalServerStatusProbeFailed = false
+
+function normalizeEndpoint(endpoint: string): string {
+  if (!endpoint) return '/'
+  return endpoint.startsWith('/') ? endpoint : `/${endpoint}`
+}
+
+const PUBLIC_API_ENDPOINT_PREFIXES = ['/app-store/community'] as const
+
+function assertPublicEndpointAllowed(endpoint: string, source: string): string {
+  const normalizedEndpoint = normalizeEndpoint(endpoint)
+  const allowed = PUBLIC_API_ENDPOINT_PREFIXES.some(
+    prefix => normalizedEndpoint === prefix || normalizedEndpoint.startsWith(`${prefix}/`)
+  )
+
+  if (!allowed) {
+    throw new Error(`[${source}] Endpoint is not whitelisted for public access (${normalizedEndpoint})`)
+  }
+
+  return normalizedEndpoint
+}
+
+function assertCloudBackendAllowed(endpoint: string, source: string): void {
+  if (!isCommunityMode) return
+  throw new Error(`[${source}] Cloud backend routes are disabled in community mode (${endpoint})`)
+}
+
+function normalizeOrigin(origin: string | null | undefined): string | null {
+  if (!origin || typeof origin !== 'string') return null
+  const trimmed = origin.trim().replace(/\/+$/, '')
+  if (!trimmed) return null
+  return /^https?:\/\//i.test(trimmed) ? trimmed : null
+}
+
+function isElectronRuntimeWithSyncIpc(): boolean {
+  if (environment !== 'electron') return false
+  if (typeof window === 'undefined') return false
+  return typeof window.electronAPI?.sync?.status === 'function'
+}
+
+/**
+ * True when this renderer targets the local Ygg server: the Electron desktop
+ * app (origin discovered over sync:status IPC) or the standalone browser
+ * target (same-origin/configured). Server-owned chat flows gate on this, not
+ * on Electron specifically.
+ */
+export function isLocalServerRuntime(): boolean {
+  return environment === 'electron' || environment === 'standalone'
+}
+
+/**
+ * Origin used when no Electron IPC discovery is available, in precedence
+ * order: explicit configured origin (development) -> same-origin for the
+ * standalone browser target -> loopback default (local development).
+ */
+function resolveBrowserFallbackOrigin(): string {
+  if (environment === 'electron') throw new Error('Hadron local server is unavailable; refusing an unverified server address')
+  if (CONFIGURED_LOCAL_SERVER_ORIGIN) return CONFIGURED_LOCAL_SERVER_ORIGIN
+  if (environment === 'standalone' && typeof window !== 'undefined') {
+    const sameOrigin = normalizeOrigin(window.location.origin)
+    if (sameOrigin) return sameOrigin
+  }
+  return DEFAULT_LOCAL_SERVER_ORIGIN
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      reject(new Error(`Timed out after ${timeoutMs}ms`))
+    }, timeoutMs)
+
+    promise
+      .then(result => {
+        clearTimeout(timeoutId)
+        resolve(result)
+      })
+      .catch(error => {
+        clearTimeout(timeoutId)
+        reject(error)
+      })
+  })
+}
+
+function getDefaultLocalServerStatus(): LocalServerStatus {
+  return {
+    localServerRunning: false,
+    localServerPort: null,
+    localServerUrl: null,
+    localServerLanUrl: null,
+    localServerError: null,
+    localServerForeign: false,
+  }
+}
+
+function normalizeLocalServerStatus(raw: Partial<LocalServerStatus> | null | undefined): LocalServerStatus {
+  const normalizedUrl = normalizeOrigin(raw?.localServerUrl)
+  const normalizedLanUrl = normalizeOrigin(raw?.localServerLanUrl)
+  const normalizedPort =
+    typeof raw?.localServerPort === 'number' && Number.isInteger(raw.localServerPort) ? raw.localServerPort : null
+
+  return {
+    localServerRunning: Boolean(raw?.localServerRunning),
+    localServerPort: normalizedPort,
+    localServerUrl: normalizedUrl,
+    localServerLanUrl: normalizedLanUrl,
+    localServerError: raw?.localServerError ?? null,
+    localServerForeign: Boolean(raw?.localServerForeign),
+  }
+}
+
+async function fetchLocalServerStatus(forceRefresh = false): Promise<LocalServerStatus> {
+  if (!isElectronRuntimeWithSyncIpc()) {
+    return getDefaultLocalServerStatus()
+  }
+
+  const now = Date.now()
+  if (!forceRefresh && cachedLocalServerStatus && now - cachedLocalServerStatusAt < LOCAL_SERVER_STATUS_CACHE_TTL_MS) {
+    return cachedLocalServerStatus
+  }
+
+  if (!forceRefresh && pendingLocalServerStatusRequest) {
+    return pendingLocalServerStatusRequest
+  }
+
+  pendingLocalServerStatusRequest = withTimeout(window.electronAPI!.sync.status(), LOCAL_SERVER_STATUS_TIMEOUT_MS)
+    .then(status => {
+      const normalized = normalizeLocalServerStatus(status)
+      cachedLocalServerStatus = normalized
+      cachedLocalServerStatusAt = Date.now()
+      lastLocalServerStatusProbeFailed = false
+      return normalized
+    })
+    .catch(error => {
+      lastLocalServerStatusProbeFailed = true
+      const fallback = getDefaultLocalServerStatus()
+      fallback.localServerError = error instanceof Error ? error.message : String(error)
+      return fallback
+    })
+    .finally(() => {
+      pendingLocalServerStatusRequest = null
+    })
+
+  return pendingLocalServerStatusRequest
+}
+
+export async function refreshLocalServerStatus(): Promise<LocalServerStatus> {
+  return fetchLocalServerStatus(true)
+}
+
+export async function getLocalServerOrigin(): Promise<string> {
+  const status = await fetchLocalServerStatus()
+  if (environment === 'electron' && (lastLocalServerStatusProbeFailed || !status.localServerRunning || status.localServerForeign || !status.localServerUrl)) {
+    throw new Error(status.localServerError || 'Hadron local server is unavailable')
+  }
+  return normalizeOrigin(status.localServerUrl) || resolveBrowserFallbackOrigin()
+}
+
+export async function getLocalServerLanOrigin(): Promise<string | null> {
+  const status = await fetchLocalServerStatus()
+  return normalizeOrigin(status.localServerLanUrl)
+}
+
+export function getCachedLocalServerOrigin(): string {
+  if (environment === 'electron' && (!isLocalServerOriginVerified() || cachedLocalServerStatus?.localServerForeign)) {
+    throw new Error('Hadron local server address has not been verified')
+  }
+  return normalizeOrigin(cachedLocalServerStatus?.localServerUrl) || resolveBrowserFallbackOrigin()
+}
+
+/**
+ * Whether the origin we are about to talk to was actually reported by OUR main
+ * process, as opposed to the hardcoded `http://127.0.0.1:3002` guess.
+ *
+ * This matters: when the `sync:status` IPC times out we silently fall back to
+ * :3002, which may be a DIFFERENT app instance's server — a cross-instance data
+ * hazard. `sync:status` now live-probes `/api/health` and only reports
+ * `localServerRunning: true` when its OWN server answers, so this predicate is
+ * the renderer's signal that the endpoint is trustworthy.
+ *
+ * Electron URL builders reject missing, stale or failed discovery instead of
+ * returning a guessed endpoint. Browser targets retain their own resolver.
+ */
+export function isLocalServerOriginVerified(): boolean {
+  if (lastLocalServerStatusProbeFailed) return false
+  if (Date.now() - cachedLocalServerStatusAt >= LOCAL_SERVER_STATUS_CACHE_TTL_MS) return false
+  return Boolean(cachedLocalServerStatus?.localServerRunning && normalizeOrigin(cachedLocalServerStatus?.localServerUrl))
+}
+
+/** The origin plus whether it is verified, for callers that must branch on both. */
+export function getLocalServerOriginInfo(): { origin: string; verified: boolean } {
+  return { origin: getCachedLocalServerOrigin(), verified: isLocalServerOriginVerified() }
+}
+
+export function getCachedLocalServerLanOrigin(): string | null {
+  return normalizeOrigin(cachedLocalServerStatus?.localServerLanUrl)
+}
+
+export async function getLocalApiBase(): Promise<string> {
+  const origin = await getLocalServerOrigin()
+  return `${origin}/api`
+}
+
+export function getCachedLocalApiBase(): string {
+  return `${getCachedLocalServerOrigin()}/api`
+}
+
+export async function buildLocalApiUrl(endpoint: string): Promise<string> {
+  return `${await getLocalApiBase()}${normalizeEndpoint(endpoint)}`
+}
+
+export function buildCachedLocalApiUrl(endpoint: string): string {
+  return `${getCachedLocalApiBase()}${normalizeEndpoint(endpoint)}`
+}
+
+export async function buildLocalWebSocketUrl(pathname: string): Promise<string> {
+  const origin = await getLocalServerOrigin()
+  return `${origin.replace(/^http/i, 'ws')}${normalizeEndpoint(pathname)}`
+}
+
+export function buildCachedLocalWebSocketUrl(pathname: string): string {
+  return `${getCachedLocalServerOrigin().replace(/^http/i, 'ws')}${normalizeEndpoint(pathname)}`
+}
+
+// Helper to determine if we should use local API. Both the Electron desktop
+// app and the standalone browser target talk to the local Ygg server.
+export function shouldUseLocalApi(storageMode?: StorageMode, env?: string): boolean {
+  const runtimeEnv = env || environment
+  const localServerCapable = runtimeEnv === 'electron' || runtimeEnv === 'standalone'
+  if (isCommunityMode && localServerCapable) return true
+  return storageMode === 'local' && localServerCapable
+}
+
+// ---------------------------------------------------------------------------
+// Local-API failure classification (shared judgement, no behaviour of its own)
+//
+// `handleLocalApiError` below produces the friendliest local-server message in
+// the app, but it is reachable ONLY through the `localApi` wrapper. Paths that
+// use raw `fetch` (the chat/streaming path) used to re-derive this — badly — and
+// ended up surfacing the browser's useless "Failed to fetch".
+//
+// These exports are the judgement, extracted so every path agrees. They are pure
+// predicates: they throw nothing, log nothing, and no existing caller changes
+// behaviour because `handleLocalApiError` now delegates to them verbatim.
+// ---------------------------------------------------------------------------
+
+/**
+ * True when the request never reached a server at all.
+ *
+ * `fetch` rejects with a `TypeError` for DNS/refused-connection/CORS-preflight
+ * style failures — for a loopback URL that means the local server is not
+ * listening. Anything that produced an HTTP response (any status) is NOT this.
+ */
+export function isLocalServerUnreachableError(error: unknown): boolean {
+  return error instanceof TypeError && error.message.includes('fetch')
+}
+
+/** The user-safe prose for an unreachable local server. The one wording, in one place. */
+export function getLocalServerUnreachableMessage(base: string = getCachedLocalApiBase()): string {
+  return (
+    `Local server not available at ${base}. ` +
+    `Please ensure the Electron app is running with the local server enabled.`
+  )
+}
+
+/**
+ * `unreachable` - no server answered; retrying once it is up will work.
+ * `http`        - a server answered with a non-2xx; `status` is meaningful.
+ * `unknown`     - anything else (aborts, JSON parse failures, programming errors).
+ */
+export type LocalApiFailureKind = 'unreachable' | 'http' | 'unknown'
+
+export interface LocalApiFailure {
+  kind: LocalApiFailureKind
+  /**
+   * For `unreachable` this is user-safe prose. For `http`/`unknown` it is RAW
+   * technical text — callers that render to a user must treat it as `detail`
+   * and supply their own user-facing wording.
+   */
+  message: string
+  status?: number
+  statusText?: string
+  payload?: unknown
+}
+
+/**
+ * Classify anything caught around a local-server request, whether it came from
+ * `localApi` (a `LocalApiError`) or from a raw `fetch` (a `TypeError`).
+ */
+export function classifyLocalApiFailure(error: unknown): LocalApiFailure {
+  if (isLocalServerUnreachableError(error)) {
+    return { kind: 'unreachable', message: getLocalServerUnreachableMessage() }
+  }
+
+  if (error instanceof LocalApiError) {
+    return {
+      kind: 'http',
+      message: error.message,
+      status: error.status,
+      statusText: error.statusText,
+      payload: error.payload,
+    }
+  }
+
+  return { kind: 'unknown', message: getErrorMessage(error) }
+}
+
+// Local API client (mirrors cloud api object) with error handling
+const handleLocalApiError = (error: any, endpoint: string): never => {
+  // Check if it's a network error (server unavailable)
+  if (isLocalServerUnreachableError(error)) {
+    throw new Error(getLocalServerUnreachableMessage())
+  }
+
+  if (error instanceof LocalApiError) {
+    throw new LocalApiError(`Local API error (${endpoint}): ${error.message}`, {
+      status: error.status,
+      statusText: error.statusText,
+      payload: error.payload,
+    })
+  }
+
+  // Re-throw other errors
+  throw new Error(`Local API error (${endpoint}): ${error.message || 'Unknown error'}`)
+}
+
+export const localApi = {
+  get: async <T>(endpoint: string, options?: RequestInit): Promise<T> => {
+    const requestStart = Date.now()
+    const method = 'GET'
+
+    try {
+      const response = await fetch(await buildLocalApiUrl(endpoint), { ...options, method })
+      if (!response.ok) {
+        const error = await createLocalApiHttpError(response)
+        markNetworkFailureLogged(error)
+        reportNetworkFailure({
+          source: 'localApi',
+          endpoint,
+          method,
+          status: response.status,
+          statusText: response.statusText,
+          durationMs: Date.now() - requestStart,
+          message: error.message,
+        })
+        throw error
+      }
+      return (await response.json()) as T
+    } catch (error) {
+      if (!isNetworkFailureLogged(error)) {
+        reportNetworkFailure({
+          source: 'localApi',
+          endpoint,
+          method,
+          durationMs: Date.now() - requestStart,
+          message: getErrorMessage(error),
+        })
+      }
+      return handleLocalApiError(error, endpoint)
+    }
+  },
+
+  post: async <T>(endpoint: string, data?: any, options?: RequestInit): Promise<T> => {
+    const requestStart = Date.now()
+    const method = 'POST'
+    // FormData (multipart uploads) is passed through untouched — never JSON-encoded —
+    // and we let fetch set the multipart Content-Type + boundary itself.
+    const isFormData = data && typeof FormData !== 'undefined' && data instanceof FormData
+
+    try {
+      const response = await fetch(await buildLocalApiUrl(endpoint), {
+        ...options,
+        method,
+        headers: { ...(isFormData ? {} : { 'Content-Type': 'application/json' }), ...options?.headers },
+        body: isFormData ? data : data ? JSON.stringify(data) : undefined,
+      })
+      if (!response.ok) {
+        const error = await createLocalApiHttpError(response)
+        markNetworkFailureLogged(error)
+        reportNetworkFailure({
+          source: 'localApi',
+          endpoint,
+          method,
+          status: response.status,
+          statusText: response.statusText,
+          durationMs: Date.now() - requestStart,
+          message: error.message,
+        })
+        throw error
+      }
+      return (await response.json()) as T
+    } catch (error) {
+      if (!isNetworkFailureLogged(error)) {
+        reportNetworkFailure({
+          source: 'localApi',
+          endpoint,
+          method,
+          durationMs: Date.now() - requestStart,
+          message: getErrorMessage(error),
+        })
+      }
+      return handleLocalApiError(error, endpoint)
+    }
+  },
+
+  patch: async <T>(endpoint: string, data?: any, options?: RequestInit): Promise<T> => {
+    const requestStart = Date.now()
+    const method = 'PATCH'
+
+    try {
+      const response = await fetch(await buildLocalApiUrl(endpoint), {
+        ...options,
+        method,
+        headers: { 'Content-Type': 'application/json', ...options?.headers },
+        body: data ? JSON.stringify(data) : undefined,
+      })
+      if (!response.ok) {
+        const error = await createLocalApiHttpError(response)
+        markNetworkFailureLogged(error)
+        reportNetworkFailure({
+          source: 'localApi',
+          endpoint,
+          method,
+          status: response.status,
+          statusText: response.statusText,
+          durationMs: Date.now() - requestStart,
+          message: error.message,
+        })
+        throw error
+      }
+      return (await response.json()) as T
+    } catch (error) {
+      if (!isNetworkFailureLogged(error)) {
+        reportNetworkFailure({
+          source: 'localApi',
+          endpoint,
+          method,
+          durationMs: Date.now() - requestStart,
+          message: getErrorMessage(error),
+        })
+      }
+      return handleLocalApiError(error, endpoint)
+    }
+  },
+
+  put: async <T>(endpoint: string, data?: any, options?: RequestInit): Promise<T> => {
+    const requestStart = Date.now()
+    const method = 'PUT'
+
+    try {
+      const response = await fetch(await buildLocalApiUrl(endpoint), {
+        ...options,
+        method,
+        headers: { 'Content-Type': 'application/json', ...options?.headers },
+        body: data ? JSON.stringify(data) : undefined,
+      })
+      if (!response.ok) {
+        const error = await createLocalApiHttpError(response)
+        markNetworkFailureLogged(error)
+        reportNetworkFailure({
+          source: 'localApi',
+          endpoint,
+          method,
+          status: response.status,
+          statusText: response.statusText,
+          durationMs: Date.now() - requestStart,
+          message: error.message,
+        })
+        throw error
+      }
+      return (await response.json()) as T
+    } catch (error) {
+      if (!isNetworkFailureLogged(error)) {
+        reportNetworkFailure({
+          source: 'localApi',
+          endpoint,
+          method,
+          durationMs: Date.now() - requestStart,
+          message: getErrorMessage(error),
+        })
+      }
+      return handleLocalApiError(error, endpoint)
+    }
+  },
+
+  delete: async <T>(endpoint: string, options?: RequestInit): Promise<T> => {
+    const requestStart = Date.now()
+    const method = 'DELETE'
+
+    try {
+      const response = await fetch(await buildLocalApiUrl(endpoint), { ...options, method })
+      if (!response.ok) {
+        const error = await createLocalApiHttpError(response)
+        markNetworkFailureLogged(error)
+        reportNetworkFailure({
+          source: 'localApi',
+          endpoint,
+          method,
+          status: response.status,
+          statusText: response.statusText,
+          durationMs: Date.now() - requestStart,
+          message: error.message,
+        })
+        throw error
+      }
+      return (await response.json()) as T
+    } catch (error) {
+      if (!isNetworkFailureLogged(error)) {
+        reportNetworkFailure({
+          source: 'localApi',
+          endpoint,
+          method,
+          durationMs: Date.now() - requestStart,
+          message: getErrorMessage(error),
+        })
+      }
+      return handleLocalApiError(error, endpoint)
+    }
+  },
+}
+
+/**
+ * Phase 5 thin-client gateways. Both hit the LOCAL server (:3002) — the renderer
+ * never talks to Railway directly anymore:
+ *  - gwApi (/api/gw/*): storage-aware CRUD/reads. The server owns the local-vs-cloud
+ *    branch + dual-fetch/merge + dual-write; the renderer just calls one path.
+ *  - cloudApi (/api/cloud/*): authenticated pass-through to Railway-authoritative
+ *    resources. The server injects the Bearer, so callers pass no token.
+ * Both reuse localApi's transport, error handling, and network-failure reporting.
+ */
+function makeLocalGateway(prefix: string) {
+  const p = (endpoint: string) => `${prefix}${normalizeEndpoint(endpoint)}`
+  return {
+    get: <T>(endpoint: string, options?: RequestInit): Promise<T> => localApi.get<T>(p(endpoint), options),
+    post: <T>(endpoint: string, data?: any, options?: RequestInit): Promise<T> => localApi.post<T>(p(endpoint), data, options),
+    patch: <T>(endpoint: string, data?: any, options?: RequestInit): Promise<T> => localApi.patch<T>(p(endpoint), data, options),
+    put: <T>(endpoint: string, data?: any, options?: RequestInit): Promise<T> => localApi.put<T>(p(endpoint), data, options),
+    delete: <T>(endpoint: string, options?: RequestInit): Promise<T> => localApi.delete<T>(p(endpoint), options),
+  }
+}
+
+export const gwApi = makeLocalGateway('/gw')
+export const cloudApi = makeLocalGateway('/cloud')
+
+if (typeof window !== 'undefined' && environment === 'electron') {
+  void refreshLocalServerStatus().catch(() => {
+    // Endpoint discovery is best-effort and can be retried by callers.
+  })
+}
+
+/**
+ * Ensures the access token is valid before making a request.
+ * Automatically refreshes the token if it expires in < 5 minutes.
+ *
+ * @returns The current valid access token or null
+ */
+
+// Custom event name for force logout - AuthContext should listen for this.
+// Still exported and still listened for (AuthContext clears its React state on it), but
+// NOTHING in this file dispatches it any more — see `sessionExpiredError` below.
+export const FORCE_LOGOUT_EVENT = 'force-logout'
+
+/**
+ * D2 — an expired session renders a chat bubble with a Sign in button. Nothing may yank
+ * the user to /login mid-generation.
+ *
+ * Both 401 handlers below used to call a `redirectToLogin()` helper that (a) dispatched
+ * `FORCE_LOGOUT_EVENT`, which clears `AuthContext` state and makes `ProtectedRoute`
+ * immediately `<Navigate to='/login'>`, and (b) assigned `location.href` / `location.hash`
+ * directly. Ordinary CRUD issued from the chat screen runs through `apiCall` while a reply
+ * is streaming (cloneConversation, patchConversationProject, model fetches…), and the
+ * auto-compaction path runs through `createStreamingRequest`, so a 401 on any of them threw
+ * the user out of the app mid-reply — precisely what the SSE path was already fixed not to
+ * do (`mainChatClient`, `reauth_required`).
+ *
+ * The classified throw replaces it. `chatErrorCode` and `status` are both read by
+ * `classifyLocalChatError`, so whatever catches this lands on `session_expired` and renders
+ * the bubble; the user chooses when to leave. `Error.message` here is raw technical text and
+ * ends up in `envelope.detail` only — `envelope.userMessage` is the only string a user reads.
+ *
+ * Genuine sign-out is untouched: it goes through `AuthContext.signOut` → `provider.logout()`,
+ * which never involved this helper. No caller in this file needs the hard redirect; if one
+ * ever does, it must be that caller's own explicit decision, not a side effect of a 401.
+ */
+const sessionExpiredError = (source: string): Error => {
+  const error = new Error(`Unauthorized (${source})`)
+  ;(error as Error & { status?: number }).status = 401
+  return attachLocalChatErrorCode(error, 'session_expired')
+}
+
+// Core API utility function - now accepts accessToken as parameter
+export const apiCall = async <T>(endpoint: string, accessToken: string | null, options?: RequestInit): Promise<T> => {
+  assertCloudBackendAllowed(endpoint, 'apiCall')
+
+  // OAuth is injected by the local gateway, never by the renderer.
+  void accessToken
+  const tokenToUse = null
+  const requestStart = Date.now()
+
+  const isFormData = options?.body && typeof FormData !== 'undefined' && options.body instanceof FormData
+
+  // Destructure to separate headers from other options
+  const { headers: optionsHeaders, ...restOptions } = options || {}
+  const method = String(restOptions.method || 'GET').toUpperCase()
+
+  const makeRequest = async (token: string | null) => {
+    return fetch(await buildLocalApiUrl(`${/^(\/conversations|\/projects|\/messages|\/attachments)(\/|\?|$)/.test(endpoint) ? '/gw' : '/cloud'}${endpoint}`), {
+      ...restOptions, // Spread everything EXCEPT headers
+      headers: {
+        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+        ...optionsHeaders, // Spread headers from options
+        ...(token && (environment === 'web' || environment === 'electron') ? { Authorization: `Bearer ${token}` } : {}), // Add Authorization header with JWT in web/electron mode
+      },
+    })
+  }
+
+  const executeRequest = async (token: string | null): Promise<Response> => {
+    try {
+      return await makeRequest(token)
+    } catch (error) {
+      reportNetworkFailure({
+        source: 'apiCall',
+        endpoint,
+        method,
+        durationMs: Date.now() - requestStart,
+        message: getErrorMessage(error),
+      })
+      throw error
+    }
+  }
+
+  let response = await executeRequest(tokenToUse)
+
+  // Handle 401 Unauthorized: Try to refresh token and retry once.
+  // The reason is accumulated rather than thrown inline: the old shape wrapped its own
+  // throws in the same try/catch, so the catch re-swallowed them and every branch collapsed
+  // to one indistinguishable message. Nothing here navigates (D2) — see sessionExpiredError.
+  if (response.status === 401) {
+    throw sessionExpiredError(endpoint)
+  }
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    reportNetworkFailure({
+      source: 'apiCall',
+      endpoint,
+      method,
+      status: response.status,
+      statusText: response.statusText,
+      durationMs: Date.now() - requestStart,
+      message: errorText || response.statusText || `HTTP ${response.status}`,
+    })
+    throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`)
+  }
+
+  return response.json()
+}
+
+// Public cloud API utility for explicitly whitelisted read-only endpoints.
+// This bypasses community-mode cloud blocking and does not perform auth refresh/redirect behavior.
+export const publicApiCall = async <T>(endpoint: string, options?: RequestInit): Promise<T> => {
+  const normalizedEndpoint = assertPublicEndpointAllowed(endpoint, 'publicApiCall')
+  const requestStart = Date.now()
+
+  const isFormData = options?.body && typeof FormData !== 'undefined' && options.body instanceof FormData
+  const { headers: optionsHeaders, ...restOptions } = options || {}
+  const method = String(restOptions.method || 'GET').toUpperCase()
+
+  let response: Response
+  try {
+    response = await fetch(`${API_BASE}${normalizedEndpoint}`, {
+      ...restOptions,
+      headers: {
+        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+        ...optionsHeaders,
+      },
+    })
+  } catch (error) {
+    reportNetworkFailure({
+      source: 'publicApiCall',
+      endpoint: normalizedEndpoint,
+      method,
+      durationMs: Date.now() - requestStart,
+      message: getErrorMessage(error),
+    })
+    throw error
+  }
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    reportNetworkFailure({
+      source: 'publicApiCall',
+      endpoint: normalizedEndpoint,
+      method,
+      status: response.status,
+      statusText: response.statusText,
+      durationMs: Date.now() - requestStart,
+      message: errorText || response.statusText || `HTTP ${response.status}`,
+    })
+    throw new Error(`HTTP ${response.status}: ${errorText || response.statusText}`)
+  }
+
+  return response.json()
+}
+
+// Convenience methods for common HTTP operations
+export const api = {
+  get: <T>(endpoint: string, accessToken: string | null, options?: RequestInit) => {
+    // Log all conversation endpoint calls to track duplicate requests
+    if (endpoint.includes('/conversations') && !endpoint.includes('/messages')) {
+    }
+    return apiCall<T>(endpoint, accessToken, { ...options, method: 'GET' })
+  },
+
+  post: <T>(endpoint: string, accessToken: string | null, data?: any, options?: RequestInit) =>
+    apiCall<T>(endpoint, accessToken, {
+      ...options,
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    }),
+
+  patch: <T>(endpoint: string, accessToken: string | null, data?: any, options?: RequestInit) =>
+    apiCall<T>(endpoint, accessToken, {
+      ...options,
+      method: 'PATCH',
+      body: data ? JSON.stringify(data) : undefined,
+    }),
+
+  put: <T>(endpoint: string, accessToken: string | null, data?: any, options?: RequestInit) =>
+    apiCall<T>(endpoint, accessToken, {
+      ...options,
+      method: 'PUT',
+      body: data ? JSON.stringify(data) : undefined,
+    }),
+
+  delete: <T>(endpoint: string, accessToken: string | null, options?: RequestInit) =>
+    apiCall<T>(endpoint, accessToken, { ...options, method: 'DELETE' }),
+}
+
+// Helper for streaming requests
+// Note: Streaming requests always go to cloud server for LLM generation
+// The storageMode parameter in the request body tells the server whether to save to cloud DB or not
+export const createStreamingRequest = async (
+  endpoint: string,
+  accessToken: string | null,
+  options?: RequestInit
+): Promise<Response> => {
+  assertCloudBackendAllowed(endpoint, 'createStreamingRequest')
+
+  // OAuth is injected by the local gateway, never by the renderer.
+  void accessToken
+  const tokenToUse = null
+  const requestStart = Date.now()
+
+  const isFormData = options?.body && typeof FormData !== 'undefined' && options.body instanceof FormData
+
+  // Destructure to separate headers from other options
+  const { headers: optionsHeaders, ...restOptions } = options || {}
+  const method = String(restOptions.method || 'POST').toUpperCase()
+
+  const makeStreamRequest = async (token: string | null) => {
+    const headers = {
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+      ...optionsHeaders, // Spread the headers from options
+      ...(token && (environment === 'web' || environment === 'electron') ? { Authorization: `Bearer ${token}` } : {}),
+    }
+
+    return fetch(await buildLocalApiUrl(`${/^(\/conversations|\/projects|\/messages|\/attachments)(\/|\?|$)/.test(endpoint) ? '/gw' : '/cloud'}${endpoint}`), {
+      ...restOptions, // Spread everything EXCEPT headers
+      headers, // Set headers separately
+    })
+  }
+
+  const executeStreamRequest = async (token: string | null): Promise<Response> => {
+    try {
+      return await makeStreamRequest(token)
+    } catch (error) {
+      reportNetworkFailure({
+        source: 'createStreamingRequest',
+        endpoint,
+        method,
+        durationMs: Date.now() - requestStart,
+        message: getErrorMessage(error),
+      })
+      throw error
+    }
+  }
+
+  let response = await executeStreamRequest(tokenToUse)
+
+  // Handle 401 Unauthorized: Try to refresh token and retry once.
+  // This is the path auto-compaction takes (`chatActions` → '/generate/ephemeral'), which
+  // runs INSIDE the send flow at ≥85% context — a forced redirect here fired at exactly the
+  // moment D2 was written to prevent. It classifies now; the caller renders the bubble.
+  if (response.status === 401) {
+    throw sessionExpiredError(endpoint)
+  }
+
+  if (!response.ok) {
+    reportNetworkFailure({
+      source: 'createStreamingRequest',
+      endpoint,
+      method,
+      status: response.status,
+      statusText: response.statusText,
+      durationMs: Date.now() - requestStart,
+      message: response.statusText || `HTTP ${response.status}`,
+    })
+  }
+
+  return response
+}
+
+// Specific helpers for conversation system prompt endpoints
+export type SystemPromptGetResponse = { systemPrompt: string | null }
+export type SystemPromptPatchResponse = { id: ConversationId; system_prompt: string | null }
+export type ConversationPatchResponse = {
+  id: ConversationId
+  system_prompt?: string | null
+  conversation_context?: string | null
+}
+export type ConversationContextGetResponse = { context: string | null }
+
+export const getConversationSystemPrompt = (conversationId: ConversationId, accessToken: string | null) =>
+  api.get<SystemPromptGetResponse>(`/conversations/${conversationId}/system-prompt`, accessToken)
+
+export const getConversationContext = (conversationId: ConversationId, accessToken: string | null) =>
+  api.get<ConversationContextGetResponse>(`/conversations/${conversationId}/context`, accessToken)
+
+export const patchConversationSystemPrompt = (
+  conversationId: ConversationId,
+  systemPrompt: string | null,
+  accessToken: string | null
+) =>
+  api.patch<SystemPromptPatchResponse>(`/conversations/${conversationId}/system-prompt`, accessToken, { systemPrompt })
+
+export const patchConversationContext = (
+  conversationId: ConversationId,
+  context: string | null,
+  accessToken: string | null
+) => api.patch<ConversationPatchResponse>(`/conversations/${conversationId}/context`, accessToken, { context })
+
+export const patchConversationResearchNote = (
+  conversationId: ConversationId,
+  researchNote: string | null,
+  accessToken: string | null
+) =>
+  api.patch<ConversationPatchResponse>(`/conversations/${conversationId}/research-note`, accessToken, { researchNote })
+
+export const patchConversationCwd = (conversationId: ConversationId, cwd: string | null, accessToken: string | null) =>
+  api.patch<ConversationPatchResponse>(`/conversations/${conversationId}/cwd`, accessToken, { cwd })
+
+export const patchConversationProject = (
+  conversationId: ConversationId,
+  projectId: string | null,
+  accessToken: string | null
+) => api.patch<ConversationPatchResponse>(`/conversations/${conversationId}/project`, accessToken, { projectId })
+
+export const cloneConversation = (conversationId: ConversationId, accessToken: string | null) =>
+  api.post<{ id: ConversationId; title: string; project_id: ConversationId | null }>(
+    `/conversations/${conversationId}/clone`,
+    accessToken
+  )
+
+// User System Prompts API
+export interface UserSystemPrompt {
+  id: string
+  owner_id: string
+  name: string
+  content: string
+  description?: string | null
+  is_default: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateUserSystemPromptPayload {
+  name: string
+  content: string
+  description?: string | null
+  isDefault?: boolean
+}
+
+export interface UpdateUserSystemPromptPayload {
+  name?: string
+  content?: string
+  description?: string | null
+  isDefault?: boolean
+}
+
+// Phase 5: system prompts are Railway-authoritative — routed through the /api/cloud/*
+// pass-through (server injects the Bearer). The accessToken param is retained but
+// unused so existing call sites need no change.
+export const getUserSystemPrompts = (_accessToken?: string | null) =>
+  cloudApi.get<UserSystemPrompt[]>('/system-prompts')
+
+export const getUserSystemPromptById = (id: string, _accessToken?: string | null) =>
+  cloudApi.get<UserSystemPrompt>(`/system-prompts/${id}`)
+
+export const getDefaultUserSystemPrompt = (_accessToken?: string | null) =>
+  cloudApi.get<UserSystemPrompt | null>('/system-prompts/default')
+
+export const createUserSystemPrompt = (data: CreateUserSystemPromptPayload, _accessToken?: string | null) =>
+  cloudApi.post<UserSystemPrompt>('/system-prompts', data)
+
+export const updateUserSystemPrompt = (id: string, data: UpdateUserSystemPromptPayload, _accessToken?: string | null) =>
+  cloudApi.put<UserSystemPrompt>(`/system-prompts/${id}`, data)
+
+export const setDefaultUserSystemPrompt = (id: string, _accessToken?: string | null) =>
+  cloudApi.patch<UserSystemPrompt>(`/system-prompts/${id}/default`)
+
+export const deleteUserSystemPrompt = (id: string, _accessToken?: string | null) =>
+  cloudApi.delete<{ message: string; id: string }>(`/system-prompts/${id}`)
+
+export const clearDefaultUserSystemPrompt = (_accessToken?: string | null) =>
+  cloudApi.delete<{ message: string }>('/system-prompts/default')
+
+// Stripe Payment API functions
+export interface SubscriptionStatus {
+  tier: 'high' | 'mid' | 'low' | null
+  status: 'active' | 'canceled' | 'past_due' | null
+  currentPeriodEnd: string | null
+  creditsBalance: number
+  stripeCustomerId: string | null
+  stripeSubscriptionId: string | null
+  planCode: string | null
+  planName: string | null
+  monthlyCredits: number
+  cancelAtPeriodEnd: boolean
+}
+
+export interface TierInfo {
+  name: string
+  price: number
+  priceId: string
+  credits: number
+  features: string[]
+}
+
+export interface PricingInfo {
+  tiers: {
+    high: TierInfo
+    mid: TierInfo
+    low: TierInfo
+  }
+}
+
+export interface CheckoutSessionResponse {
+  sessionId: string
+  url: string
+}
+
+export interface CreditTransaction {
+  userId: number
+  amount: number
+  reason: string
+  balanceAfter: number
+  createdAt: string
+}
+
+/**
+ * Create a Stripe Checkout Session for subscription
+ */
+export const createCheckoutSession = async (
+  userId: number,
+  tier: 'high' | 'mid' | 'low',
+  email?: string
+): Promise<CheckoutSessionResponse> => {
+  assertCloudBackendAllowed('/stripe/create-checkout-session', 'createCheckoutSession')
+  // Railway-authoritative via the /api/cloud/* pass-through (server injects the Bearer).
+  return cloudApi.post<CheckoutSessionResponse>('/stripe/create-checkout-session', { userId, tier, email })
+}
+
+/**
+ * Get user's subscription status and credit balance
+ */
+export const getSubscriptionStatus = async (userId: number): Promise<SubscriptionStatus> => {
+  assertCloudBackendAllowed('/stripe/subscription-status', 'getSubscriptionStatus')
+  return cloudApi.get<SubscriptionStatus>(`/stripe/subscription-status?userId=${userId}`)
+}
+
+/**
+ * Cancel user's subscription (at period end)
+ */
+export const cancelSubscription = async (userId: number): Promise<{ success: boolean; message: string }> => {
+  assertCloudBackendAllowed('/stripe/cancel-subscription', 'cancelSubscription')
+  return cloudApi.post<{ success: boolean; message: string }>('/stripe/cancel-subscription', { userId })
+}
+
+/**
+ * Get user's credit transaction history
+ */
+export const getCreditHistory = async (
+  userId: number,
+  limit: number = 100
+): Promise<{ history: CreditTransaction[] }> => {
+  assertCloudBackendAllowed('/stripe/credit-history', 'getCreditHistory')
+  return cloudApi.get<{ history: CreditTransaction[] }>(`/stripe/credit-history?userId=${userId}&limit=${limit}`)
+}
+
+/**
+ * Get pricing information for all subscription tiers
+ */
+export const getPricingInfo = async (): Promise<PricingInfo> => {
+  assertCloudBackendAllowed('/stripe/pricing-info', 'getPricingInfo')
+  return cloudApi.get<PricingInfo>('/stripe/pricing-info')
+}

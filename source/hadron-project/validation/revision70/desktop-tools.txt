@@ -1,0 +1,21 @@
+Full Hadron desktop smoke: C:\Users\rajka\AppData\Local\Temp\hadron-desktop-smoke-h5aBmM
+{
+  "success": true,
+  "createdByAgentA": true,
+  "testedInRealQuickJs": true,
+  "disabledUntilUserReview": true,
+  "sourceReviewBeforeEnable": true,
+  "enabledVersionReusedByAgentB": true,
+  "userDisable": true,
+  "privateConversations": true,
+  "visibleToolActivity": true,
+  "manualToolCreation": true,
+  "manualSandboxTest": true,
+  "manualDraftStillDisabled": true,
+  "ownToolRoot": "C:\\Users\\rajka\\AppData\\Local\\Temp\\hadron-desktop-smoke-h5aBmM\\hadron-tools",
+  "activityLogs": 2,
+  "syntheticModel": true,
+  "realCredentialsUsed": false,
+  "externalRequests": 0,
+  "noGravitonChanges": true
+}

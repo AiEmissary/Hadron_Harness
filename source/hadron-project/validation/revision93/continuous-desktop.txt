@@ -1,0 +1,11 @@
+Full Hadron desktop smoke: C:\Users\rajka\AppData\Local\Temp\hadron-desktop-smoke-ujPM1F
+{
+  "success": true,
+  "twentyAutomaticAlternatingTurns": true,
+  "extendedToFortyTurns": true,
+  "userInjectionAtBoundary": true,
+  "pauseAndStop": true,
+  "threePanePlacement": true,
+  "savedForColdReopen": true,
+  "realProviderRequests": 0
+}

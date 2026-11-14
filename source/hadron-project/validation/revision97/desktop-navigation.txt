@@ -1,0 +1,16 @@
+Full Hadron desktop smoke: C:\Users\rajka\AppData\Local\Temp\hadron-desktop-smoke-ULZr5Z
+{
+  "success": true,
+  "twentyAutomaticAlternatingTurns": true,
+  "extendedToFortyTurns": true,
+  "userInjectionAtBoundary": true,
+  "pauseAndStop": true,
+  "workingIndicatorAndElapsedTime": true,
+  "stoppedTurnNotWaiting": true,
+  "threePanePlacement": true,
+  "savedForColdReopen": true,
+  "sidebarSavedTaskLinks": true,
+  "sidebarSwitchesModeAndTranscript": true,
+  "sameWorkspaceTaskSwitch": true,
+  "realProviderRequests": 0
+}

@@ -1,0 +1,9 @@
+import {useState} from 'react'
+import type {HadronSetupReport} from '../../../../../shared/hadronSetup'
+export function HadronSetup(){
+ const [report,setReport]=useState<HadronSetupReport|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false)
+ const check=async()=>{setBusy(true);setError('');try{setReport(await window.electronAPI.hadronSetup())}catch{setError('Setup check could not finish. Try again.')}finally{setBusy(false)}}
+ return <section aria-label='Hadron setup check' className='mb-5 rounded-xl border p-4'><h2 className='font-semibold'>Setup and optional software</h2><p className='my-2 text-sm'>Hadron includes its application engine, AI connection engines and tools. Sign in to your own provider accounts. An editor such as Visual Studio Code is optional.</p><button type='button' className='rounded-xl border px-3 py-2 text-sm' disabled={busy} onClick={()=>void check()}>{busy?'Checking…':'Check this computer'}</button>
+ {error&&<p role='alert'>{error}</p>}{report&&<><p className='my-2 text-xs'>Hadron {report.version} · {report.packaged?'installed release':'development build'}. No downloads or installations were started.</p><ul className='space-y-3'>{report.items.map(item=><li key={item.id} className='rounded-xl border p-3 text-sm'><strong>{item.name}</strong><p>{item.ready?'Available':item.required?'Missing — repair or reinstall Hadron before using this feature':'Not found on PATH — optional'}</p><p className='mt-1'>{item.detail}</p>{item.download&&!item.ready&&<button type='button' className='mt-2 rounded-lg border px-3 py-2' onClick={()=>void window.electronAPI.auth.openExternal(item.download!).catch(()=>setError('The download page could not open. Stop active project work before opening external links.'))}>Open official download page</button>}</li>)}</ul></>}
+ </section>
+}

@@ -1,0 +1,28 @@
+{
+  "revision": 83,
+  "date": "2026-11-07",
+  "serverTests": {
+    "passed": 12,
+    "failed": 0
+  },
+  "rendererTests": {
+    "passed": 8,
+    "failed": 0
+  },
+  "typechecks": [
+    "renderer",
+    "server",
+    "Electron",
+    "mobile"
+  ],
+  "builds": [
+    "Electron renderer",
+    "main",
+    "mobile"
+  ],
+  "desktop": "passed: two native picker visits retain both source paths and display count2; frozen source workflow, clear/keep, Stop, exact review, saved selection and clean Quit",
+  "realProviderRequests": 0,
+  "projectWrites": 0,
+  "installedGravitonChanges": false,
+  "coldReopen": "passed; both selected paths/count2 persisted; grant expired; zero inference; graceful Quit"
+}

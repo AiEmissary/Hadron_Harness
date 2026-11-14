@@ -1,0 +1,12 @@
+Full Hadron desktop smoke: C:\Users\rajka\AppData\Local\Temp\hadron-desktop-smoke-g8ZXS2
+{
+  "success": true,
+  "oneApprovalBuildTestFix": true,
+  "actualInitialTestFailed": true,
+  "independentRepairReview": true,
+  "actualRepairedTestPassed": true,
+  "actualBuildPassed": true,
+  "repairRounds": 1,
+  "realProviderRequests": 0
+}
+Clean Quit joined project workers, closed the idle socket and released the execution scope.

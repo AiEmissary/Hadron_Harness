@@ -1,0 +1,133 @@
+---
+paths:
+  - "client/ygg-chat-r/server/headlessServer/services/compactionService.ts"
+  - "client/ygg-chat-r/server/headlessServer/services/toolLoopService.ts"
+  - "client/ygg-chat-r/src/features/chats/compactionContext.ts"
+  - "client/ygg-chat-r/src/features/chats/compactionVisibility.ts"
+  - "client/ygg-chat-r/src/features/chats/contextTokenEstimate.ts"
+  - "client/ygg-chat-r/shared/contextTokenEstimate.ts"
+  - "client/ygg-chat-r/server/headlessServer/services/contextStatusTool.ts"
+  - "client/ygg-chat-r/server/context/autoMemory.ts"
+  - "client/ygg-chat-r/server/context/contextLoader.ts"
+  - "client/ygg-chat-r/.ygg/hooks/root_note_stop.py"
+  - "shared/contextUsage.ts"
+---
+
+# Agent Context: Compaction and Memory
+
+Last reviewed: 2026-08-01
+
+## Purpose
+
+Documents context compaction, note-summary search, cwd-based Markdown auto-memory, and related persistence surfaces used to keep agent context useful across long conversations.
+
+Scope note: after the headless thin-client migration, the MAIN chat agent loop (and its in-loop auto-compaction) runs SERVER-SIDE in the local headless Express server (`127.0.0.1:3002`, inside the Electron main process). This doc is Electron-only; web mode is not a target.
+
+## When to Open This File
+
+Use this when changing:
+- conversation/context compaction prompts, summaries, or the in-loop compaction trigger;
+- root-note hook behavior or cwd-based Markdown auto-memory;
+- note-memory search, storage, or injection into agent context;
+- server-side context/token estimation used to decide when to compact;
+- agent context files that refer to compaction or memory workflows.
+
+## Where compaction runs (post-migration)
+
+- IN-LOOP (auto) compaction is SERVER-OWNED. It fires inside the tool loop, not the renderer. `client/ygg-chat-r/server/headlessServer/services/toolLoopService.ts` `ToolLoopService.run` evaluates compaction at a quiescent turn boundary (every requested tool has executed once and its result is durable). When it decides to compact it calls `this.compactBranch(...)`, which `ChatOrchestrator` wires to `CompactionService.compactBranch` (`client/ygg-chat-r/server/headlessServer/index.ts` builds `CompactionService` and passes `compactBranch: input => compactionService.compactBranch(input)`).
+- MANUAL compaction (the UI "compact" button) dispatches the renderer `compactBranch` thunk, but the thunk is now a thin client for `POST /api/conversations/:id/compact`. `CompactionService.compactBranch` generates and persists the summary before the renderer receives or exposes its server-assigned ID.
+- The renderer also keeps a PRE-BRANCH auto-compaction precheck inside `editMessageWithBranching` (`chatActions.ts`): if branch context ≥85%, it dispatches the same thin-client `compactBranch` thunk before sending the branch.
+- The renderer no longer imports `resolveOpenAIContinuationCompaction` or otherwise orchestrates in-loop compaction (grep-confirmed: zero hits in `src`).
+
+## Shared meter and branch context tool
+
+- `client/ygg-chat-r/shared/contextTokenEstimate.ts` owns the existing `tokenx` meter calculation, image-payload redaction, latest OpenAI usage selection, and `calculateBranchContextUsage`. The renderer's `src/features/chats/contextTokenEstimate.ts` re-exports these helpers for existing imports; `Chat.tsx` uses the shared branch calculation without changing the bar's behavior.
+- `context_status` uses the same calculation with the calling run's active history, ignoring duplicate standalone tool rows and respecting compaction. Main chat passes the same project/conversation prompts as the UI meter; direct/subagent callers fall back to their runtime prompts. The tool returns only `remainingTokens`, whole-number `remainingPercent` (rounded), and a brief approximation note. It uses provider-resolved context length (or the meter's 128,000 fallback for other providers), never credits. Reported OpenAI usage remains a latest-request snapshot, not a live tokenizer count.
+- The server's continuation-compaction projection below is unchanged; the context tool is a gauge, not a replacement compaction policy.
+
+## Server-side context/token estimation
+
+The in-loop compaction decision is computed server-side:
+- `shared/contextUsage.ts` (repo root, imported by the server loop): `resolveOpenAIContinuationCompaction`, `openAIModelContextLength`, `extractOpenAIContextUsageFromBlocks`, `shouldCompactAtPercent`, `isOpenAIProvider`.
+- In `toolLoopService.ts`: `projectedReplayTokens` (char/4 heuristic over system prompt + conversation/project context + full history) and `usageFromMessage` (reads provider-reported `context_usage` or extracts it from content blocks).
+- Decision (`resolveOpenAIContinuationCompaction`): `effectiveTokens = max(reportedTokens, projectedTokens)`; compact iff `enabled !== false` AND `isOpenAIProvider(provider)` AND `contextLength > 0` AND `effectiveTokens ≥ thresholdPercent% of contextLength` (default `thresholdPercent = 85`). So in-loop auto-compaction only fires for the OpenAI-family provider route.
+- Compaction knobs travel on the request contract (`shared/headlessApi.ts`: `autoCompactionEnabled`, `contextLength`, `compactionThresholdPercent`, `compactionProvider`, `compactionModelName`, `compactionSystemPrompt`) and are threaded through `ChatOrchestrator` into `ToolLoopRunInput`. The renderer forwards its auto-compaction setting plus the effective context length. OpenAI (ChatGPT) ignores per-model context metadata here and uses the global `openAiChatGptMaxContextTokens` provider setting (default 258,000); Electron mirrors it to `YGG_OPENAI_CHATGPT_MAX_CONTEXT_TOKENS` so direct/mobile/subagent server calls that omit `contextLength` use the same value; desktop requests carry the current value explicitly to avoid a storage-mirror race immediately after a settings change. Other providers keep their selected model context length. Threshold defaults to 85; compaction provider/model fall back to the turn's provider/model.
+- Estimation is validated by `client/ygg-chat-r/server/headlessServer/providers/__tests__/contextTokenEstimate.test.ts`, which exercises `estimateContentBlocksForContext` (image-payload redaction) and `openAIContextUsageHistory` (ordered branch snapshots, dedup of duplicate provider response IDs) from `client/ygg-chat-r/src/features/chats/contextTokenEstimate.ts`.
+
+## Key Files
+
+- `client/ygg-chat-r/.ygg/hooks/root_note_stop.py`: async Stop hook that updates root-note style conversation memory.
+- `client/ygg-chat-r/server/context/autoMemory.ts` and `contextLoader.ts`: resolve memory from chat cwd/nearest Git root, inject `MEMORY.md` (first 200 lines / 25 KB), and reload after compaction. Fact files are read/edited through ordinary file tools. No project-name/ID-based memory store or background fact writer.
+- `client/ygg-chat-r/.ygg/settings.local.json`: bundled hook settings copied into managed user-data hooks.
+- `client/ygg-chat-r/server/hooks/hookRunner.ts`: hook loading, execution, and model feedback handling; now invoked IN-PROCESS by the server loop (wired as `hookRunner: runHookRequest` in `server/headlessServer/index.ts`).
+- `client/ygg-chat-r/server/hooks/hookStorage.ts`: bundled-to-managed hook initialization and settings storage.
+- `client/ygg-chat-r/server/headlessServer/services/chatHookService.ts`: runs Ygg hooks in-process at the loop's lifecycle points, including the root-note Stop hook. Markdown auto-memory injection is independent of hooks.
+- `client/ygg-chat-r/server/headlessServer/services/toolLoopService.ts`: server chat/tool loop; owns the in-loop auto-compaction trigger (`ToolLoopService.run`) and the server-side token projection (`projectedReplayTokens`, `usageFromMessage`).
+- `client/ygg-chat-r/server/headlessServer/services/compactionService.ts`: `CompactionService` — headless summary generation (`generateCompactionSummary`), bounded tool-context / write-op serialization, and summary persistence (`compactBranch`). `AUTO_COMPACTION_NOTE = '__auto_compaction_summary__'` marker + resume-line prefix (`ensureCompactionSummaryResumeLine`).
+- `client/ygg-chat-r/server/headlessServer/services/chatOrchestrator.ts`: wires `compactBranch` to `CompactionService.compactBranch` and threads the compaction knobs into `ToolLoopRunInput`.
+- `client/ygg-chat-r/server/headlessServer/index.ts`: constructs `CompactionService` and the `ChatOrchestrator`; registers chat routes with the compaction service.
+- `client/ygg-chat-r/server/headlessServer/routes/chatRoutes.ts`: `POST /api/conversations/:id/compact` manual-compaction route → `compactionService.compactBranch`.
+- `shared/contextUsage.ts`: server-side compaction/token decision helpers (`resolveOpenAIContinuationCompaction`, `openAIModelContextLength`, `extractOpenAIContextUsageFromBlocks`, `shouldCompactAtPercent`, `isOpenAIProvider`).
+- `client/ygg-chat-r/src/helpers/providerSettingsStorage.ts`: stores and normalizes the global ChatGPT max-context override; `Settings.tsx`, Chat token meters/prechecks, request construction, and Electron's mirrored server fallback all consume it.
+- `client/ygg-chat-r/src/features/chats/contextTokenEstimate.ts`: token/content-block estimation helpers (`estimateContentBlocksForContext`, `openAIContextUsageHistory`, `safeEstimateTokenCount`); validated by the server-side test above and used by the renderer for its pre-branch token precheck.
+- `client/ygg-chat-r/src/features/chats/chatActions.ts`: thin-client chat pipeline. Its `compactBranch` thunk calls the server compact route and only projects the returned persisted row after success.
+- `client/ygg-chat-r/src/features/chats/compactionContext.ts`: retained renderer compaction serialization helpers; server-owned compaction uses the equivalent implementation in `compactionService.ts`.
+- `docs/agent_context/agent_hooks_system.md`: hook lifecycle and execution-mode context.
+
+## Important Invariants
+
+- In-loop auto-compaction runs server-side inside `ToolLoopService.run` at a quiescent turn boundary; the renderer no longer orchestrates it. Missing `compactBranch` or a compaction failure emits `context_compaction { status: 'failed' }` and throws (the orchestrator records `endReason: 'error'` with code `compaction_failed`).
+- In-loop auto-compaction fires only for the OpenAI-family provider route (`isOpenAIProvider`) and only when `effectiveTokens ≥ thresholdPercent%` of `contextLength`; it defaults ON only when `autoCompactionEnabled` is omitted. Desktop requests forward the setting, including `false`, plus effective context length.
+- On a successful in-loop compaction the loop validates the persisted marker (`role: 'system'`, `note: '__auto_compaction_summary__'`, `parent_id === assistantMessage.id`), resets `history = [summaryMessage]`, and emits `context_compaction { status: 'completed', summaryMessage }`. On later runs, `ChatOrchestrator` and `ToolLoopService` both trim persisted lineage to the newest summary before provider replay; pre-summary rows remain in SQLite for tree/history navigation only.
+- The renderer projects `context_compaction.completed` into Redux as the summary branch message. Its context meter counts the selected path from that marker onward, so it immediately reflects the compacted replay context rather than the retained historical ancestry.
+- Compaction replaces pre-marker protocol history with a synthetic system summary. Before trimming, completed non-write tool calls are paired to results by call ID and included as a bounded tool-context appendix in both the summarizer prompt and persisted summary.
+- Subagent tool results are preserved through the same appendix with a larger per-result allowance (`MAX_SUBAGENT_RESULT_CHARS`); workspace mutation tools (`edit_file`, `multi_edit`, `create_file`, `delete_file`) retain their specialized exact-arguments appendix.
+- Stop-hook memory updates now fire via the server loop's Stop lifecycle point (`chatHookService.runStop` → `hookRunner.runHookRequest`), not the renderer. They should not block normal chat completion unless explicitly configured as synchronous.
+- Hook prompts should judge whether memory is worth updating; avoid writing noisy or duplicate memory.
+- Memory hooks should emit stable JSON responses when they need to feed context back to the model.
+- Managed hook settings must remain valid JSON because hook discovery parses them on every hook request.
+- Agent context indexes should only point to files that exist, or clearly mark unavailable future docs.
+
+## Gotchas
+
+- The legacy global/recent/project aggregate-memory APIs, browser, tool, renderer token accounting, and long-term-memory Stop hook are removed. Existing Markdown data is preserved, not automatically mapped by project name. Migrate reviewed facts to the resolved cwd-based memory directory and link them in `MEMORY.md`; use `autoMemoryDirectory` to explicitly share across repositories.
+- In-loop, manual, pre-send, and pre-branch compaction all persist through `CompactionService.compactBranch`; the renderer thunk must never mint or expose a summary ID before that route succeeds.
+- Packaged Electron seeds missing bundled `.ygg` hook scripts and settings into the user-data `.ygg` directory. Existing files are preserved, so bundled model changes do not automatically update installed hooks.
+- Root-note hooks run from the managed hooks working directory, so relative paths should be written with that runtime cwd in mind. Note summaries and their embedding index are independent of Markdown auto-memory.
+
+## Testing and Validation
+
+- Validate hook settings JSON: `python3 -m json.tool client/ygg-chat-r/.ygg/settings.local.json`.
+- Build Electron/server code after storage/runner/loop changes: `npm --prefix client/ygg-chat-r run build:electron`.
+- Manually trigger several Stop hooks in quick succession and confirm no settings JSON parse warnings appear.
+- Run the server-side context/token estimation test: it validates image-payload redaction and context-usage ordering used by the compaction decision (`client/ygg-chat-r/server/headlessServer/providers/__tests__/contextTokenEstimate.test.ts`).
+- Run headless compaction/tool-loop tests and verify read-tool and subagent results appear in both the summarizer input and persisted summary.
+- Verify this file remains listed in `docs/agent_context/AGENT.md` and exists in `docs/agent_context/`.
+
+## Related Docs
+
+- `agent_hooks_system.md`
+- `agent_chat_pipeline.md`
+- `agent_project_overview.md`
+
+## Compaction cancellation
+
+- Standalone `compactBranch` owns a renderer abort controller keyed by conversation and parent message; unlike in-loop compaction it has no SSE stream slot. Composition state captures its selected lineage at start. `compactionVisibility.ts` gates animation, send blocking, and Stop by conversation plus exact lineage (or the owning branch tip for legacy paths), not conversation-wide state or shared ancestor membership. The brief completion presentation is branch-scoped and tolerates only its own returned summary/mode-marker path extension; sibling summaries are not interchangeable. In-loop indicators use the branch-selected stream, never the pending conversation-only startup fallback. Standalone requests remain serialized while composition has a single owner; summary marker rendering stays intentionally unchanged.
+- Stop cancels the compact HTTP request. The compact route aborts its provider signal on an unfinished response close; unlike resumable chat SSE, this standalone JSON request is disconnect-cancelled.
+- In-loop and subagent compactors forward the owning run signal to the summarizer. Abort is not wrapped as `compaction_failed`.
+- The summary service checks cancellation before generation and after provider completion, before persistence, so late provider success cannot install an aborted context boundary.
+- Regression tests: `compactionVisibility.test.ts` (branch switching, shared ancestors, completion ownership), `compactionCancellation.test.ts`, `chatRoutes.test.ts`, and `compactionService.test.ts`.
+
+## Ordinary-turn compaction (2026-10-14)
+
+This section supersedes the separate summariser/system-marker generation described above. `ToolLoopService` now persists a `compaction_instruction` user row at a settled boundary and generates a normal assistant response in the same run/session, retaining model, tools, prompts, hooks and permissions. Tool calls during summarisation execute normally. Ordinary queued input waits until commit; mode dispatch policy remains live.
+
+`shared/compaction.ts` recognises committed assistant metadata and legacy system markers. The final response and deterministic tool/write appendices are persisted together through the message sink before replay trimming. Summary-request usage remains available for statistics but is excluded from post-boundary context accounting. Cancelled/empty/failed summaries do not become boundaries; abandoned instruction rows are filtered on subsequent normal runs. Main and child transcripts use the same loop; child metadata is durable via migration v6.
+
+Automatic thresholds apply to all providers, default to 85%, and are configurable from 1–95%. Limits and estimates—not credits—drive the decision. `/compact` (`/compactify` alias) is idle-only and uses the normal streaming send path, ending after the summary. Automatic interrupted work resumes through a tagged user continuation. Renderer pre-send/edit compaction requests and separate provider/model overrides are retired. The compatibility `/compact` endpoint now returns normal SSE, not the old JSON summary response.
+
+Validation: `normalTurnCompaction.test.ts`, deterministic `compactionService.test.ts`, queue/mode/child/route tests, renderer cancellation/projection tests; build both Electron renderer and main.
+
+### Compaction presentation
+
+Ordinary-turn generation does not imply ordinary-turn display. The renderer suppresses live summary text/reasoning/tool chunks while the owning stream has `compactionStatus: started`, retaining the existing compaction animation and permission/clarification handling. Persisted intermediate and cancelled responses retain `compactionPhase: summarising` metadata and are not rich chat bubbles. Committed assistant summaries use the same `SummarisedMessage` notice as legacy summaries; canonical content/blocks remain unchanged. Heimdall's default scaffolding filter promotes compaction instructions, resumes and responses (including legacy summaries); disabling the filter exposes only safe placeholder previews, never raw summary payloads. The slash menu advertises `/compact` only; typed `/compactify` remains a compatibility alias.

@@ -1,0 +1,28 @@
+{
+  "success": true,
+  "realWheelDown": true,
+  "realWheelUp": true,
+  "visibleScrollbar": true,
+  "persistentNavigation": true,
+  "sectionJumpAndReturn": true,
+  "keyboardEnd": true,
+  "backToTop": true,
+  "hiddenShellNotScrolled": true,
+  "viewport": {
+    "width": 1100,
+    "height": 700
+  },
+  "expandedAppearance": true,
+  "geometry": {
+    "x": 24,
+    "y": 460,
+    "height": 480,
+    "total": 3122,
+    "gutter": 15,
+    "navTop": 40,
+    "navBottom": 220,
+    "bottom": 700,
+    "viewport": 700
+  },
+  "realProviderRequests": 0
+}

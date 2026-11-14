@@ -1,0 +1,48 @@
+{
+  "dataDir": "C:\\Users\\rajka\\AppData\\Local\\Temp\\hadron-startup-xfk4Hh",
+  "electron": "38.8.4",
+  "pid": 88352,
+  "health": {
+    "status": "ok",
+    "mode": "local-sync",
+    "pid": 88352
+  },
+  "port": 50316,
+  "genericUnownedStreamStatus": 410,
+  "disabledCollaborationStatuses": [
+    401,
+    401,
+    401,
+    401,
+    401,
+    401,
+    401
+  ],
+  "disabledIndependentJobStatuses": [
+    401,
+    401,
+    401,
+    401,
+    401,
+    401,
+    401,
+    401,
+    401
+  ],
+  "schemaVersion": 9,
+  "tables": [
+    {
+      "name": "hadron_independent_jobs"
+    },
+    {
+      "name": "hadron_participants"
+    },
+    {
+      "name": "hadron_sessions"
+    }
+  ],
+  "restartRecovery": true,
+  "shutdown": "closed",
+  "success": true,
+  "blockedNetwork": []
+}

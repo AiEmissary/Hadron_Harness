@@ -1,0 +1,56 @@
+# AI Model files (downloaded at runtime)
+client/ygg-chat-r/public/models/
+client/ygg-chat-r/public/openwakeword/
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temporary files
+*.tmp
+.temp/
+
+# Generated Electron build artifacts
+client/ygg-chat-r/main.mjs
+client/ygg-chat-r/main.mjs.map
+client/ygg-chat-r/electron/main.mjs
+client/ygg-chat-r/electron/main.mjs.map
+client/ygg-chat-r/electron/preload.mjs
+client/ygg-chat-r/electron/preload.mjs.map
+client/ygg-chat-r/electron/toolRuntimeUtility.mjs
+client/ygg-chat-r/electron/toolRuntimeUtility.mjs.map
+client/ygg-chat-r/electron/headlessServer/ui/mobile/assets/mobile-app.js
+client/ygg-chat-r/electron/headlessServer/ui/mobile/assets/mobile-app.js.map

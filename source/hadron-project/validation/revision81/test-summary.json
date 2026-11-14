@@ -1,0 +1,39 @@
+{
+  "revision": 81,
+  "date": "2026-11-07",
+  "server": {
+    "passed": 444,
+    "failed": 0,
+    "skipped": 5
+  },
+  "renderer": {
+    "passed": 1177,
+    "failed": 0,
+    "skipped": 1
+  },
+  "checks": [
+    "server/Electron/mobile typechecks",
+    "Electron renderer/main/mobile builds",
+    "project/standard/corrupt execution/corrupt optional draft storage cold starts",
+    "native three-pane proposals/diffs/Stop/files/saved selection",
+    "cold saved proposal reopen without inference",
+    "clean Quit with unregistered idle WebSocket"
+  ],
+  "realProviderRequests": 0,
+  "projectEdits": 0,
+  "projectCommands": 0,
+  "installedGravitonChanges": false,
+  "userAppRestarts": false,
+  "realSubscriptionPreviewAcceptance": "pending",
+  "editingEnabled": false,
+  "continuousChat": "requested; planned in CONTINUOUS_CHAT_PLAN.md",
+  "diagnostics": [
+    "Earlier bridge VM fixtures needed host mock after new IPC registration; final suite passes.",
+    "One earlier desktop placement check observed collapsed Agents pane; final fresh full run and cold reopen pass."
+  ],
+  "limits": [
+    "synthetic picker/provider; actual native worker/UI/storage",
+    "previous-process unlock and canonical native apply not enabled",
+    "advanced metadata and remaining competing paths still gate writes"
+  ]
+}

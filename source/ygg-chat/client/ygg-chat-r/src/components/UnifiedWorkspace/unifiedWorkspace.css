@@ -1,0 +1,100 @@
+.hadron-v2-workspace,.hadron-v2-workspace *{box-sizing:border-box}
+.hadron-v2-workspace :where(button){font:inherit;border:0;background:transparent;color:inherit;cursor:pointer}
+.hadron-v2-workspace{display:grid;grid-template-columns:minmax(300px,1.08fr) minmax(280px,1fr);gap:6px;height:100%;min-height:0;width:100%;color:inherit}
+.hadron-v2-chat,.hadron-v2-tree{position:relative;background:var(--chat-surface-background,#fafafa);border-radius:12px;min-height:0;min-width:0;overflow:hidden}
+.hadron-v2-chat{display:flex;flex-direction:column}
+.hadron-v2-transcript{flex:1;min-height:0;overflow:auto;padding:22px 22px 14px;scrollbar-gutter:stable}
+.hadron-v2-message{position:relative;margin:0 0 20px;padding:12px 14px;border-radius:12px;font-size:14px;line-height:1.65}
+.hadron-v2-message.user{background:#f2f3f4}.hadron-v2-message small{display:block;color:#67657e;font-size:11px;margin-bottom:5px;font-weight:600}
+.hadron-v2-message-text{white-space:pre-wrap;overflow-wrap:anywhere}.hadron-v2-message-actions{position:absolute;right:5px;top:-14px;display:flex;gap:4px;align-items:center;background:var(--chat-surface-background,#fff);border:0;border-radius:20px;padding:3px 7px;opacity:0;pointer-events:none;z-index:2;font-size:10px}
+.hadron-v2-message:hover .hadron-v2-message-actions,.hadron-v2-message:focus-within .hadron-v2-message-actions{opacity:1;pointer-events:auto}
+.hadron-v2-message-actions>button{padding:5px;border-radius:50%}.hadron-v2-message-actions button:hover{background:#edf1f4}
+.hadron-v2-message-menu,.hadron-v2-attachment-menu{position:absolute;right:0;bottom:100%;padding:6px;border:0;border-radius:12px;background:#fff;z-index:5;min-width:190px;font-size:12px}
+.hadron-v2-message-menu{top:100%;bottom:auto}.hadron-v2-message-menu button,.hadron-v2-attachment-menu button{display:block;width:100%;text-align:left;padding:8px;border-radius:6px}
+.hadron-v2-composer{padding:10px 18px 12px;flex-shrink:0;position:relative}
+.hadron-v2-composer>textarea{width:100%;display:block;min-height:54px;max-height:180px;resize:vertical;border:0;border-radius:22px;padding:14px 16px;background:#f6f7f8;font:inherit;font-size:13px;outline:none}
+.hadron-v2-composer>textarea:focus{background:#eef3f8}.hadron-v2-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:7px;min-height:38px}
+.hadron-v2-model-strip{min-width:0;flex:1;text-align:left;border-radius:24px;background:#f2f4f6;padding:11px 14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
+.hadron-v2-toolbar-actions{display:flex;align-items:center;gap:5px;flex-shrink:0}.hadron-v2-toolbar-actions>button,.hadron-v2-setup-anchor>button{display:flex;align-items:center;justify-content:center;padding:7px;border-radius:18px}
+.hadron-v2-toolbar-actions>button:first-child{font-size:11px;padding:8px 10px}.hadron-v2-setup-anchor{position:relative;display:flex}
+.hadron-v2-send{background:#dfe3e7}.hadron-v2-send:disabled{opacity:.4}.hadron-v2-send:not(:disabled):hover{background:#c8dcec}
+.hadron-v2-menu{position:absolute;right:0;bottom:calc(100% + 12px);width:min(340px,calc(100vw - 55px));max-height:min(650px,76vh);overflow-y:auto;background:#fff;border:0;border-radius:15px;padding:15px;z-index:20;font-size:12px;box-shadow:0 6px 22px #15233216}
+.hadron-v2-menu label{display:block;margin-bottom:10px}.hadron-v2-menu select,.hadron-v2-menu input{display:block;width:100%;padding:7px 9px;border:0;border-radius:8px;margin-top:4px;background:#f3f5f7;font:inherit}
+.hadron-v2-menu fieldset{border:0;padding:8px 0 0;margin-top:10px;border-top:0}.hadron-v2-menu legend{font-weight:600;padding-right:8px}
+.hadron-v2-choice{display:flex;gap:6px;margin:8px 0}.hadron-v2-choice button{flex:1;padding:7px 9px;border:0;border-radius:9px}.hadron-v2-choice button[aria-pressed=true]{background:#dce9f5}
+.hadron-v2-choice button:disabled,.hadron-v2-menu select:disabled{opacity:.5}.hadron-v2-hint{font-size:11px;color:#727984;line-height:1.5}.hadron-v2-turn-limit{padding:9px;background:#f5f7fa;border-radius:9px}.hadron-v2-connections{border:0;padding-top:10px}
+.hadron-v2-folder{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:#737b84;padding:0 9px 5px}.hadron-v2-inline-error{font-size:12px;margin-bottom:7px;color:#984820}.hadron-v2-working{display:inline-flex;gap:6px;align-items:center;font-size:11px;color:#66758a}.hadron-v2-working:before{content:'';width:8px;height:8px;border-radius:50%;background:#6e93b6;animation:hadron-v2-pulse 1.2s infinite}
+.hadron-v2-empty{height:100%;min-height:200px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;text-align:center;color:#999;padding:24px}.hadron-v2-empty h2{font-size:15px;color:#333;font-weight:600}.hadron-v2-empty p{font-size:12px;max-width:280px;line-height:1.6;color:#7b7b7b}.hadron-v2-empty button{font-size:12px;padding:7px 12px;color:#555;border:0;border-radius:8px}
+.hadron-v2-tree-scroll{height:100%;width:100%;overflow:auto;padding:36px 20px}.hadron-v2-tree-scroll>svg{display:block;min-width:100%;margin:auto}.hadron-v2-tree-node{color:white;width:156px;height:66px;padding:8px 10px;border-radius:15px;text-align:left;font-size:10px;line-height:1.4;overflow:hidden;overflow-wrap:anywhere;border:0}.hadron-v2-tree-node[aria-pressed=true]{filter:brightness(.88);font-weight:700}
+.hadron-v2-latest{position:absolute;bottom:128px;right:30px;padding:8px;border-radius:50%;background:#fff;border:0;z-index:2}
+@keyframes hadron-v2-pulse{50%{opacity:.3}}
+@media(prefers-reduced-motion:reduce){.hadron-v2-working:before{animation:none}}
+.dark .hadron-v2-chat,.dark .hadron-v2-tree{background:#202329}.dark .hadron-v2-message.user,.dark .hadron-v2-composer>textarea,.dark .hadron-v2-model-strip{background:#2a2e35;color:#e2e5e9}.dark .hadron-v2-menu,.dark .hadron-v2-message-actions,.dark .hadron-v2-message-menu,.dark .hadron-v2-attachment-menu{background:#292e35;color:#e4e7ec}.dark .hadron-v2-empty h2{color:#e1e3e6}
+@media(max-width:760px){.hadron-v2-workspace{grid-template-columns:minmax(230px,1.15fr) minmax(180px,1fr)}.hadron-v2-transcript{padding:15px 8px}.hadron-v2-composer{padding:8px}.hadron-v2-toolbar{gap:4px}.hadron-v2-toolbar-actions{gap:1px}}
+
+.hadron-v2-tree-item{position:relative;width:160px;height:74px}
+.hadron-v2-tree-item:hover .hadron-v2-message-actions,.hadron-v2-tree-item:focus-within .hadron-v2-message-actions{opacity:1;pointer-events:auto}
+.hadron-v2-tree-item .hadron-v2-message-actions{top:-27px;right:0;white-space:nowrap;width:max-content;max-width:350px}
+.hadron-v2-tree-item[data-search-match=true]>.hadron-v2-tree-node{filter:brightness(1.15);text-decoration:underline}
+.hadron-v2-search{position:absolute;right:18px;top:12px;z-index:3;width:155px;border:0;border-radius:18px;padding:8px 12px;background:var(--chat-surface-background,#fff);color:inherit;font:inherit;font-size:11px}
+.hadron-v2-tree-scroll{padding-top:60px}.hadron-v2-tree-scroll>svg{user-select:none;touch-action:none}
+
+.hadron-v2-choice button{background:#f1f3f5}
+.hadron-v2-message-actions{box-shadow:0 3px 12px #1523320d}
+.hadron-v2-message-menu button:hover,.hadron-v2-attachment-menu button:hover{background:#f0f3f6}
+.hadron-v2-workspace button:focus-visible{outline:0;background-color:#dce9f5}
+.hadron-v2-tree-node:focus-visible{filter:brightness(.8)}
+.hadron-v2-not-finished{display:inline-block;margin-top:8px;padding:5px 10px;border-radius:8px;background:var(--hp-soft,#eaf3fa);color:var(--hp-ink,#294253);font-size:13px;line-height:1.5;font-weight:700}
+.hadron-v2-menu input:focus,.hadron-v2-menu select:focus{outline:0;background:#e8eff6}
+.dark .hadron-v2-choice button,.dark .hadron-v2-menu select,.dark .hadron-v2-menu input{background:#333942}
+.dark .hadron-v2-choice button[aria-pressed=true]{background:#4b627b}
+
+.hadron-v2-help{margin:auto;width:min(900px,94vw);max-height:88vh;overflow-y:auto;border:0;border-radius:22px;background:#fafafa;color:#263441;padding:28px;font:14px/1.7 Arial,sans-serif;box-shadow:0 14px 60px #15233220}
+.hadron-v2-help::backdrop{background:#1d27383b}.hadron-v2-help header{display:flex;align-items:center;justify-content:space-between;gap:18px}
+.hadron-v2-help h1{font-size:24px;margin:0;font-weight:600}.hadron-v2-help h2{font-size:16px;font-weight:600;margin:0 0 8px}.hadron-v2-help section{margin-top:26px}
+.hadron-v2-help header button{border:0;border-radius:50%;padding:9px;background:#edf1f5;display:flex;color:inherit;cursor:pointer}
+.hadron-v2-help-flow{display:flex;flex-wrap:wrap;gap:7px;list-style:none;padding:0}.hadron-v2-help-flow li{display:flex;align-items:center;gap:7px;font-size:12px}.hadron-v2-help-flow li span{background:#edf2f7;padding:9px 12px;border-radius:10px}
+.dark .hadron-v2-help{background:#242930;color:#e1e7ee}.dark .hadron-v2-help-flow li span,.dark .hadron-v2-help header button{background:#34404d}
+.hadron-v2-message-note{margin-top:10px;padding:8px 11px;background:#f3efdb;border:0;border-radius:9px;font-size:12px}.dark .hadron-v2-message-note{background:#484330}
+
+.hadron-v2-context-menu {position:fixed;z-index:10000;width:256px;max-height:calc(100vh - 16px);overflow-y:auto;box-sizing:border-box;padding:8px;border:0;border-radius:14px;background:var(--hadron-surface,#fff);color:var(--hadron-text,#24343e);box-shadow:0 12px 40px #18263625;font:14px Arial,sans-serif}
+.hadron-v2-context-menu button {display:block;width:100%;padding:9px 12px;border:0;border-radius:8px;background:transparent;color:inherit;text-align:left;cursor:pointer;font:inherit}
+.hadron-v2-context-menu button:hover,.hadron-v2-context-menu button:focus-visible {background:#5385ac1a;outline:none}
+@media (prefers-color-scheme:dark) {.hadron-v2-context-menu {background:#25313a;color:#edf2f5}}
+
+.hadron-v2-destination {border:0;border-radius:20px;background:var(--chat-surface-background,#fff);color:inherit;padding:26px;width:min(460px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;box-sizing:border-box;box-shadow:0 20px 70px #18263625;font:14px Arial,sans-serif}
+.hadron-v2-destination::backdrop {background:#15232e44}
+.hadron-v2-destination h2 {margin-top:0}.hadron-v2-destination p {line-height:1.5}
+.hadron-v2-destination label {display:block;margin:16px 0}
+.hadron-v2-destination input,.hadron-v2-destination select {display:block;box-sizing:border-box;width:100%;margin-top:6px;padding:11px 12px;background:#f1f4f7;border:0;border-radius:10px;font:inherit;color:inherit}
+.hadron-v2-destination button {padding:10px 16px;border:0;border-radius:12px;font:inherit;background:#e7eef6;color:inherit;cursor:pointer}.hadron-v2-destination button:disabled {opacity:.55;cursor:default}
+.hadron-v2-destination footer {display:flex;gap:8px;justify-content:flex-end;margin-top:22px}
+.hadron-v2-destination :focus-visible {outline:2px solid #6d9ec7;outline-offset:2px}
+
+.hadron-v2-menu .border,.hadron-v2-attachment-dialog .border,.hadron-desktop-workspace .hadron-v2-attachments .border {border-width:0}
+.hadron-v2-attachment-dialog {border:0}
+.hadron-desktop-workspace {width:100%}
+
+html[data-hadron-palette] body.hadron-app .hadron-desktop-workspace button {box-shadow:none!important;border:0!important}
+html[data-hadron-palette] body.hadron-app .hadron-desktop-workspace .hadron-v2-tree-node:not(:disabled):not([aria-disabled='true']) {background:var(--branch-color)!important;color:white!important}
+.hadron-desktop-workspace :is(.hadron-v2-chat,.hadron-v2-tree,.hadron-v2-menu) {background:var(--hp-panel,var(--chat-surface-background,#fafafa));color:var(--hp-ink,inherit)}
+.hadron-desktop-workspace .hadron-v2-composer>textarea,.hadron-desktop-workspace .hadron-v2-menu :is(input,select) {background:var(--hp-soft,#f1f4f7);color:var(--hp-ink,inherit)}
+html.dark .hadron-desktop-workspace :is(.hadron-v2-chat,.hadron-v2-tree,.hadron-v2-menu) {background:var(--hp-dark-panel,#20262c);color:var(--hp-dark-ink,#eef2f5)}
+html.dark .hadron-desktop-workspace .hadron-v2-composer>textarea,html.dark .hadron-desktop-workspace .hadron-v2-menu :is(input,select) {background:var(--hp-dark-soft,#2c343d);color:var(--hp-dark-ink,#eef2f5)}
+
+html[data-hadron-palette] body.hadron-app :is(.hadron-v2-destination,.hadron-v2-context-menu,.hadron-v2-help) button {border:0!important;box-shadow:none!important}
+
+body.hadron-app .hadron-desktop-workspace .hadron-v2-tree-node:not(:disabled):not([aria-disabled='true']) {background:var(--branch-color)!important;color:white!important;border:0!important;box-shadow:none!important;border-radius:15px!important}
+body:has(.hadron-desktop-workspace) {background:var(--hp-bg,#eef1f4)!important;color:var(--hp-ink,#283c4a)}
+body:has(.hadron-desktop-workspace) .titlebar {background:var(--hp-soft,#eef1f4)!important;color:var(--hp-ink,#283c4a);backdrop-filter:none!important;border:0}
+html.dark body:has(.hadron-desktop-workspace) {background:var(--hp-dark-bg,#17212a)!important;color:var(--hp-dark-ink,#edf2f5)}
+html.dark body:has(.hadron-desktop-workspace) .titlebar {background:var(--hp-dark-soft,#26323d)!important;color:var(--hp-dark-ink,#edf2f5)}
+html[data-hadron-text] .hadron-v2-message-text {color:var(--hadron-reading)!important}
+
+.hadron-v2-activity{font-size:.85em;color:var(--text-secondary,#527080);margin:.65rem 0}.hadron-v2-activity summary{cursor:pointer;width:fit-content;padding:.3rem 0}.hadron-v2-activity ul{padding-left:1.3rem;max-height:14rem;overflow:auto}.hadron-v2-activity li{margin:.3rem 0}
+.hadron-v2-visual-preview{position:absolute;inset:12px;z-index:10;display:flex;flex-direction:column;border-radius:18px;background:var(--hp-panel,#fff);color:var(--hp-ink,#283c4a);box-shadow:0 12px 48px #15232e22;overflow:hidden}
+.hadron-v2-visual-preview header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px}.hadron-v2-visual-preview header span{display:flex;align-items:center;gap:8px}.hadron-v2-visual-preview button{display:inline-flex;align-items:center;gap:6px;padding:8px;border-radius:10px}.hadron-v2-visual-preview button:hover{background:var(--hp-soft,#edf2f7)}.hadron-v2-visual-preview select{max-width:140px;border:0;background:var(--hp-soft,#edf2f7);padding:8px;border-radius:8px;color:inherit}.hadron-v2-visual-content{flex:1;min-height:0;overflow:auto;display:flex;align-items:center;justify-content:center;padding:18px;background:#f4f6f8}.hadron-v2-visual-content img{display:block;max-width:100%;max-height:100%;object-fit:contain;background:white;border-radius:8px}.hadron-v2-visual-link{display:block;margin-top:10px;padding:6px 0!important;color:#2368b5!important;text-decoration:underline;text-underline-offset:3px}.hadron-v2-visual-preview>p{padding:20px}
+.hadron-v2-tree-controls{position:absolute;left:14px;top:12px;z-index:3;display:flex;align-items:center;gap:3px;background:var(--hp-soft,#eef3f7);border-radius:14px;padding:3px;font-size:12px}.hadron-v2-tree-controls button{padding:5px 8px;border-radius:10px}.hadron-v2-tree-controls button:hover{background:var(--hp-panel,#fff)}.hadron-v2-tree-scroll{cursor:grab;touch-action:none}.hadron-v2-tree-scroll:active{cursor:grabbing}.hadron-v2-tree-scroll>svg{min-width:0}.hadron-v2-tree-node{cursor:pointer}.hadron-v2-search{width:clamp(90px,30%,155px)}
+.hadron-v2-tree-scroll{position:relative;padding:0;overflow:hidden}.hadron-v2-tree-scroll>svg{position:absolute;left:50%;top:60px;margin:0;transform-origin:0 0}.hadron-v2-tree-node{cursor:grab}.hadron-v2-tree-node:active{cursor:grabbing}
+
+.hadron-v2-tree-scroll>svg{will-change:transform;overflow:visible}

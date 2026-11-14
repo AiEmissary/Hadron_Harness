@@ -1,0 +1,12 @@
+{
+  "success": true,
+  "platform": "win32",
+  "electron": "38.8.4",
+  "encryptionAvailable": true,
+  "restartDecryption": true,
+  "plaintextAbsent": true,
+  "hostIdentityRetainedAfterSignOut": true,
+  "realCredentialsUsed": false,
+  "networkRequests": 0,
+  "profile": "C:\\Users\\rajka\\AppData\\Local\\Temp\\hadron-auth-smoke-k2KAEi"
+}

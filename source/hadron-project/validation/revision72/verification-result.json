@@ -1,0 +1,16 @@
+{
+  "success": true,
+  "optionalVerification": true,
+  "actualToolReceiptVisible": true,
+  "verifierReportVisible": true,
+  "sharedConversationRestored": false,
+  "continueBoth": true,
+  "followUpQuestionEditable": true,
+  "explicitPriorContextChoice": true,
+  "sharedTreeQuestionsAndCombinedAnswers": 6,
+  "branchFromEarlierCombinedAnswer": true,
+  "siblingIsolation": true,
+  "syntheticModel": true,
+  "realProviderRequests": 0,
+  "externalRequests": 0
+}

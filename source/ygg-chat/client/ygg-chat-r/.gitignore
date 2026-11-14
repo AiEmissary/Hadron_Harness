@@ -1,0 +1,103 @@
+# Dependencies
+node_modules/
+*/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+/vendor/hadron-worker/HadronWorkerHost.exe
+/vendor/hadron-worker/build.json
+dist/
+dist-electron/
+build/
+*.tsbuildinfo
+
+# Generated mobile UI bundle
+/server/headlessServer/ui/mobile/assets/mobile-app.js
+/server/headlessServer/ui/mobile/assets/mobile-app.js.map
+
+# Compiled electron files
+electron/*.cjs
+electron/*.js
+electron/*.mjs
+!electron/esbuild.main.mjs
+electron/*.js.map
+electron/*.mjs.map
+electron/tools/*.js
+electron/tools/*.js.map
+electron/utils/*.js
+electron/utils/*.js.map
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+logs
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Prisma
+.env
+prisma/dev.db
+prisma/dev.db-journal
+
+# Temporary folders
+tmp/
+temp/
+dist-server/
+
+
+# Compiled server files (outputs land in electron/ and dist-server/; these
+# guard against stray in-tree compilation)
+server/*.cjs
+server/*.js
+server/*.mjs
+!server/esbuild.server.mjs
+server/*.js.map
+server/*.mjs.map
+server/tools/*.js
+server/tools/*.js.map
+server/utils/*.js
+server/utils/*.js.map

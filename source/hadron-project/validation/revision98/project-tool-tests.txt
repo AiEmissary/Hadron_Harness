@@ -1,0 +1,46 @@
+
+> graviton@0.3.20 test:server
+> vitest run --config vitest.server.config.ts server/__tests__/hadronProjectBuildCoordinator.test.ts server/__tests__/hadronProjectDraftService.test.ts server/__tests__/hadronToolProtocol.test.ts
+
+
+ RUN  v2.1.9 C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r
+
+ ✓ server/__tests__/hadronToolProtocol.test.ts (25 tests) 49ms
+(node:64444) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:60448) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ server/__tests__/hadronProjectBuildCoordinator.test.ts (54 tests) 17832ms
+   ✓ runs a real failing test, applies the exact correction, invalidates the baseline and records a passing retest 1265ms
+   ✓ Stop during actual tests joins the child and never overlaps apply or a second test run 361ms
+   ✓ applies only the user-confirmed review, records actual changes and never claims checks ran 439ms
+   ✓ rejects foreign ownership, stale hashes, declined and asynchronous user consent before reserving a write 304ms
+   ✓ reserves application once and rejects a second simultaneous action without another consent or inference 336ms
+   ✓ checks the actual review again after yielding and refuses revoked approval before mutation 319ms
+   ✓ checks the durable exclusion marker again before committing a file 304ms
+   ✓ allows Stop before the first file with no mutation or provider replay 367ms
+   ✓ yields between files so Stop retains the first receipt and leaves the second file unchanged 487ms
+   ✓ keeps manual edits and durable conflict receipts instead of overwriting or replaying them 365ms
+   ✓ blocks before mutation when the mandatory Markdown application checkpoint fails 351ms
+   ✓ retains post-write uncertainty across a new host without replaying an operation or inference 399ms
+   ✓ binds real Windows replacement to the coordinator application scope 3870ms
+   ✓ binds A proposal and B review to actual runs, persists exact review and never edits the project 304ms
+   ✓ performs only one correction and fresh exact-snapshot review while retaining both histories 367ms
+   ✓ preserves unresolved defects after the bounded correction instead of forcing approval 374ms
+   ✓ rejects stale review snapshots and model-supplied authority fields 377ms
+   ✓ does not resume, reclaim capabilities or replay requests after a coordinator restart 446ms
+ ✓ server/__tests__/hadronProjectDraftService.test.ts (20 tests) 22972ms
+   ✓ native approval applies the reviewed file once; decline and historical reopen cannot write 3454ms
+   ✓ repairs use fresh evidence and real saved test output, retain previous jobs and stop after two rounds 1155ms
+   ✓ one bounded approval applies, tests, obtains a fresh A/B repair and retests without extra user actions 5457ms
+   ✓ bounded automation stops at two repairs and never turns persistent test failure into success 7658ms
+   ✓ Stop during an automatic repair cancels and joins its actual request without starting a successor 2404ms
+   ✓ uses only native-selected source paths, preserves real files and exposes no application authority 315ms
+   ✓ adds files across picker visits and folders, deduplicates repeats, and freezes both selected sources 302ms
+   ✓ lists saved metadata without re-reading historical project files or dispatching another request 301ms
+
+ Test Files  3 passed (3)
+      Tests  99 passed (99)
+   Start at  16:52:19
+   Duration  25.46s (transform 3.07s, setup 0ms, collect 6.23s, tests 40.85s, environment 1ms, prepare 1.04s)
+

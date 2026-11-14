@@ -1,0 +1,37 @@
+html[data-hadron-palette] .hadron-shell {
+  --hh-bg:var(--hp-bg); --hh-panel:var(--hp-panel); --hh-soft:var(--hp-soft); --hh-line:var(--hp-line);
+  --hh-ink:var(--hp-ink); --hh-muted:var(--hp-muted); --hh-violet:var(--hp-accent); --hh-cyan:var(--hp-secondary);
+}
+html.dark[data-hadron-palette] .hadron-shell {
+  --hh-bg:var(--hp-dark-bg); --hh-panel:var(--hp-dark-panel); --hh-soft:var(--hp-dark-soft); --hh-line:var(--hp-dark-line);
+  --hh-ink:var(--hp-dark-ink); --hh-muted:var(--hp-dark-muted); --hh-violet:color-mix(in srgb,var(--hp-accent),white 40%); --hh-cyan:color-mix(in srgb,var(--hp-secondary),white 40%);
+}
+html[data-hadron-palette] body.hadron-app { background:var(--hp-bg); color:var(--hp-ink); }
+html.dark[data-hadron-palette] body.hadron-app { background:var(--hp-dark-bg); color:var(--hp-dark-ink); }
+html[data-hadron-palette] body.hadron-app .titlebar { background:var(--hp-soft); color:var(--hp-ink); border-color:var(--hp-line); }
+html.dark[data-hadron-palette] body.hadron-app .titlebar { background:var(--hp-dark-soft); color:var(--hp-dark-ink); border-color:var(--hp-dark-line); }
+html[data-hadron-palette] body.hadron-app button:not(:disabled):not([aria-disabled='true']):not([class*='text-red-']) {
+  background:var(--hp-soft) !important; border:0 !important; color:var(--hp-ink) !important;
+  box-shadow:none !important;
+}
+html[data-hadron-palette] body.hadron-app button:not(:disabled):not([aria-disabled='true']):not([class*='text-red-']):is([aria-pressed='true'],[aria-selected='true'],[type='submit']) { background:color-mix(in srgb,var(--hp-accent) 20%,var(--hp-soft)) !important; border:0 !important; }
+html[data-hadron-palette] body.hadron-app button:focus-visible { outline-color:var(--hp-accent) !important; }
+html[data-hadron-palette] .hadron-shell :is(section,article,fieldset,[data-chat-pane-surface],[data-hadron-tree],[data-project-build],[data-agent-conversation]) { background-color:var(--hh-panel) !important; color:var(--hh-ink); border-color:var(--hh-line); }
+html[data-hadron-palette] .hadron-shell :is(input,textarea,select) { background-color:var(--hh-soft) !important; color:var(--hh-ink) !important; border-color:var(--hh-line) !important; }
+html[data-hadron-palette] .hadron-shell :is(.text-neutral-500,.text-slate-500) { color:var(--hh-muted) !important; }
+html[data-hadron-palette] .hadron-shell [data-chat-pane-surface] > div { background-color:var(--hh-panel) !important; }
+html[data-hadron-palette] .hadron-shell [aria-label='Project conclusion'] { background-color:var(--hh-soft) !important; }
+
+html[data-hadron-palette] .hadron-shell svg[aria-label$='question and answer nodes'] path { stroke:var(--hh-violet); }
+
+/* Reading overrides are independent of palette and wallpaper preferences. */
+html[data-hadron-text] { --hadron-reading:var(--hadron-reading-light); }
+html.dark[data-hadron-text] { --hadron-reading:var(--hadron-reading-dark); }
+html[data-hadron-text] .hadron-shell { --hh-ink:var(--hadron-reading) !important; --hh-muted:var(--hadron-reading) !important; color:var(--hadron-reading); }
+html[data-hadron-text] .hadron-shell :is(p,li,h1,h2,h3,h4,h5,h6,textarea,input):not(pre *):not(code *):not(button *):not(a *):not([role='alert'] *) { color:var(--hadron-reading) !important; }
+html[data-hadron-text] .hadron-shell :is(.markdown-content,.prose,[data-chat-pane-surface]) { color:var(--hadron-reading); --tw-prose-body:var(--hadron-reading); --tw-prose-headings:var(--hadron-reading); --tw-prose-bold:var(--hadron-reading); }
+
+html[data-hadron-text] [aria-label='Second opinion evaluation'] { color:var(--hadron-reading); }
+
+html.dark[data-hadron-palette] body.hadron-app button:not(:disabled):not([aria-disabled='true']):not([class*='text-red-']) {background:var(--hp-dark-soft)!important;color:var(--hp-dark-ink)!important}
+html.dark[data-hadron-palette] body.hadron-app button:not(:disabled):is([aria-pressed='true'],[aria-selected='true'],[type='submit']) {background:color-mix(in srgb,var(--hp-accent) 25%,var(--hp-dark-soft))!important}

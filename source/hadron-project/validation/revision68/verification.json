@@ -1,0 +1,14 @@
+{
+  "revision": 68,
+  "rendererComponentTestsPassed": 4,
+  "rendererBuild": "passed;7477 modules",
+  "responseControls": {
+    "continueAOnAResponse": true,
+    "continueBOnBResponse": true,
+    "continueBFocusesBComposer": true,
+    "continueAFocusesAComposer": true,
+    "originalPrivateProposalContextPreserved": true
+  },
+  "desktop": "synthetic inference only;9 independent turns,5 shared requests,14 journals;project-list and tree-scope checks passed",
+  "installedGravitonChanges": false
+}

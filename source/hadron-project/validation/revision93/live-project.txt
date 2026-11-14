@@ -1,0 +1,16 @@
+(node:74516) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+Live acceptance evidence: C:\Users\rajka\AppData\Roaming\Hadron-Harness-Development\validation-live-bc0b1d51-fdbe-4832-8504-79bd7a27b0c7
+{
+  "success": true,
+  "personalProjectsChanged": false,
+  "signInOrOut": false,
+  "credentialsReadOrCopied": false,
+  "actualChatGPTProposalAndIndependentReview": true,
+  "actualReviewedApplication": true,
+  "actualNodeTestsPassed": true,
+  "testsPreserved": true,
+  "model": "gpt-6-luna",
+  "modelAttempts": 2,
+  "realProviderRequests": 2
+}

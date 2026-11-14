@@ -1,0 +1,17 @@
+{
+  "version": "0.4.11",
+  "sourceRevision": "75933c1df6426373d19738b7aef9c0a0ebc8a366",
+  "installer": {
+    "name": "Hadron-Harness-0.4.11-win-x64.exe",
+    "bytes": 370851431,
+    "sha256": "381ce0feb9ba2070b7429f6f499980ba9874d958f2cf8675edf59d7e41cd98d0"
+  },
+  "source": {
+    "name": "Hadron-Harness-0.4.11-source.zip",
+    "bytes": 8088522,
+    "sha256": "3ffcca09af0a10f7649ff585ba3d543ad13e25cb45ced948a3bce170c8ca3fdd"
+  },
+  "finalInstallerAcceptance": "hadron-installer-check-QAxYYC",
+  "cleanWindows": false,
+  "upgradeQualification": "Repeated 0.4.10 to initial 0.4.11 candidate passed; first baseline invocation crashed 0xC0000005. Final rebuilt 0.4.11 install/repair/recovery/uninstall passed."
+}

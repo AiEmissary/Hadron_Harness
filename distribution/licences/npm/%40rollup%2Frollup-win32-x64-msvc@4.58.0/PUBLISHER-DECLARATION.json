@@ -1,0 +1,11 @@
+{
+  "name": "@rollup/rollup-win32-x64-msvc",
+  "version": "4.58.0",
+  "license": "MIT",
+  "author": "Lukas Taegert-Atkinson",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rollup/rollup.git"
+  },
+  "source": "https://registry.npmjs.org/%40rollup%2Frollup-win32-x64-msvc/4.58.0"
+}

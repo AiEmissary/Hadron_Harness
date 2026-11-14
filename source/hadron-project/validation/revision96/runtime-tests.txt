@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r
+
+ ✓ server/headlessServer/providers/__tests__/claudeCodeRuntime.test.ts (8 tests) 93ms
+ ✓ server/headlessServer/services/__tests__/providerRouter.test.ts (7 tests) 12ms
+
+ Test Files  2 passed (2)
+      Tests  15 passed (15)
+   Start at  16:10:19
+   Duration  1.65s (transform 514ms, setup 0ms, collect 1.38s, tests 105ms, environment 1ms, prepare 323ms)

@@ -1,0 +1,19 @@
+{
+  "server": {
+    "passed": 352,
+    "skipped": 5
+  },
+  "projectEditing": {
+    "passed": 19
+  },
+  "projectReader": {
+    "passed": 9
+  },
+  "serverTypecheck": true,
+  "electronTypecheck": true,
+  "mobileTypecheck": true,
+  "electronMainBuild": true,
+  "mobileBuild": true,
+  "productionEditingEnabled": false,
+  "realProviderRequests": 0
+}

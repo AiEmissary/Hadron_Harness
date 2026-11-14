@@ -1,0 +1,10 @@
+{
+  "success": true,
+  "installed": true,
+  "connected": false,
+  "reason": "signed_out",
+  "ownProfile": true,
+  "browserOpened": false,
+  "realCredentialsUsed": false,
+  "profile": "C:\\Users\\rajka\\AppData\\Local\\Temp\\hadron-codex-smoke-JfnPhz"
+}

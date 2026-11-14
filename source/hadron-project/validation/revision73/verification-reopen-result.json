@@ -1,0 +1,12 @@
+{
+  "success": true,
+  "optionalVerification": true,
+  "actualToolReceiptVisible": true,
+  "verifierReportVisible": true,
+  "sharedConversationRestored": true,
+  "automaticSharedView": true,
+  "nestedWorkspace": true,
+  "syntheticModel": true,
+  "realProviderRequests": 0,
+  "externalRequests": 0
+}

@@ -1,0 +1,42 @@
+{
+  "dataDir": "C:\\Users\\rajka\\AppData\\Local\\Temp\\hadron-startup-FumOc6",
+  "electron": "38.8.4",
+  "pid": 79172,
+  "health": {
+    "status": "ok",
+    "mode": "local-sync",
+    "pid": 79172
+  },
+  "port": 62467,
+  "genericUnownedStreamStatus": 410,
+  "disabledCollaborationStatuses": [
+    404,
+    404,
+    404,
+    404,
+    404,
+    404
+  ],
+  "disabledIndependentJobStatuses": [
+    404,
+    404,
+    404,
+    404,
+    404
+  ],
+  "schemaVersion": 9,
+  "tables": [
+    {
+      "name": "hadron_independent_jobs"
+    },
+    {
+      "name": "hadron_participants"
+    },
+    {
+      "name": "hadron_sessions"
+    }
+  ],
+  "shutdown": "closed",
+  "success": true,
+  "blockedNetwork": []
+}

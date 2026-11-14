@@ -1,0 +1,15 @@
+# Conversation actions and direct file work - 9 November 2026
+
+The answer is the handoff point. Continue with Agent A, Agent B or both carries the selected bounded conversation, current provider/model choices and live folder into an editable follow-up. A completed participant answer remains usable even if the other participant failed. Work on this asks who should act, an instruction and Go. Work on files in Independent jobs, Work together and Automatic conversation uses the same direct work path. Build from scratch also uses Go, with optional plan/deliverables.
+
+A single selected agent implements and self-checks using its own provider/model. Both uses A to implement and B to check. This is labelled honestly in the prompt, stage list and conclusion. Current folder selection is revalidated by the native host for the explicit handoff; it never grants file-write approval. Permissions expire on restart. Context uses the latest 12,000 characters with an explicit omission notice. Attachments supplied to a direct shared work instruction are included within the same context budget.
+
+Go prepares changes and then asks for actual file application and supported checks at execution. Optional task-level approval retains the existing bounded repair/check authority. Opening a historical saved result does not authorize application. No shell capability or universal build runner was added: built-in checks support Node tests and build scripts. Inspection of exact changes remains optional; the old required preliminary handoff and duplicate conclusion selector were removed. How to use Hadron is updated.
+
+Validation: 99 backend tests, 20 focused renderer/controller tests, production renderer and Electron/mobile typechecks. A native synthetic-provider test exercises B alone from a discussion, continuation with A using the same folder, both-agent work, direct shared and automatic-mode Go, and manual A-only Go. Five actual disposable coding tasks applied changes and passed Node checks; reopening started no extra task. Native code/file operations are real; provider responses are fixtures. No user project was modified and no paid provider request was made by validation.
+
+The installed app is tested through its private startup diagnostic; database preservation and frozen installer/executable hashes are recorded in local-application-result.json. The new resources are for local acceptance testing only. No installer, EXE or source ZIP was rebuilt.
+
+Installed local startup and reopening passed. All 1,486 baseline logical records across 51 non-search tables survived; all three integrity checks passed. The first final native run exceeded the old 55-second fixture deadline after successful code/tests; the test-only deadline is now 180 seconds and the full rerun passed.
+
+Private rollback resources: Local-Test-Builds/access-3izJkH/baseline-app.asar and baseline-localAnalyticsWorker.mjs. The three SQLite online backups are under Local-Test-Backups/conversation-actions-20261109-171722. Roll back resources only with Hadron closed; keep current user databases.

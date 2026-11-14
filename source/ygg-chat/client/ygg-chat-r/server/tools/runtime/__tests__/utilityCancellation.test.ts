@@ -1,0 +1,110 @@
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+
+const mocks = vi.hoisted(() => ({ bash: vi.fn(), powershell: vi.fn(), html: vi.fn(), glob: vi.fn(), ripgrep: vi.fn(), read: vi.fn(), continuation: vi.fn(), readFiles: vi.fn(), post: vi.fn(), receive: undefined as undefined | ((message: unknown) => void) }))
+vi.mock('../../bash.js', () => ({ runBashCommand: mocks.bash }))
+vi.mock('../../powershell.js', () => ({ runPowerShellCommand: mocks.powershell }))
+vi.mock('../../createFile.js', () => ({ createTextFile: vi.fn() }))
+vi.mock('../../deleteFile.js', () => ({ deleteFile: vi.fn(), safeDeleteFile: vi.fn() }))
+vi.mock('../../directory.js', () => ({ extractDirectoryStructure: vi.fn() }))
+vi.mock('../../editFile.js', () => ({ editFile: vi.fn(), multiEdit: vi.fn() }))
+vi.mock('../../glob.js', () => ({ globSearch: mocks.glob }))
+vi.mock('../../htmlRenderer.js', () => ({ default: { run: mocks.html } }))
+vi.mock('../../readFile.js', () => ({ readFileContinuation: mocks.continuation, readTextFile: mocks.read }))
+vi.mock('../../readFiles.js', () => ({ formatReadFilesResult: vi.fn(), readMultipleTextFiles: mocks.readFiles }))
+vi.mock('../../ripgrep.js', () => ({ ripgrepSearch: mocks.ripgrep }))
+vi.mock('../../viewImage.js', () => ({ viewImage: vi.fn() }))
+vi.mock('../../streamUndoManager.js', () => ({ recordPreEditBackup: vi.fn(), recordToolEditSuccess: vi.fn() }))
+vi.mock('../../customToolLoader.js', () => ({ customToolRegistry: { initialize: vi.fn().mockResolvedValue(undefined) } }))
+
+let originalPort: unknown
+beforeEach(async () => {
+  vi.useFakeTimers(); vi.resetModules(); vi.clearAllMocks()
+  originalPort = (process as any).parentPort
+  ;(process as any).parentPort = { postMessage: mocks.post, on: (_event: string, listener: (message: unknown) => void) => { mocks.receive = listener } }
+  await import('../../../toolRuntimeUtility.js')
+})
+afterEach(() => { (process as any).parentPort = originalPort; vi.clearAllTimers(); vi.useRealTimers(); vi.restoreAllMocks() })
+const send = (requestId: string, toolName: string, deadlineMs?: number) => mocks.receive!({ type: 'execute_tool', requestId, toolName, args: { command: 'echo ok', description: 'test' }, options: { deadlineMs } })
+
+it('forwards per-request signals and deadlines to both shells, cancelling only the requested command', async () => {
+  const options: any[] = []
+  const run = (_command: string, opts: any) => { options.push(opts); return new Promise(resolve => opts.signal.addEventListener('abort', () => resolve({ cancelled: true }))) }
+  mocks.bash.mockImplementation(run); mocks.powershell.mockImplementation(run)
+  send('a', 'bash', 123); send('b', 'powershell', 456)
+  expect(options.map(o => o.deadlineMs)).toEqual([123, 456])
+  expect(options[0].signal).toBeInstanceOf(AbortSignal)
+  mocks.receive!({ type: 'cancel_tool', requestId: 'a' })
+  expect(options[0].signal.aborted).toBe(true)
+  expect(options[1].signal.aborted).toBe(false)
+  await vi.advanceTimersByTimeAsync(0)
+  expect(mocks.post).toHaveBeenCalledWith(expect.objectContaining({ type: 'tool_result', requestId: 'a', success: true }))
+  mocks.receive!({ type: 'cancel_tool', requestId: 'b' })
+  await vi.advanceTimersByTimeAsync(0)
+})
+
+it('aborts active requests before shutdown ack and bounds cleanup for uncooperative handlers', async () => {
+  const options: any[] = []
+  mocks.bash.mockImplementation((_command, opts) => { options.push(opts); return new Promise(() => {}) })
+  const exit = vi.spyOn(process, 'exit').mockImplementation((() => {}) as any)
+  send('a', 'bash')
+  mocks.receive!({ type: 'shutdown', requestId: 'shutdown' })
+  expect(options[0].signal.aborted).toBe(true)
+  expect(exit).not.toHaveBeenCalled()
+  await vi.advanceTimersByTimeAsync(399)
+  expect(exit).not.toHaveBeenCalled()
+  await vi.advanceTimersByTimeAsync(1)
+  expect(mocks.post).toHaveBeenCalledWith({ type: 'shutdown_ack', requestId: 'shutdown' })
+  expect(exit).toHaveBeenCalledWith(0)
+  send('b', 'bash')
+  expect(mocks.bash).toHaveBeenCalledTimes(1)
+})
+
+it('forwards search options and cancels only the selected search request', async () => {
+  const options: any[] = []
+  const run = (opts: any) => { options.push(opts); return new Promise(resolve => opts.signal.addEventListener('abort', () => resolve({ success: false, cancelled: true }))) }
+  mocks.glob.mockImplementation((_pattern, opts) => run(opts))
+  mocks.ripgrep.mockImplementation((_pattern, _path, opts) => run(opts))
+  mocks.receive!({ type: 'execute_tool', requestId: 'glob', toolName: 'glob', args: { pattern: '*', nodir: true, timeoutMs: 1234 }, options: { deadlineMs: 123 } })
+  mocks.receive!({ type: 'execute_tool', requestId: 'rg', toolName: 'ripgrep', args: { pattern: 'x', caseSensitive: false, timeoutMs: 2345 }, options: { deadlineMs: 456 } })
+  expect(options[0]).toMatchObject({ deadlineMs: 123, timeoutMs: 1234, nodir: true, signal: expect.any(AbortSignal) })
+  expect(options[1]).toMatchObject({ deadlineMs: 456, timeoutMs: 2345, caseSensitive: false, signal: expect.any(AbortSignal) })
+  mocks.receive!({ type: 'cancel_tool', requestId: 'glob' })
+  expect(options[0].signal.aborted).toBe(true)
+  expect(options[1].signal.aborted).toBe(false)
+  mocks.receive!({ type: 'cancel_tool', requestId: 'rg' })
+  await vi.advanceTimersByTimeAsync(0)
+  expect(mocks.post).toHaveBeenCalledWith(expect.objectContaining({ requestId: 'rg', result: { success: false, cancelled: true } }))
+})
+
+it('forwards raw HTML paths with rootPath as a base, without workspace validation', async () => {
+  mocks.html.mockResolvedValue({ success: true, html: '<h1>disk</h1>' })
+  mocks.receive!({ type: 'execute_tool', requestId: 'html', toolName: 'html_renderer',
+    args: { path: '/outside/page.html' }, options: { rootPath: '/workspace' } })
+  await vi.advanceTimersByTimeAsync(0)
+  expect(mocks.html).toHaveBeenCalledWith({ path: '/outside/page.html', cwd: '/workspace', html: undefined, allowUnsafe: undefined })
+  expect(mocks.post).toHaveBeenCalledWith(expect.objectContaining({ requestId: 'html', result: { success: true, html: '<h1>disk</h1>' } }))
+
+  mocks.receive!({ type: 'execute_tool', requestId: 'html-cwd', toolName: 'html_renderer',
+    args: { path: 'page.html', cwd: '/another/base' }, options: { rootPath: '/workspace' } })
+  await vi.advanceTimersByTimeAsync(0)
+  expect(mocks.html).toHaveBeenLastCalledWith({ path: 'page.html', cwd: '/another/base', html: undefined, allowUnsafe: undefined })
+})
+
+
+it('forwards trusted workspace and request cancellation to all read tools', async () => {
+  mocks.read.mockResolvedValue({ content: 'one' })
+  mocks.continuation.mockResolvedValue({ content: 'two' })
+  mocks.readFiles.mockResolvedValue([])
+  for (const toolName of ['read_file', 'read_file_continuation', 'read_files']) {
+    mocks.receive!({ type: 'execute_tool', requestId: toolName, toolName,
+      args: { path: '../file', paths: ['../file'], cwd: 'src', maxBytes: 12, afterLine: 0, numLines: 2,
+        workspaceRoot: '/untrusted', signal: 'untrusted', deadlineMs: 1 },
+      options: { rootPath: '/workspace', deadlineMs: 123 } })
+  }
+  await vi.advanceTimersByTimeAsync(0)
+  const expected = expect.objectContaining({ cwd: '/workspace/src', workspaceRoot: '/workspace',
+    maxBytes: 12, deadlineMs: 123, signal: expect.any(AbortSignal) })
+  expect(mocks.read).toHaveBeenCalledWith('../file', expected)
+  expect(mocks.continuation).toHaveBeenCalledWith('../file', 0, 2, expected)
+  expect(mocks.readFiles).toHaveBeenCalledWith(['../file'], expected)
+})

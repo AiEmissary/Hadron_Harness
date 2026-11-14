@@ -1,0 +1,11 @@
+{
+  "success": true,
+  "clearPopup": true,
+  "waitingStatus": true,
+  "otherAgentEvaluation": true,
+  "originalBranchAndDraftPreserved": true,
+  "savedEvaluationReopensWithoutInference": true,
+  "textSnapshotOnly": true,
+  "syntheticRequests": 2,
+  "realProviderRequests": 0
+}

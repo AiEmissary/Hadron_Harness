@@ -1,0 +1,10 @@
+{
+  "name": "@napi-rs/canvas-win32-x64-msvc",
+  "version": "0.1.94",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Brooooooklyn/canvas.git"
+  },
+  "source": "https://registry.npmjs.org/%40napi-rs%2Fcanvas-win32-x64-msvc/0.1.94"
+}

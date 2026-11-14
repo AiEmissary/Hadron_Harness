@@ -1,0 +1,15 @@
+import {useEffect,useState} from 'react'
+import type {ProjectDraftView,ProjectDraftGrant} from '../../../../../shared/projectBuild'
+export function MilestoneAcceptance({view,disabled,onChange,onNext}:{view:ProjectDraftView;disabled:boolean;onChange(view:ProjectDraftView):void;onNext(grant:ProjectDraftGrant):void}){
+ const [checked,setChecked]=useState<string[]>([]),[waived,setWaived]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('')
+ const saved=JSON.stringify(view.acceptance)
+ useEffect(()=>{setChecked(view.acceptance?.checked??[]);setWaived(view.acceptance?.testsWaived??false);setError('')},[view.id,saved])
+ const ready=view.projectFilesChanged===true&&view.workersEnded&&!view.interventionRequired
+ const act=async(next:boolean)=>{setBusy(true);setError('');try{if(next)onNext(await window.electronAPI.projectDraft.nextMilestone(view.id));else onChange(await window.electronAPI.projectDraft.accept(view.id,checked,waived))}catch(error){setError(error instanceof Error?error.message:'Milestone action could not complete.')}finally{setBusy(false)}}
+ return <section aria-label='Project milestone acceptance' className='space-y-3 rounded-xl border p-4'><h3 className='font-semibold'>Milestone deliverables</h3><p className='text-xs text-neutral-500'>The agents propose and review; Hadron records actual file and test results. You confirm whether the deliverables meet your goal. Checked items do not themselves prove correctness.</p>
+  {view.input.deliverables.map(item=><label key={item} className='flex items-start gap-2 text-sm'><input type='checkbox' checked={checked.includes(item)} disabled={!ready||disabled||busy} onChange={event=>setChecked(current=>event.target.checked?[...current,item]:current.filter(value=>value!==item))}/>{item}</label>)}
+  {view.tests.status==='not_run'&&<label className='flex items-start gap-2 text-xs'><input type='checkbox' checked={waived} disabled={!ready||disabled||busy} onChange={event=>setWaived(event.target.checked)}/>Tests are not applicable to this documentation-only milestone. Record acceptance without claiming tests passed.</label>}
+  <div className='flex flex-wrap gap-3'><button type='button' className='rounded-xl border px-3 py-2 text-sm' disabled={!ready||disabled||busy||(view.tests.status!=='passed'&&!waived)} onClick={()=>void act(false)}>Save milestone acceptance</button>{view.acceptance?.checked.length===view.input.deliverables.length&&view.canCheck&&<button type='button' className='rounded-xl border px-3 py-2 text-sm' disabled={disabled||busy} onClick={()=>void act(true)}>Next project milestone</button>}</div>
+  {view.acceptance&&<p className='text-xs'>Accepted {view.acceptance.checked.length} / {view.input.deliverables.length} · {view.acceptance.testsWaived?'Tests explicitly marked not applicable':'Selected tests passed at acceptance'}. Next milestone starts a fresh reviewed proposal using current source files; no AI request is sent until Prepare proposal.</p>}{error&&<p role='alert' className='text-sm'>{error}</p>}
+ </section>
+}

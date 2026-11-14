@@ -1,0 +1,11 @@
+Full Hadron desktop smoke: C:\Users\rajka\AppData\Local\Temp\hadron-desktop-smoke-mDbohU
+{
+  "success": true,
+  "nativeApprovedApplication": true,
+  "actualFailingBaseline": true,
+  "actualPassingRetest": true,
+  "actualBuildScript": true,
+  "previousResultsInvalidated": true,
+  "realProviderRequests": 0
+}
+Clean Quit joined project workers, closed the idle socket and released the execution scope.

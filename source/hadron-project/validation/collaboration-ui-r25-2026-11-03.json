@@ -1,0 +1,14 @@
+{
+  "success": true,
+  "controls": [
+    "Agent A provider",
+    "Agent A model",
+    "Agent B provider",
+    "Agent B model"
+  ],
+  "startDisabled": true,
+  "focus": "Close",
+  "mobileOverflow": false,
+  "focusRestored": true,
+  "fetches": 0
+}

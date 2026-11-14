@@ -1,0 +1,9 @@
+Full Hadron desktop smoke: C:\Users\rajka\AppData\Local\Temp\hadron-desktop-smoke-mCbJuU
+{
+  "success": true,
+  "explicitColdContinuation": true,
+  "priorRepliesVisible": true,
+  "newTurnsCompleted": 2,
+  "priorAndNewTurnCards": 4,
+  "realProviderRequests": 0
+}

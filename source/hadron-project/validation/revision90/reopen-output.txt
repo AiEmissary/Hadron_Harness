@@ -1,0 +1,12 @@
+Full Hadron desktop smoke: C:\Users\rajka\AppData\Local\Temp\hadron-desktop-smoke-y0Kypl
+{
+  "success": true,
+  "savedBuildRestored": true,
+  "projectModeRestored": true,
+  "sourceGrantExpired": true,
+  "savedInspectionNoReplay": true,
+  "savedJobLogReadable": true,
+  "noInferenceReplay": true,
+  "editingUnavailable": true
+}
+Clean Quit joined project workers, closed the idle socket and released the execution scope.

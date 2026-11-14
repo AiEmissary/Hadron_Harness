@@ -1,0 +1,22 @@
+{
+  "revision": 86,
+  "date": "2026-11-07",
+  "fullServer": {
+    "passed": 456,
+    "failed": 0,
+    "skipped": 5
+  },
+  "finalFocusedProfileAndStartup": 18,
+  "inheritedThemeTests": 5,
+  "note": "Full suite preceded two additional race/concurrency tests; final focused18 includes them.",
+  "checks": [
+    "server/Electron/mobile typechecks",
+    "main/mobile build",
+    "four actual built startup cases",
+    "built project preview/Stop/saved selection/two files/clean Quit"
+  ],
+  "projectWrites": 0,
+  "realProviderRequests": 0,
+  "installedGravitonChanges": false,
+  "editingEnabled": false
+}

@@ -1,0 +1,33 @@
+{
+  "revision": 88,
+  "date": "2026-11-07",
+  "server": {
+    "passed": 466,
+    "failed": 0,
+    "skipped": 5
+  },
+  "focusedJournalAndCoordinator": 57,
+  "headlessIndividualCollaborationJournal": 44,
+  "typechecks": [
+    "server",
+    "Electron",
+    "mobile"
+  ],
+  "builds": [
+    "main",
+    "mobile"
+  ],
+  "renderer": "revision87 built UI retained; no renderer source change in revision88",
+  "desktop": "passed; proposal, current inspection, two source paths, diffs, Stop, keep/clear and clean Quit",
+  "coldReopen": "passed; saved inspection and actual private Markdown read with zero inference",
+  "personalProjectEdits": 0,
+  "realProviderRequests": 0,
+  "desktopProjectWrites": 0,
+  "installedGravitonChanges": false,
+  "editingEnabled": false,
+  "unlockOrResumeEnabled": false,
+  "diagnostics": [
+    "Initial read-race fixture spied on a different builtin binding; filesystem adapter reference unified and deterministic race test now passes."
+  ],
+  "remaining": "See PROJECT_ACTIVATION_AUDIT.md and PRIVATE_STORAGE_POLICY.md; user recovery-view feedback is the next acceptance check."
+}

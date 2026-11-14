@@ -1,0 +1,14 @@
+{
+  "ownProfile": true,
+  "turnCompleted": true,
+  "success": true,
+  "text": "Hadron connection OK",
+  "exitCode": 0,
+  "unexpectedTools": false,
+  "deliberateInvocations": 3,
+  "rawCredentialsStored": false,
+  "fixedPrompt": true,
+  "deadlineMs": 60000,
+  "generalJobsEnabled": false,
+  "realSubscriptionUsed": true
+}

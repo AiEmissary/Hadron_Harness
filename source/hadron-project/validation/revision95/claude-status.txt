@@ -1,0 +1,3 @@
+Hadron Claude readiness: installed true; version2.1.318.
+Sanitized status of Hadron-Harness-Development: connected false; reason signed_out; loginState idle.
+No browser authentication or inference performed. No raw credential files read or copied.

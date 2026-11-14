@@ -1,0 +1,22 @@
+
+> graviton@0.3.20 build:electron:main
+> npm run typecheck:electron && npm run typecheck:mobile && node electron/esbuild.main.mjs
+
+
+> graviton@0.3.20 typecheck:electron
+> tsc -p electron/tsconfig.json --noEmit
+
+
+> graviton@0.3.20 typecheck:mobile
+> tsc -p server/headlessServer/ui/mobile/tsconfig.json --noEmit
+
+✅ preload.ts compiled to preload.mjs
+✅ toolRuntimeUtility.ts bundled to toolRuntimeUtility.mjs
+✅ localAnalyticsWorker.ts bundled to localAnalyticsWorker.mjs
+
+  server\headlessServer\ui\mobile\assets\mobile-app.js      1.5mb
+  server\headlessServer\ui\mobile\assets\mobile-app.js.map  2.8mb
+
+Done in 323ms
+✅ mobile React UI bundled to server/headlessServer/ui/mobile/assets/mobile-app.js
+✅ main.ts bundled to main.mjs

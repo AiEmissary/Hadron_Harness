@@ -1,0 +1,23 @@
+{
+  "activated": true,
+  "startupPassed": true,
+  "installedExeUnchanged": true,
+  "installerUnchanged": true,
+  "applicationArchiveSha256": "e125cf7233705f226032526179209ff018e8452706cb9f6ac7ad4b97c1171a2a",
+  "databaseVerification": {
+    "hadron-continuous-chat.db": {
+      "integrity": "ok",
+      "baselineRowsPreserved": 161
+    },
+    "hadron-project-builds.db": {
+      "integrity": "ok",
+      "baselineRowsPreserved": 34
+    },
+    "local-sync.db": {
+      "integrity": "ok",
+      "baselineRowsPreserved": 1124
+    }
+  },
+  "realProviderRequests": 0,
+  "unsentDraftDiscardExplicitlyApproved": true
+}

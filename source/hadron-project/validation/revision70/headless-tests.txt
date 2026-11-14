@@ -1,0 +1,26 @@
+
+> graviton@0.3.20 test:headless
+> vitest run --config vitest.headless.config.ts server/headlessServer/routes/__tests__/hadronToolRoutes.test.ts server/headlessServer/services/__tests__/independentJobService.test.ts server/headlessServer/services/__tests__/subagentRunService.test.ts server/headlessServer/services/__tests__/agentJobJournal.test.ts server/headlessServer/services/__tests__/collaborationReview.test.ts
+
+
+ RUN  v2.1.9 C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r
+
+ ✓ server/headlessServer/services/__tests__/agentJobJournal.test.ts (3 tests) 83ms
+ ✓ server/headlessServer/routes/__tests__/hadronToolRoutes.test.ts (4 tests) 376ms
+(node:43672) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:82644) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ server/headlessServer/services/__tests__/independentJobService.test.ts (5 tests) 229ms
+ ✓ server/headlessServer/services/__tests__/collaborationReview.test.ts (6 tests) 1440ms
+   ✓ expires during cross-review, drains the pair and retains the initial proposals 523ms
+ ✓ server/headlessServer/services/__tests__/subagentRunService.test.ts (52 tests) 5219ms
+   ✓ SubagentRunService > rejects a server-owned parent tool call when the child ends in error 745ms
+   ✓ SubagentRunService > marks the run errored when the provider stays empty 878ms
+   ✓ SubagentRunService > retries a transient provider error and recovers (subagents opt into retryProviderError) 1050ms
+   ✓ SubagentRunService > errors after exhausting provider retries (initial + 2) 2351ms
+
+ Test Files  5 passed (5)
+      Tests  70 passed (70)
+   Start at  12:50:39
+   Duration  7.66s (transform 1.06s, setup 0ms, collect 6.99s, tests 7.35s, environment 1ms, prepare 875ms)

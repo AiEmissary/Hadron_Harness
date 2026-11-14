@@ -1,0 +1,19 @@
+{
+  "success": true,
+  "installerRebuilt": false,
+  "installedExeChanged": false,
+  "baselineLogicalRowsUnchanged": true,
+  "integrity": {
+    "hadron-continuous-chat.db": "ok",
+    "hadron-project-builds.db": "ok",
+    "local-sync.db": "ok"
+  },
+  "history": {
+    "projects": 3,
+    "conversations": 56,
+    "messages": 158
+  },
+  "installerSha256": "ad2334f42f30c4ddab9c0fceeb38dcb3413da99ca8619f6c97be6c752e2bae32",
+  "applicationExeSha256": "5147665732f85add1edffe2573fc9012a75ba675a7c7b3e307c815eedf65f14d",
+  "applicationResourceSha256": "43bd55eba49ae9223aaa38a662b8e4344e042ac4ca38c169393c11b87624f1dc"
+}

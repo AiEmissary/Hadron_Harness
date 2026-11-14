@@ -1,0 +1,16 @@
+{
+  "success": true,
+  "version": "0.4.14",
+  "installerExitCode": 0,
+  "launcher": "Python CreateProcess from Desktop, matching the previously failing launch",
+  "actualCurrentUserInstallation": true,
+  "programMatchesVerifiedPackage": true,
+  "personalHistoryPreserved": true,
+  "counts": {
+    "projects": 2,
+    "conversations": 49,
+    "messages": 142
+  },
+  "sqliteIntegrity": "ok",
+  "providerCredentialsTransferred": false
+}

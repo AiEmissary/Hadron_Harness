@@ -1,0 +1,12 @@
+{
+  "name": "@supabase/functions-js",
+  "version": "2.97.0",
+  "license": "MIT",
+  "author": "Supabase",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/supabase/supabase-js.git",
+    "directory": "packages/core/functions-js"
+  },
+  "source": "https://registry.npmjs.org/%40supabase%2Ffunctions-js/2.97.0"
+}

@@ -1,0 +1,13 @@
+
+ RUN  v2.1.9 C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r
+
+ ✓ src/components/RunningAgentsFloatingButton/agentsPillResize.test.ts (6 tests) 12ms
+ ✓ src/features/collaboration/projectDraftView.test.ts (8 tests) 8ms
+ ✓ src/components/RunningAgentsFloatingButton/RunningAgentsFloatingButton.test.tsx (4 tests) 30ms
+ ✓ src/components/CollaborationPanel/ProjectBuildPanel.test.tsx (1 test) 19ms
+
+ Test Files  4 passed (4)
+      Tests  19 passed (19)
+   Start at  02:01:08
+   Duration  1.51s (transform 742ms, setup 0ms, collect 1.82s, tests 69ms, environment 1ms, prepare 674ms)
+

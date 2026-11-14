@@ -1,0 +1,17 @@
+{
+  "normalShortcutLaunchVerified": true,
+  "temporaryDebuggingRemoved": true,
+  "originalDesktopShortcutBackedUp": true,
+  "developmentShortcutPreserved": true,
+  "sourceProfileUnchanged": true,
+  "sourceAndDestinationCounts": {
+    "projects": 2,
+    "conversations": 49,
+    "messages": 142
+  },
+  "sqliteIntegrity": "ok",
+  "providerCredentialsCopied": false,
+  "projectPermissionsCopied": false,
+  "inferenceStarted": false,
+  "backupLocation": "Private local Workspace-Transfers directory; not included in source or installer"
+}

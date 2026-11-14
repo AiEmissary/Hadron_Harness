@@ -1,0 +1,31 @@
+  requestId: 'ygg-chat:mw58v2vz:270ey1',
+  model: 'gpt-5.4-mini',
+  instructionsLength: 16,
+  inputItems: 1,
+  bodyPreview: '{}'
+}
+
+ ✓ server/headlessServer/providers/__tests__/managedAuthRecovery.test.ts (2 tests) 40ms
+(node:96188) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ server/headlessServer/services/__tests__/independentJobContexts.test.ts (3 tests) 27ms
+ ✓ server/headlessServer/services/__tests__/desktopCollaborationAccess.test.ts (2 tests) 7ms
+ ↓ server/headlessServer/__parity__/chatLoop.parity.test.ts (24 tests | 24 skipped)
+ ✓ server/headlessServer/services/__tests__/subagentToolDefinition.test.ts (4 tests) 9ms
+ ✓ server/headlessServer/services/__tests__/hadronWorkerPrompt.test.ts (2 tests) 8ms
+(node:93240) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ server/headlessServer/services/__tests__/sharedTaskContexts.test.ts (4 tests) 28ms
+ ✓ server/headlessServer/persistence/__tests__/messageRepo.idAdoption.test.ts (2 tests) 10ms
+ ✓ server/headlessServer/routes/__tests__/cloudProxyRoutes.test.ts (4 tests) 8ms
+ ✓ server/headlessServer/routes/__tests__/customToolsRoutes.test.ts (2 tests) 125ms
+ ✓ server/headlessServer/services/__tests__/jobContinuity.test.ts (2 tests) 8ms
+ ✓ server/headlessServer/persistence/__tests__/conversationRepo.mode.test.ts (2 tests) 5ms
+ ✓ server/headlessServer/services/__tests__/subagentModelNames.test.ts (13 tests) 9ms
+ ✓ server/headlessServer/routes/__tests__/mobileUiRoutes.test.ts (3 tests) 137ms
+ ✓ server/headlessServer/ui/mobile/src/messageParser.test.ts (2 tests) 5ms
+
+ Test Files  93 passed | 8 skipped (101)
+      Tests  885 passed | 83 skipped | 24 todo (992)
+   Start at  17:24:06
+   Duration  17.57s (transform 12.49s, setup 0ms, collect 71.36s, tests 49.99s, environment 38ms, prepare 22.69s)

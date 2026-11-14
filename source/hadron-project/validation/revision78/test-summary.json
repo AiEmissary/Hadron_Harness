@@ -1,0 +1,56 @@
+{
+  "revision": 78,
+  "date": "2026-11-06",
+  "server": {
+    "passed": 397,
+    "skipped": 5,
+    "failed": 0
+  },
+  "gate": {
+    "passed": 13
+  },
+  "coordinator": {
+    "passed": 31
+  },
+  "nativeWorkerAndRepl": {
+    "passed": 88
+  },
+  "legacyChat": {
+    "passed": 27,
+    "skipped": 22
+  },
+  "selectedLegacyTools": {
+    "passed": 45,
+    "skipped": 5
+  },
+  "finalOrchestratorRegression": {
+    "passed": 16
+  },
+  "typechecks": [
+    "server passed",
+    "Electron passed",
+    "mobile passed"
+  ],
+  "build": "Electron main and mobile passed",
+  "desktopProjectReader": {
+    "success": true,
+    "projectFolderPicker": true,
+    "pickerIsFixture": true,
+    "selectedAgentOnly": true,
+    "actualBoundedRead": true,
+    "accessRevoked": true,
+    "sendBlockedWithoutGrant": true,
+    "nativeToolsEnabled": false,
+    "projectWrites": 0,
+    "shellCommands": 0,
+    "realProviderRequests": 0
+  },
+  "realProviderRequests": 0,
+  "userProjectWrites": 0,
+  "runningUserAppsRestarted": false,
+  "productionProjectScopesEnabled": false,
+  "finalFocusedAfterScopeJournalLink": {
+    "passed": 44,
+    "failed": 0
+  }
+}

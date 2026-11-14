@@ -1,0 +1,16 @@
+
+> graviton@0.3.20 test:renderer
+> vitest run --config vitest.renderer.config.ts src/features/chats/chatSelection.test.ts src/features/chats/chatSelectionController.test.ts src/components/CollaborationPanel/JobTreeWorkspace.test.tsx
+
+
+ RUN  v2.1.9 C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r
+
+ ✓ src/features/chats/chatSelection.test.ts (18 tests) 19ms
+ ✓ src/features/chats/chatSelectionController.test.ts (21 tests) 43ms
+ ✓ src/components/CollaborationPanel/JobTreeWorkspace.test.tsx (4 tests) 13ms
+
+ Test Files  3 passed (3)
+      Tests  43 passed (43)
+   Start at  16:33:53
+   Duration  1.29s (transform 638ms, setup 0ms, collect 1.85s, tests 75ms, environment 1ms, prepare 435ms)
+

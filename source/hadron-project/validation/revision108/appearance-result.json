@@ -1,0 +1,13 @@
+{
+  "success": true,
+  "appearanceGrouped": true,
+  "paletteAbsentFromWorkspace": true,
+  "paletteChoices": 5,
+  "textChoices": 3,
+  "customTextPersisted": true,
+  "highContrastAppliedToWorkspace": true,
+  "resetToAutomatic": true,
+  "displayModeApplied": true,
+  "preservedAcrossRemount": true,
+  "realProviderRequests": 0
+}

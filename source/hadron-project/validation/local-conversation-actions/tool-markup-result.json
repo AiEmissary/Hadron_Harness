@@ -1,0 +1,19 @@
+{
+  "success": true,
+  "claudeFixture": true,
+  "rawMarkupNotExecuted": true,
+  "hostProtocolCorrection": true,
+  "actualSelectedFileRead": true,
+  "finalAnswerReadable": true,
+  "originalBudgetUnchanged": true,
+  "addFolderPreservesReviewedAccess": true,
+  "readActionBesideQuestion": true,
+  "regenerateKeepsCurrentFolder": true,
+  "accessSwitchKeepsFolder": true,
+  "sendEnabledWithReadGrant": true,
+  "sharedAndAutomaticAccessPreserved": true,
+  "buildFolderKeepsGoalModelsAndReviewedAccess": true,
+  "buildProposalReady": true,
+  "realProviderRequests": 0,
+  "signInProtocolPreserved": true
+}

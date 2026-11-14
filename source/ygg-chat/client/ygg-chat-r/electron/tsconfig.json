@@ -1,0 +1,35 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "noEmit": true,
+    "incremental": true,
+    "tsBuildInfoFile": "../node_modules/.tmp/tsconfig.electron.tsbuildinfo",
+    "sourceMap": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    // Dead-code hygiene, not correctness. Turned off so `typecheck:electron` gates
+    // on real type errors only. Matches server/tsconfig.json — see
+    // server/TYPECHECK-DEAD-CODE.md for the retained declarations.
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noImplicitReturns": true
+  },
+  // The Electron host shell: main, preload, and the host adapter with its two
+  // Electron-bound engines (browseWeb, UtilityToolRuntimeHost). Imports into
+  // ../server pull those files into the program transitively, so this project
+  // also re-checks the server graph it consumes (typecheck:server owns it).
+  "include": ["./**/*.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "dist-electron"
+  ]
+}

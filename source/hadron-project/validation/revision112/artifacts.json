@@ -1,0 +1,24 @@
+{
+  "version": "0.4.12",
+  "binaryBuildRevision": "cbd2bda2c66fc86a3fa167ebfc5f69342704326d",
+  "sourceRevision": "7cdb9c0d675687732d90a02cdc9c1945d9291c72",
+  "installer": {
+    "name": "Hadron-Harness-0.4.12-win-x64.exe",
+    "bytes": 370839796,
+    "sha256": "05deca65e4c3e57fa6196e664ec3a7bfbe73e2304f900d0c90a8430ee573506c"
+  },
+  "source": {
+    "name": "Hadron-Harness-0.4.12-source.zip",
+    "bytes": 8095232,
+    "sha256": "dcdfb2741c43dedb377e1cf17d39dbf785ca4fa090e23cb0004c029a454f427e"
+  },
+  "nativeInstallRepairRecoveryUninstallPassed": true,
+  "nativeUpgrade": {
+    "from": "0.4.11",
+    "to": "0.4.12",
+    "savedMessagesBefore": 2,
+    "savedMessagesAfter": 2
+  },
+  "cleanWindows": false,
+  "qualification": "Direct Node installer launches failed with 0xC0000005; normal Windows native launch tests passed. Underlying Node-launch cause remains unresolved."
+}

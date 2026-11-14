@@ -1,0 +1,11 @@
+
+ RUN  v2.1.9 C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r
+
+ ✓ server/__tests__/hadronToolProtocol.test.ts (25 tests) 24ms
+ ✓ server/__tests__/hadronToolLibrary.test.ts (12 tests) 652ms
+
+ Test Files  2 passed (2)
+      Tests  37 passed (37)
+   Start at  12:07:56
+   Duration  1.74s (transform 174ms, setup 0ms, collect 584ms, tests 677ms, environment 0ms, prepare 346ms)
+

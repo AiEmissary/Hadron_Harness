@@ -1,0 +1,12 @@
+{
+  "success": true,
+  "folderOnlySelection": true,
+  "recursiveSearch": true,
+  "discoveredNestedSource": true,
+  "readEvidenceFrozen": true,
+  "exactIndependentReview": true,
+  "visibleFolderActivity": true,
+  "noManualFiles": true,
+  "projectWrites": 0,
+  "realProviderRequests": 0
+}

@@ -1,0 +1,12 @@
+{
+  "profile": "C:\\Users\\rajka\\AppData\\Local\\Temp\\hadron-claude-probe-SQXldo",
+  "status": {
+    "installed": true,
+    "version": "2.1.318",
+    "connected": false,
+    "reason": "signed_out",
+    "loginState": "idle"
+  },
+  "inferenceInvocations": 0,
+  "purpose": "Fresh isolated profile: --version and auth status only; no sign-in or inference."
+}

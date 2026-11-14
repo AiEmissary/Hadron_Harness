@@ -1,0 +1,12 @@
+Hadron live tool acceptance: C:\Users\rajka\AppData\Local\Temp\hadron-live-tools-2xHqj5
+{
+  "success": false,
+  "nativeRequests": 1,
+  "protocolReplies": [
+    "{\"tool\":\"web_read\",\"arguments\":{\"url\":\"https://example.com\"}}{\"tool\":\"web_read\",\"arguments\":{\"url\":\"https://example.com\"}}"
+  ],
+  "evidenceAttempts": 0,
+  "successfulReads": 0,
+  "error": "Invalid tool response; no tool was run",
+  "realAccountUsed": true
+}

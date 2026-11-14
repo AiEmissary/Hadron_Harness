@@ -1,0 +1,48 @@
+{
+  "name": "ygg-chat",
+  "version": "1.0.0",
+  "description": "Hyper Agent",
+  "private": true,
+  "workspaces": [
+    "client/ygg-chat-r"
+  ],
+  "overrides": {
+    "@types/express": "4.17.21",
+    "@types/express-serve-static-core": "4.19.6",
+    "immer": "^11.0.0"
+  },
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "format:client": "prettier --write 'ygg-chat/client/**/*.{js,jsx,ts,tsx,json,css,md}'",
+    "format:shared": "prettier --write 'ygg-chat/shared/**/*.{js,jsx,ts,tsx,json,css,md}'",
+    "format:chat": "prettier --write 'ygg-chat/**/*.{js,jsx,ts,tsx,json,css,md}'",
+    "dev": "npm --prefix client/ygg-chat-r run dev",
+    "dev:client": "npm --prefix client/ygg-chat-r run dev",
+    "dev:electron": "npm --prefix client/ygg-chat-r run dev:electron",
+    "build": "npm run build:client && npm run build:electron",
+    "build:client": "npm --prefix client/ygg-chat-r run build",
+    "build:web": "cross-env BUILD_TARGET=web npm run build:client",
+    "build:electron": "cross-env BUILD_TARGET=electron npm run build:electron:all",
+    "build:electron:all": "npm --prefix client/ygg-chat-r run build:electron && npm --prefix client/ygg-chat-r run build:electron:main",
+    "package:electron": "npm --prefix client/ygg-chat-r run package:electron",
+    "install:all": "npm install && npm --prefix client/ygg-chat-r install",
+    "clean:deps": "node scripts/clean-deps.mjs",
+    "install:fresh": "npm run clean:deps && npm install && npm --prefix client/ygg-chat-r install",
+    "build:win:fresh": "npm run install:fresh && npm --prefix client/ygg-chat-r run build:win",
+    "build:linux:fresh": "npm run install:fresh && npm --prefix client/ygg-chat-r run build:linux",
+    "build:mac:fresh": "npm run install:fresh && npm --prefix client/ygg-chat-r run build:mac"
+  },
+  "devDependencies": {
+    "@types/express": "4.17.21",
+    "@types/express-serve-static-core": "4.19.6",
+    "concurrently": "^9.2.1",
+    "cross-env": "^7.0.3",
+    "prettier": "^3.6.2"
+  },
+  "dependencies": {
+    "@tanstack/react-virtual": "^3.14.13",
+    "immer": "^11.0.0",
+    "strip-markdown": "^6.0.0"
+  }
+}

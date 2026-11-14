@@ -1,0 +1,2140 @@
+{
+  "purpose": "Source inventory, including conditional/unavailable controls; not a count of functional passes",
+  "count": 193,
+  "controls": [
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "Header / shared controls",
+      "line": 205,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => setExpanded(value => !value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "Header / shared controls",
+      "line": 2351,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => setIsChangelogOpen(true)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "Header / shared controls",
+      "line": 2358,
+      "tag": "button",
+      "label": "'Home'",
+      "handlers": {
+        "onClick": "{() => navigate(-1)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "Header / shared controls",
+      "line": 2367,
+      "tag": "button",
+      "label": "'Logout'",
+      "handlers": {
+        "onClick": "{handleLogout}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "Header / shared controls",
+      "line": 2397,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => setIsChangelogOpen(false)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Chat Interface'",
+      "line": 2429,
+      "tag": "button",
+      "label": "\"Show Token Usage Bar\"",
+      "handlers": {
+        "onClick": "{handleTokenUsageBarToggle}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Chat Interface'",
+      "line": 2446,
+      "tag": "button",
+      "label": "\"Show Token Usage Hover Details\"",
+      "handlers": {
+        "onClick": "{handleTokenUsageHoverDetailsToggle}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Chat Interface'",
+      "line": 2463,
+      "tag": "button",
+      "label": "\"Show Added File Pills\"",
+      "handlers": {
+        "onClick": "{handleAddedFilesPillsToggle}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Chat Interface'",
+      "line": 2481,
+      "tag": "button",
+      "label": "\"Auto Compaction\"",
+      "handlers": {
+        "onClick": "{handleAutoCompactionToggle}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Chat Mode Prompt'",
+      "line": 2501,
+      "tag": "Select",
+      "label": null,
+      "handlers": {
+        "onChange": "{handleChatModePromptSelect}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Chat Mode Prompt'",
+      "line": 2517,
+      "tag": "Select",
+      "label": null,
+      "handlers": {
+        "onChange": "{handlePlanModeVerbosityChange}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Chat Mode Prompt'",
+      "line": 2530,
+      "tag": "input",
+      "label": null,
+      "handlers": {
+        "onChange": "{e => setChatModePromptNameInput(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Chat Mode Prompt'",
+      "line": 2537,
+      "tag": "textarea",
+      "label": null,
+      "handlers": {
+        "onChange": "{e => setChatModePromptInput(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Chat Mode Prompt'",
+      "line": 2544,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleSaveNewChatModePrompt}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Chat Mode Prompt'",
+      "line": 2545,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleUpdateChatModePrompt}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Chat Mode Prompt'",
+      "line": 2549,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => handleDeleteChatModePrompt()}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Chat Mode Prompt'",
+      "line": 2553,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleResetChatModePromptToDefault}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Chat Mode Prompt'",
+      "line": 2578,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => handleChatModePromptSelect(prompt.id)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Chat Mode Prompt'",
+      "line": 2581,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => handleDeleteChatModePrompt(prompt.id)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Agent Mode Prompt'",
+      "line": 2605,
+      "tag": "textarea",
+      "label": null,
+      "handlers": {
+        "onChange": "{e => setAgentModePromptInput(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Agent Mode Prompt'",
+      "line": 2612,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleSaveAgentModePrompt}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Agent Mode Prompt'",
+      "line": 2613,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleResetAgentModePrompt}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Tool Approval Defaults'",
+      "line": 2633,
+      "tag": "Select",
+      "label": null,
+      "handlers": {
+        "onChange": "{handleDefaultToolApprovalChange}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Chat Reasoning Defaults'",
+      "line": 2658,
+      "tag": "button",
+      "label": "\"Default Thinking\"",
+      "handlers": {
+        "onClick": "{handleDefaultThinkingToggle}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Chat Reasoning Defaults'",
+      "line": 2675,
+      "tag": "Select",
+      "label": null,
+      "handlers": {
+        "onChange": "{handleDefaultReasoningEffortChange}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Provider Settings'",
+      "line": 2708,
+      "tag": "button",
+      "label": "\"Show Provider Selector\"",
+      "handlers": {
+        "onClick": "{handleProviderVisibilityToggle}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Provider Settings'",
+      "line": 2727,
+      "tag": "Select",
+      "label": "'Select a default provider...'",
+      "handlers": {
+        "onChange": "{handleDefaultProviderChange}"
+      },
+      "disabled": "{providers.providers.length === 0}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Provider Settings'",
+      "line": 2764,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleOpenAIChatGPTSignIn}"
+      },
+      "disabled": "{isOpenAIAuthenticated()}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Provider Settings'",
+      "line": 2772,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleOpenAIChatGPTSignOut}"
+      },
+      "disabled": "{!isOpenAIAuthenticated()}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Provider Settings'",
+      "line": 2790,
+      "tag": "input",
+      "label": null,
+      "handlers": {
+        "onChange": "{e => handleOpenAiChatGptMaxContextInputChange(e.target.value)}",
+        "onBlur": "{e => commitOpenAiChatGptMaxContextChange(e.target.value)}",
+        "onKeyDown": "{e => {\r\n                      if (e.key === 'Enter') {\r\n                        e.currentTarget.blur()\r\n                      }\r\n                    }}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Provider Settings'",
+      "line": 2806,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => commitOpenAiChatGptMaxContextChange(String(DEFAULT_OPENAI_CHATGPT_MAX_CONTEXT_TOKENS))}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Provider Settings'",
+      "line": 2823,
+      "tag": "input",
+      "label": null,
+      "handlers": {
+        "onChange": "{event => {\r\n                    const value = Number(event.target.value)\r\n                    if (!Number.isFinite(value)) return\r\n                    const updated = { ...providerSettings, compactionThresholdPercent: Math.max(1, Math.min(95, Math.round(value))) }\r\n                    saveProviderSettings(updated)\r\n                    setProviderSettings(updated)\r\n                  }}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Provider Settings'",
+      "line": 2839,
+      "tag": "textarea",
+      "label": null,
+      "handlers": {
+        "onChange": "{e => handleCompactionSystemPromptInputChange(e.target.value)}",
+        "onBlur": "{e => commitCompactionSystemPromptChange(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Provider Settings'",
+      "line": 2857,
+      "tag": "input",
+      "label": "{DEFAULT_LMSTUDIO_BASE_URL}",
+      "handlers": {
+        "onChange": "{e => handleLmStudioBaseUrlInputChange(e.target.value)}",
+        "onBlur": "{e => commitLmStudioBaseUrlChange(e.target.value)}",
+        "onKeyDown": "{e => {\r\n                      if (e.key === 'Enter') {\r\n                        e.currentTarget.blur()\r\n                      }\r\n                    }}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Provider Settings'",
+      "line": 2871,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => commitLmStudioBaseUrlChange('')}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Provider Settings'",
+      "line": 2894,
+      "tag": "input",
+      "label": "'model default'",
+      "handlers": {
+        "onChange": "{e => handleOpenRouterTemperatureInputChange(e.target.value)}",
+        "onBlur": "{e => commitOpenRouterTemperatureChange(e.target.value)}",
+        "onKeyDown": "{e => {\r\n                      if (e.key === 'Enter') {\r\n                        e.currentTarget.blur()\r\n                      }\r\n                    }}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Provider Settings'",
+      "line": 2911,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => commitOpenRouterTemperatureChange('')}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Provider Settings'",
+      "line": 2944,
+      "tag": "input",
+      "label": "{zaiApiKeyConfigured ? 'Enter new key to replace' : 'Enter Z.AI API key'}",
+      "handlers": {
+        "onChange": "{e => setZaiApiKeyInput(e.target.value)}",
+        "onKeyDown": "{e => {\r\n                      if (e.key === 'Enter') {\r\n                        void handleSaveZaiApiKey()\r\n                      }\r\n                    }}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Provider Settings'",
+      "line": 2956,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleSaveZaiApiKey}"
+      },
+      "disabled": "{zaiApiKeySaving || !zaiApiKeyInput.trim()}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Provider Settings'",
+      "line": 2959,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleDeleteZaiApiKey}"
+      },
+      "disabled": "{zaiApiKeySaving || !zaiApiKeyConfigured}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Provider Settings'",
+      "line": 2982,
+      "tag": "input",
+      "label": "'AWS region, e.g. us-east-1'",
+      "handlers": {
+        "onChange": "{e => setBedrockRegionInput(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Provider Settings'",
+      "line": 2989,
+      "tag": "input",
+      "label": "{bedrockCredentialsConfigured ? 'Enter new access key ID to replace' : 'AWS access key ID'}",
+      "handlers": {
+        "onChange": "{e => setBedrockAccessKeyIdInput(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Provider Settings'",
+      "line": 2996,
+      "tag": "input",
+      "label": "{bedrockCredentialsConfigured ? 'Enter new secret access key to replace' : 'AWS secret access key'}",
+      "handlers": {
+        "onChange": "{e => setBedrockSecretAccessKeyInput(e.target.value)}",
+        "onKeyDown": "{e => {\r\n                      if (e.key === 'Enter') {\r\n                        void handleSaveBedrockCredentials()\r\n                      }\r\n                    }}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Provider Settings'",
+      "line": 3008,
+      "tag": "input",
+      "label": "'AWS session token (optional)'",
+      "handlers": {
+        "onChange": "{e => setBedrockSessionTokenInput(e.target.value)}",
+        "onKeyDown": "{e => {\r\n                      if (e.key === 'Enter') {\r\n                        void handleSaveBedrockCredentials()\r\n                      }\r\n                    }}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Provider Settings'",
+      "line": 3020,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleSaveBedrockCredentials}"
+      },
+      "disabled": "{\r\n                      bedrockCredentialsSaving ||\r\n                      !bedrockRegionInput.trim() ||\r\n                      !bedrockAccessKeyIdInput.trim() ||\r\n                      !bedrockSecretAccessKeyInput.trim()\r\n                    }"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Provider Settings'",
+      "line": 3033,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleDeleteBedrockCredentials}"
+      },
+      "disabled": "{bedrockCredentialsSaving || !bedrockCredentialsConfigured}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Memory'",
+      "line": 3070,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleMemoryBackfill}"
+      },
+      "disabled": "{memoryBackfillRunning}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Subagent'",
+      "line": 3114,
+      "tag": "Select",
+      "label": "'Follow current chat provider'",
+      "handlers": {
+        "onChange": "{handleSubagentProviderChange}"
+      },
+      "disabled": "{providers.providers.length === 0}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Subagent'",
+      "line": 3140,
+      "tag": "Select",
+      "label": "'Use provider selected/default model'",
+      "handlers": {
+        "onChange": "{handleSubagentModelChange}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Subagent'",
+      "line": 3168,
+      "tag": "Select",
+      "label": null,
+      "handlers": {
+        "onChange": "{handleSubagentReasoningEffortChange}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Subagent'",
+      "line": 3186,
+      "tag": "input",
+      "label": null,
+      "handlers": {
+        "onChange": "{e => handleSubagentMaxTurnsInputChange(e.target.value)}",
+        "onBlur": "{e => commitSubagentMaxTurnsChange(e.target.value)}",
+        "onKeyDown": "{e => {\r\n                    if (e.key === 'Enter') {\r\n                      e.currentTarget.blur()\r\n                    }\r\n                  }}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Subagent'",
+      "line": 3211,
+      "tag": "button",
+      "label": "\"Enable Orchestrator Tool Calls\"",
+      "handlers": {
+        "onClick": "{handleSubagentOrchestratorToggle}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Subagent'",
+      "line": 3229,
+      "tag": "textarea",
+      "label": null,
+      "handlers": {
+        "onChange": "{e => setSubagentModePromptInput(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Subagent'",
+      "line": 3236,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleSaveSubagentModePrompt}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Subagent'",
+      "line": 3237,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleResetSubagentModePrompt}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Context files'",
+      "line": 3281,
+      "tag": "input",
+      "label": null,
+      "handlers": {
+        "onChange": "{() => handleContextDirectoryPreset(preset)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Context files'",
+      "line": 3304,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => handleMoveContextDirectory(dir, -1)}"
+      },
+      "disabled": "{index === 0}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Context files'",
+      "line": 3312,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => handleMoveContextDirectory(dir, 1)}"
+      },
+      "disabled": "{index === contextDirectories.readDirs.length - 1}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Context files'",
+      "line": 3320,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => handleRemoveContextDirectory(dir)}"
+      },
+      "disabled": "{contextDirectories.readDirs.length === 1}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Context files'",
+      "line": 3332,
+      "tag": "input",
+      "label": "'.mytool'",
+      "handlers": {
+        "onChange": "{e => setCustomContextDirectoryInput(e.target.value)}",
+        "onKeyDown": "{e => {\r\n                        if (e.key === 'Enter') handleAddCustomContextDirectory()\r\n                      }}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Context files'",
+      "line": 3342,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleAddCustomContextDirectory}"
+      },
+      "disabled": "{!customContextDirectoryInput.trim() || Boolean(customContextDirectoryError)}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Context files'",
+      "line": 3364,
+      "tag": "Select",
+      "label": null,
+      "handlers": {
+        "onChange": "{(value: string) =>\r\n                    applyContextDirectories(\r\n                      { readDirs: contextDirectories.readDirs, writeDir: value },\r\n                      detectContextDirectoryPreset({ readDirs: contextDirectories.readDirs, writeDir: value })\r\n                    )\r\n                  }"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Tools Configuration'",
+      "line": 3408,
+      "tag": "input",
+      "label": null,
+      "handlers": {
+        "onChange": "{e => handleStreamIdleTimeoutInputChange(e.target.value)}",
+        "onBlur": "{e => commitStreamIdleTimeoutChange(e.target.value)}",
+        "onKeyDown": "{e => {\r\n                        if (e.key === 'Enter') {\r\n                          e.currentTarget.blur()\r\n                        }\r\n                      }}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Tools Configuration'",
+      "line": 3440,
+      "tag": "input",
+      "label": null,
+      "handlers": {
+        "onChange": "{e => handleToolCallTimeoutInputChange(e.target.value)}",
+        "onBlur": "{e => commitToolCallTimeoutChange(e.target.value)}",
+        "onKeyDown": "{e => {\r\n                        if (e.key === 'Enter') {\r\n                          e.currentTarget.blur()\r\n                        }\r\n                      }}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Tools Configuration'",
+      "line": 3471,
+      "tag": "input",
+      "label": null,
+      "handlers": {
+        "onChange": "{e => handleBashTimeoutInputChange(e.target.value)}",
+        "onBlur": "{e => commitBashTimeoutChange(e.target.value)}",
+        "onKeyDown": "{e => {\r\n                        if (e.key === 'Enter') {\r\n                          e.currentTarget.blur()\r\n                        }\r\n                      }}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Tools Configuration'",
+      "line": 3495,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleReloadTools}"
+      },
+      "disabled": "{reloadingTools}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Tools Configuration'",
+      "line": 3536,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => handleToolToggle(tool.name, tool.enabled)}"
+      },
+      "disabled": "{updatingTools.has(tool.name)}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'HTML Tools Cache'",
+      "line": 3608,
+      "tag": "button",
+      "label": "{isFavorite ? 'Remove from favorites' : 'Add to favorites'}",
+      "handlers": {
+        "onClick": "{() => {\r\n                              htmlRegistry.toggleFavorite(entry.key)\r\n                              showStatus({\r\n                                type: 'success',\r\n                                text: entry.favorite ? 'Removed from favorites.' : 'Added to favorites.',\r\n                              })\r\n                            }}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'HTML Tools Cache'",
+      "line": 3626,
+      "tag": "button",
+      "label": "{isHibernated ? 'Restore tool' : 'Hibernate tool'}",
+      "handlers": {
+        "onClick": "{() => {\r\n                              if (isHibernated) {\r\n                                htmlRegistry.restoreEntry(entry.key)\r\n                                showStatus({ type: 'success', text: 'Tool restored.' })\r\n                              } else {\r\n                                htmlRegistry.hibernateEntry(entry.key)\r\n                                showStatus({ type: 'info', text: 'Tool hibernated.' })\r\n                              }\r\n                            }}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'HTML Tools Cache'",
+      "line": 3642,
+      "tag": "button",
+      "label": "'Remove tool'",
+      "handlers": {
+        "onClick": "{() => {\r\n                              htmlRegistry.removeEntry(entry.key)\r\n                              showStatus({ type: 'info', text: 'Tool removed from cache.' })\r\n                            }}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'HTML Tools Cache'",
+      "line": 3662,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => {\r\n                      htmlEntries.forEach(entry => htmlRegistry.removeEntry(entry.key))\r\n                      showStatus({ type: 'success', text: 'All HTML tools cleared.' })\r\n                    }}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'API Keys'",
+      "line": 3690,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleConsolidateCredentials}"
+      },
+      "disabled": "{credentialsConsolidating || braveApiKeyLoading || braveApiKeySaving}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'API Keys'",
+      "line": 3710,
+      "tag": "input",
+      "label": "'Enter Brave Search API key'",
+      "handlers": {
+        "onChange": "{e => setBraveApiKeyInput(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'API Keys'",
+      "line": 3718,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleSaveBraveApiKey}"
+      },
+      "disabled": "{braveApiKeySaving || braveApiKeyLoading || credentialsConsolidating || !braveApiKeyInput.trim()}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'API Keys'",
+      "line": 3726,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleLoadBraveApiKey}"
+      },
+      "disabled": "{braveApiKeySaving || braveApiKeyLoading || credentialsConsolidating}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'API Keys'",
+      "line": 3729,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleDeleteBraveApiKey}"
+      },
+      "disabled": "{braveApiKeySaving || braveApiKeyLoading || credentialsConsolidating || !braveApiKeyConfigured}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Built-in Browser'",
+      "line": 3760,
+      "tag": "button",
+      "label": "\"Guest Page DevTools\"",
+      "handlers": {
+        "onClick": "{handleBrowserGuestDevToolsToggle}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Remote Mobile Access'",
+      "line": 3790,
+      "tag": "input",
+      "label": "'http://192.168.0.119:3002'",
+      "handlers": {
+        "onChange": "{event => setRemoteBaseUrlInput(event.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Remote Mobile Access'",
+      "line": 3803,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleSaveRemoteBaseUrl}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Remote Mobile Access'",
+      "line": 3806,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => {\r\n                      setRemoteBaseUrlInput('')\r\n                      saveRemoteServerSettings({ remoteBaseUrl: null })\r\n                      showStatus({\r\n                        type: 'info',\r\n                        text: 'Remote server URL cleared. Using detected local origin as fallback.',\r\n                      })\r\n                    }}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Remote Mobile Access'",
+      "line": 3820,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleOpenRemoteMobileUi}"
+      },
+      "disabled": "{!effectiveRemoteMobileUrl}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Remote Mobile Access'",
+      "line": 3828,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleCopyRemoteMobileUi}"
+      },
+      "disabled": "{!effectiveRemoteMobileUrl}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Local Ownership Migration'",
+      "line": 3874,
+      "tag": "Select",
+      "label": "{localUsersLoading ? 'Loading users...' : 'Select source user'}",
+      "handlers": {
+        "onChange": "{setFromUserId}"
+      },
+      "disabled": "{localUsersLoading || localUsers.length === 0 || migratingOwnership}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Local Ownership Migration'",
+      "line": 3887,
+      "tag": "Select",
+      "label": "{localUsersLoading ? 'Loading users...' : 'Select destination user'}",
+      "handlers": {
+        "onChange": "{setToUserId}"
+      },
+      "disabled": "{localUsersLoading || localUsers.length === 0 || migratingOwnership}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Local Ownership Migration'",
+      "line": 3901,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{fetchLocalUsers}"
+      },
+      "disabled": "{localUsersLoading || migratingOwnership}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Local Ownership Migration'",
+      "line": 3910,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleManualOwnershipMigration}"
+      },
+      "disabled": "{\r\n                    localUsersLoading ||\r\n                    migratingOwnership ||\r\n                    localUsers.length < 2 ||\r\n                    !fromUserId ||\r\n                    !toUserId ||\r\n                    fromUserId === toUserId\r\n                  }"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Typography'",
+      "line": 3945,
+      "tag": "input",
+      "label": "{DEFAULT_GOOGLE_FONT_URL}",
+      "handlers": {
+        "onChange": "{event => setGoogleFontUrlInput(event.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Typography'",
+      "line": 3953,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleGoogleFontUrlApply}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Typography'",
+      "line": 3956,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleResetAppFont}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Typography'",
+      "line": 3963,
+      "tag": "input",
+      "label": null,
+      "handlers": {
+        "onChange": "{handleLocalFontUpload}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Typography'",
+      "line": 3976,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => fontFileInputRef.current?.click()}"
+      },
+      "disabled": "{fontUploading}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Typography'",
+      "line": 3984,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleUseLocalFont}"
+      },
+      "disabled": "{!hasLocalFontSaved}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Typography'",
+      "line": 3987,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleRemoveLocalFont}"
+      },
+      "disabled": "{!hasLocalFontSaved}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Custom Upload'",
+      "line": 4019,
+      "tag": "input",
+      "label": null,
+      "handlers": {
+        "onChange": "{handleFileChange}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Custom Upload'",
+      "line": 4026,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => fileInputRef.current?.click()}"
+      },
+      "disabled": "{uploading}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Solid Color Background'",
+      "line": 4048,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => handleBackgroundModeChange('video')}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Solid Color Background'",
+      "line": 4056,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => handleBackgroundModeChange('color')}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Solid Color Background'",
+      "line": 4099,
+      "tag": "input",
+      "label": "{`${label} picker`}",
+      "handlers": {
+        "onChange": "{event => handleBackgroundColorChange(mode, event.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Solid Color Background'",
+      "line": 4106,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => handleBackgroundColorChange(mode, 'transparent')}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Saved Wallpapers'",
+      "line": 4133,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleResetToDefault}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Saved Wallpapers'",
+      "line": 4136,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleClearGallery}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Saved Wallpapers'",
+      "line": 4177,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => handleSelectVideo(video.id)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Saved Wallpapers'",
+      "line": 4187,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => handleRemoveVideo(video.id)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "'Saved Wallpapers'",
+      "line": 4201,
+      "tag": "button",
+      "label": "{\r\n                                mode === 'auto'\r\n                                  ? 'Follow system theme'\r\n                                  : mode === 'light'\r\n                                    ? 'Light text (for dark videos)'\r\n                                    : 'Dark text (for light videos)'\r\n                              }",
+      "handlers": {
+        "onClick": "{() => handleTextColorModeChange(video.id, mode)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "Header / shared controls",
+      "line": 4259,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleGoogleDriveConnect}"
+      },
+      "disabled": "{googleConnecting}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "Header / shared controls",
+      "line": 4270,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleGoogleDriveDisconnect}"
+      },
+      "disabled": "{googleDisconnecting}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "Header / shared controls",
+      "line": 4283,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleGoogleDriveConnect}"
+      },
+      "disabled": "{googleConnecting}"
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "Header / shared controls",
+      "line": 4334,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{closeOpenaiLoginModal}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/containers/Settings.tsx",
+      "section": "Header / shared controls",
+      "line": 4337,
+      "tag": "Button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleOpenaiLogin}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 1467,
+      "tag": "button",
+      "label": "'Open keyboard shortcuts'",
+      "handlers": {
+        "onClick": "{() => setShortcutsOpen(true)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 1472,
+      "tag": "button",
+      "label": "'Open App Store'",
+      "handlers": {
+        "onClick": "{() => setAppStoreOpen(true)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 1481,
+      "tag": "button",
+      "label": "'Close settings'",
+      "handlers": {
+        "onClick": "{onClose}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 1496,
+      "tag": "input",
+      "label": null,
+      "handlers": {
+        "onChange": "{handleAttachmentInputChange(attachmentTarget)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 1508,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => setPromptContextExpanded(!promptContextExpanded)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 1533,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => {\r\n                          setAttachmentTarget('system')\r\n                          attachmentInputRef.current?.click()\r\n                        }}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 1552,
+      "tag": "button",
+      "label": "{prompt.description || prompt.content.substring(0, 100)}",
+      "handlers": {
+        "onClick": "{() => handleSelectPrompt(prompt)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 1607,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleRemoveDefault}"
+      },
+      "disabled": "{removingDefault}"
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 1617,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleMakeDefault}"
+      },
+      "disabled": "{makingDefault}"
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 1631,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => setShowSavePromptInput(true)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 1642,
+      "tag": "input",
+      "label": "'Enter prompt name...'",
+      "handlers": {
+        "onChange": "{e => setSavePromptName(e.target.value)}",
+        "onKeyDown": "{e => {\r\n                                      if (e.key === 'Enter') handleSaveAsPrompt()\r\n                                      if (e.key === 'Escape') resetSaveUI()\r\n                                    }}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 1657,
+      "tag": "button",
+      "label": "{\r\n                                          storage === 'local' ? 'Save only on this device' : 'Save to cloud account'\r\n                                        }",
+      "handlers": {
+        "onClick": "{() => setSavePromptStorage(storage)}"
+      },
+      "disabled": "{storage === 'cloud' && !canSaveToCloud}"
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 1675,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleSaveAsPrompt}"
+      },
+      "disabled": "{!savePromptName.trim() || savingPrompt}"
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 1683,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{resetSaveUI}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 1705,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => {\r\n                          setAttachmentTarget('context')\r\n                          attachmentInputRef.current?.click()\r\n                        }}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 1812,
+      "tag": "input",
+      "label": null,
+      "handlers": {
+        "onChange": "{e => handleFontSizeChange(parseInt(e.target.value, 10))}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 1835,
+      "tag": "button",
+      "label": "'Reset to default'",
+      "handlers": {
+        "onClick": "{() => handleFontSizeChange(0)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 1861,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => setChatSettingsExpanded(!chatSettingsExpanded)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 1945,
+      "tag": "button",
+      "label": "'Truncate long tool output'",
+      "handlers": {
+        "onClick": "{() => handleToolOutputTruncationChange(!truncateToolOutput)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 2019,
+      "tag": "button",
+      "label": "{groupToolReasoningRuns ? 'Disable grouping' : 'Enable grouping'}",
+      "handlers": {
+        "onClick": "{() => handleGroupToolReasoningRunsChange(!groupToolReasoningRuns)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 2055,
+      "tag": "button",
+      "label": "{showActivityStepLabels ? 'Hide step labels' : 'Show step labels'}",
+      "handlers": {
+        "onClick": "{() => saveActivityStepLabels(!showActivityStepLabels)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 2108,
+      "tag": "button",
+      "label": "{\r\n                            editDiffAnimationsEnabled\r\n                              ? 'Disable edit diff expansion animation'\r\n                              : 'Enable edit diff expansion animation'\r\n                          }",
+      "handlers": {
+        "onClick": "{() => handleEditDiffAnimationsEnabledChange(!editDiffAnimationsEnabled)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 2192,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => handleStreamingThinkingIndicatorPlacementChange(option.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 2226,
+      "tag": "FastModeAnimationSettings",
+      "label": null,
+      "handlers": {},
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 2231,
+      "tag": "SendButtonAnimationSettings",
+      "label": null,
+      "handlers": {},
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 2236,
+      "tag": "ChatInputBorderAnimationSettings",
+      "label": null,
+      "handlers": {},
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 2288,
+      "tag": "button",
+      "label": "{longTermMemoryContextEnabled ? 'Disable memory context' : 'Enable memory context'}",
+      "handlers": {
+        "onClick": "{() => handleLongTermMemoryContextEnabledChange(!longTermMemoryContextEnabled)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 2329,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => setSavedThemesExpanded(prev => !prev)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 2434,
+      "tag": "button",
+      "label": "{customThemeEnabled ? 'Disable custom theme' : 'Enable custom theme'}",
+      "handlers": {
+        "onClick": "{() => setCustomChatThemeEnabled(!customThemeEnabled)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 2457,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{fetchSavedThemes}"
+      },
+      "disabled": "{savedThemesLoading}"
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 2584,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => handleApplySavedTheme(themeItem.id)}"
+      },
+      "disabled": "{applyingThemeId === themeItem.id}"
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 2611,
+      "tag": "ThemeManager",
+      "label": null,
+      "handlers": {},
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 2623,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => setToolsExpanded(!toolsExpanded)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 2664,
+      "tag": "ToolsSettings",
+      "label": null,
+      "handlers": {},
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 2675,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => setHooksExpanded(!hooksExpanded)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 2720,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{fetchManagedHooks}"
+      },
+      "disabled": "{hooksLoading}"
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 2807,
+      "tag": "button",
+      "label": "{hook.enabled ? 'Disable hook' : 'Enable hook'}",
+      "handlers": {
+        "onClick": "{() => handleToggleHook(hook)}"
+      },
+      "disabled": "{updatingHooks.has(hook.id)}"
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 2837,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => setSkillsExpanded(!skillsExpanded)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 2893,
+      "tag": "input",
+      "label": "'https://github.com/owner/repo.git'",
+      "handlers": {
+        "onChange": "{e => setSkillUrl(e.target.value)}",
+        "onKeyDown": "{e => {\r\n                        if (e.key === 'Enter' && skillUrl.trim()) {\r\n                          handleInstallSkill()\r\n                        }\r\n                      }}"
+      },
+      "disabled": "{skillInstallStatus === 'loading'}"
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 2906,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleInstallSkill}"
+      },
+      "disabled": "{!skillUrl.trim() || skillInstallStatus === 'loading'}"
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 2954,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleInstallAllSkills}"
+      },
+      "disabled": "{skillInstallStatus === 'loading'}"
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 2965,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => {\r\n                              setSkillUrl(candidate.url)\r\n                              setSkillInstallCandidates([])\r\n                              setSkillInstallMessage(`Ready to install ${candidate.name}`)\r\n                            }}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3036,
+      "tag": "button",
+      "label": "{skill.enabled ? 'Disable skill' : 'Enable skill'}",
+      "handlers": {
+        "onClick": "{() => handleToggleSkill(skill.name, skill.enabled)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3047,
+      "tag": "button",
+      "label": "'Uninstall skill'",
+      "handlers": {
+        "onClick": "{() => handleUninstallSkill(skill.name)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3071,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => setMcpExpanded(!mcpExpanded)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3150,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => setMcpAddMode(true)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3154,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleRefreshMcpTools}"
+      },
+      "disabled": "{mcpRefreshing}"
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3174,
+      "tag": "input",
+      "label": "'my-server'",
+      "handlers": {
+        "onChange": "{e => setNewServerName(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3186,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => setNewServerTransport('stdio')}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3197,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => setNewServerTransport('http')}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3217,
+      "tag": "input",
+      "label": "'npx'",
+      "handlers": {
+        "onChange": "{e => setNewServerCommand(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3229,
+      "tag": "input",
+      "label": "'-y @anthropic/mcp-server-filesystem /path/to/dir'",
+      "handlers": {
+        "onChange": "{e => setNewServerArgs(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3241,
+      "tag": "textarea",
+      "label": "'{\"BLENDER_HOST\":\"localhost\",\"BLENDER_PORT\":\"9876\"}'",
+      "handlers": {
+        "onChange": "{e => setNewServerEnvText(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3256,
+      "tag": "select",
+      "label": null,
+      "handlers": {
+        "onChange": "{e =>\r\n                                setNewServerStdioFraming(e.target.value as 'content-length' | 'newline-json')\r\n                              }"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3274,
+      "tag": "input",
+      "label": "'https://mcp.example.com/mcp'",
+      "handlers": {
+        "onChange": "{e => setNewServerUrl(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3286,
+      "tag": "textarea",
+      "label": "'{\"Authorization\":\"Bearer <token>\"}'",
+      "handlers": {
+        "onChange": "{e => setNewServerHeadersText(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3300,
+      "tag": "input",
+      "label": null,
+      "handlers": {
+        "onChange": "{e => {\r\n                                  const enabled = e.target.checked\r\n                                  setNewServerOauthAllowMissingPkceS256ForCelestialTest(enabled)\r\n                                  if (enabled) {\r\n                                    setNewServerOauthClientId(CELESTIAL_TEST_OAUTH_PRESET.clientId)\r\n                                    setNewServerOauthClientSecret('')\r\n                                    setNewServerOauthTokenAuthMethod('none')\r\n                                    setNewServerOauthRedirectUri(CELESTIAL_TEST_OAUTH_PRESET.redirectUri)\r\n                                    setNewServerOauthScopes(`${newServerOauthOmitResource ? 'openid profile email ' : ''}${CELESTIAL_TEST_OAUTH_PRESET.scope}`)\r\n                                  }\r\n                                }}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3328,
+      "tag": "input",
+      "label": null,
+      "handlers": {
+        "onChange": "{e => {\r\n                                  setNewServerOauthOmitResource(e.target.checked)\r\n                                  if (e.target.checked) {\r\n                                    setNewServerOauthClientId(CELESTIAL_TEST_OAUTH_PRESET.clientId)\r\n                                    setNewServerOauthTokenAuthMethod('none')\r\n                                    setNewServerOauthClientSecret('')\r\n                                    setNewServerOauthRedirectUri(CELESTIAL_TEST_OAUTH_PRESET.redirectUri)\r\n                                    setNewServerOauthScopes(`openid profile email ${CELESTIAL_TEST_OAUTH_PRESET.scope}`)\r\n                                  }\r\n                                }}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3354,
+      "tag": "input",
+      "label": "'github-oauth-client-id'",
+      "handlers": {
+        "onChange": "{e => setNewServerOauthClientId(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3367,
+      "tag": "input",
+      "label": "'Only needed for client_secret_post'",
+      "handlers": {
+        "onChange": "{e => setNewServerOauthClientSecret(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3380,
+      "tag": "input",
+      "label": "'http://127.0.0.1:6274/oauth/callback'",
+      "handlers": {
+        "onChange": "{e => setNewServerOauthRedirectUri(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3397,
+      "tag": "input",
+      "label": "'repo read:user user:email'",
+      "handlers": {
+        "onChange": "{e => setNewServerOauthScopes(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3413,
+      "tag": "select",
+      "label": null,
+      "handlers": {
+        "onChange": "{e =>\r\n                                setNewServerOauthTokenAuthMethod(e.target.value as 'client_secret_post' | 'none')\r\n                              }"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3428,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleAddMcpServer}"
+      },
+      "disabled": "{\r\n                            !newServerName.trim() ||\r\n                            (newServerTransport === 'stdio' ? !newServerCommand.trim() : !newServerUrl.trim())\r\n                          }"
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3439,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => {\r\n                            setMcpAddMode(false)\r\n                            setNewServerName('')\r\n                            setNewServerTransport('stdio')\r\n                            setNewServerCommand('')\r\n                            setNewServerArgs('')\r\n                            setNewServerEnvText('')\r\n                            setNewServerStdioFraming('content-length')\r\n                            setNewServerUrl('')\r\n                            setNewServerHeadersText('')\r\n                            setNewServerOauthClientId('')\r\n                            setNewServerOauthClientSecret('')\r\n                            setNewServerOauthRedirectUri('')\r\n                            setNewServerOauthScopes('')\r\n                            setNewServerOauthTokenAuthMethod('client_secret_post')\r\n                            setNewServerOauthOmitResource(false)\r\n                            setNewServerOauthAllowMissingPkceS256ForCelestialTest(false)\r\n                          }}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3566,
+      "tag": "button",
+      "label": "{server.status === 'connected' ? 'Stop server' : 'Start server'}",
+      "handlers": {
+        "onClick": "{() => handleToggleMcpServer(server.name, server.status)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3580,
+      "tag": "button",
+      "label": "'Edit server details and authentication'",
+      "handlers": {
+        "onClick": "{() => beginEditMcpServer(server)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3588,
+      "tag": "button",
+      "label": "'Remove server'",
+      "handlers": {
+        "onClick": "{() => handleRemoveMcpServer(server.name)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3601,
+      "tag": "input",
+      "label": "'Command'",
+      "handlers": {
+        "onChange": "{e => setEditServerCommand(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3602,
+      "tag": "input",
+      "label": "'Arguments (space-separated)'",
+      "handlers": {
+        "onChange": "{e => setEditServerArgs(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3603,
+      "tag": "textarea",
+      "label": "'Environment variables (JSON)'",
+      "handlers": {
+        "onChange": "{e => setEditServerEnvText(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3604,
+      "tag": "select",
+      "label": null,
+      "handlers": {
+        "onChange": "{e => setEditServerStdioFraming(e.target.value as 'content-length' | 'newline-json')}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3613,
+      "tag": "input",
+      "label": null,
+      "handlers": {
+        "onChange": "{e => setEditServerUrl(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3617,
+      "tag": "textarea",
+      "label": "'Leave blank to preserve existing headers, or enter {\"Authorization\":\"Bearer new-token\"}'",
+      "handlers": {
+        "onChange": "{e => setEditServerHeadersText(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3622,
+      "tag": "input",
+      "label": null,
+      "handlers": {
+        "onChange": "{e => {\r\n                                            const enabled = e.target.checked\r\n                                            setEditServerOauthAllowMissingPkceS256ForCelestialTest(enabled)\r\n                                            if (enabled) {\r\n                                              setEditServerOauthClientId(CELESTIAL_TEST_OAUTH_PRESET.clientId)\r\n                                              setEditServerOauthClientSecret('')\r\n                                              setEditServerOauthTokenAuthMethod('none')\r\n                                              setEditServerOauthRedirectUri(CELESTIAL_TEST_OAUTH_PRESET.redirectUri)\r\n                                              setEditServerOauthScopes(`${editServerOauthOmitResource ? 'openid profile email ' : ''}${CELESTIAL_TEST_OAUTH_PRESET.scope}`)\r\n                                            }\r\n                                          }}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3649,
+      "tag": "input",
+      "label": null,
+      "handlers": {
+        "onChange": "{e => {\r\n                                            setEditServerOauthOmitResource(e.target.checked)\r\n                                            if (e.target.checked) {\r\n                                              setEditServerOauthClientId(CELESTIAL_TEST_OAUTH_PRESET.clientId)\r\n                                              setEditServerOauthTokenAuthMethod('none')\r\n                                              setEditServerOauthClientSecret('')\r\n                                              setEditServerOauthRedirectUri(CELESTIAL_TEST_OAUTH_PRESET.redirectUri)\r\n                                              setEditServerOauthScopes(`openid profile email ${CELESTIAL_TEST_OAUTH_PRESET.scope}`)\r\n                                            }\r\n                                          }}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3670,
+      "tag": "input",
+      "label": "'OAuth client ID (optional)'",
+      "handlers": {
+        "onChange": "{e => setEditServerOauthClientId(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3671,
+      "tag": "input",
+      "label": "{editServerOauthAllowMissingPkceS256ForCelestialTest ? 'No client secret needed for the TEST public client' : server.oauth?.hasClientSecret ? 'New client secret (blank preserves existing)' : 'OAuth client secret (optional)'}",
+      "handlers": {
+        "onChange": "{e => setEditServerOauthClientSecret(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3674,
+      "tag": "input",
+      "label": "{server.oauth?.hasAccessToken ? 'Blank preserves current token' : 'Paste access token'}",
+      "handlers": {
+        "onChange": "{e => setEditServerOauthAccessToken(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3679,
+      "tag": "input",
+      "label": "'http://127.0.0.1:6274/oauth/callback'",
+      "handlers": {
+        "onChange": "{e => setEditServerOauthRedirectUri(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3682,
+      "tag": "input",
+      "label": "'OAuth scopes (space or comma separated)'",
+      "handlers": {
+        "onChange": "{e => setEditServerOauthScopes(e.target.value)}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3683,
+      "tag": "select",
+      "label": null,
+      "handlers": {
+        "onChange": "{e => setEditServerOauthTokenAuthMethod(e.target.value as 'client_secret_post' | 'none')}"
+      },
+      "disabled": null
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3690,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{handleUpdateMcpServer}"
+      },
+      "disabled": "{mcpEditSaving}"
+    },
+    {
+      "file": "src/components/SettingsPane/SettingsPane.tsx",
+      "section": "Header / shared controls",
+      "line": 3693,
+      "tag": "button",
+      "label": null,
+      "handlers": {
+        "onClick": "{() => {\r\n                                      setEditingMcpServerName(null)\r\n                                      setEditServerOauthOmitResource(false)\r\n                                      setEditServerOauthAllowMissingPkceS256ForCelestialTest(false)\r\n                                    }}"
+      },
+      "disabled": "{mcpEditSaving}"
+    }
+  ]
+}

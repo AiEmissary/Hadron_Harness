@@ -1,0 +1,714 @@
+import type { ChatErrorEnvelope, ChatNoticeCode } from '../../../../../shared/chatErrors'
+import { BaseMessage, BaseModel, ConversationId, ImageConfig, MessageId, OpenAIServiceTier, ReasoningConfig } from '../../../../../shared/types'
+import type { PlanClarificationRequest } from './planToolTypes'
+
+export type { ChatErrorAction, ChatErrorCode, ChatErrorEnvelope, ChatNoticeCode } from '../../../../../shared/chatErrors'
+
+// Message types (shared with conversations)
+export type HookRunStatus = 'scheduled' | 'running' | 'succeeded' | 'skipped' | 'failed' | 'timed_out'
+export interface HookRunRecord {
+  id: string
+  conversationId: string | null
+  streamId: string | null
+  event: string
+  messageId: string | null
+  label: string
+  configuredCommand: string
+  executedCommand: string | null
+  sourceFile: string
+  scope: 'personal' | 'project' | 'local_override'
+  executionMode: 'sync' | 'async'
+  status: HookRunStatus
+  outcomeCode: string | null
+  outcomeSummary: string | null
+  cwd: string | null
+  startedAt: string | null
+  completedAt: string | null
+  durationMs: number | null
+  errorSummary: string | null
+  stdoutPreview: string | null
+  stderrPreview: string | null
+  logPath: string | null
+  logFallback: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface Message extends BaseMessage {
+  attachments?: Array<{ id: string; mime_type?: string; file_path?: string; url?: string; [key: string]: unknown }>
+  //media: Blob or path to file
+  pastedContext: string[]
+  artifacts: string[]
+  //should write a function which extracts text content
+  //when user drags and drops it on the input component
+  // Content blocks for ex_agent messages (Claude Code responses stored chronologically).
+  // Spelled as `ContentBlock[]` rather than longhand so a new member (e.g. ErrorBlock, which
+  // makes a classified failure survive a reload) is persistable without editing this line.
+  content_blocks?: ContentBlock[]
+  hook_runs?: HookRunRecord[]
+}
+
+export interface miniMessage {
+  content: string
+  media: Blob | null
+}
+
+// Content Block types for ex_agent messages with sequential rendering
+export interface ThinkingBlock {
+  type: 'thinking'
+  index: number
+  content: string
+}
+
+export interface ToolUseBlock {
+  type: 'tool_use'
+  index: number
+  id: string
+  name: string
+  input: any
+}
+
+export interface TextBlock {
+  type: 'text'
+  index: number
+  content: string
+}
+
+export interface ToolResultBlock {
+  type: 'tool_result'
+  index: number
+  tool_use_id: string
+  content: any
+  is_error: boolean
+}
+
+export interface ImageBlock {
+  type: 'image'
+  index: number
+  url: string
+  mimeType: string
+}
+
+export interface ReasoningDetailsBlock {
+  type: 'reasoning_details'
+  index?: number
+  reasoningDetails: Array<{
+    text?: string
+    type?: string
+    index?: number
+    format?: string
+  }>
+}
+
+/**
+ * A classified failure, persisted as message content so it survives a reload and
+ * appears in the tree / Heimdall / export like any other block.
+ *
+ * `excludeFromContext` is load-bearing: without it the next turn replays "I
+ * couldn't reach the provider" to the model as its own prior words. Every
+ * history-building path must honour it.
+ */
+export interface ErrorBlock {
+  type: 'error'
+  index: number
+  envelope: ChatErrorEnvelope
+  /** Always true for error blocks. Explicit so serialisation cannot lose it by omission. */
+  excludeFromContext: true
+}
+
+/**
+ * Auto-loaded context that rides on a tool result or a user message (nested
+ * AGENTS.md / CLAUDE.md, path-scoped rules, skills, hook output). Rendered compactly;
+ * folded into the tool result text for the model. See shared/contextInjection.ts.
+ */
+export interface ContextInjectionBlock {
+  type: 'context_injection'
+  index?: number
+  tool_use_id?: string
+  path: string
+  label: string
+  text: string
+  reason: string
+}
+
+export type ContentBlock =
+  | ThinkingBlock
+  | ToolUseBlock
+  | TextBlock
+  | ToolResultBlock
+  | ImageBlock
+  | ReasoningDetailsBlock
+  | ErrorBlock
+  | ContextInjectionBlock
+
+// Tool call types
+export interface ToolCall {
+  id: string
+  name: string
+  arguments: any
+  status: 'pending' | 'executing' | 'complete'
+  result?: string
+}
+
+// Stream-specific types
+export interface StreamChunk {
+  type:
+    | 'chunk'
+    | 'complete'
+    | 'error'
+    | 'user_message'
+    | 'reset'
+    | 'generation_started'
+    | 'tool_call'
+    | 'free_generations_update'
+    | 'permission_request'
+  content?: string
+  // delta is used for token-level updates from the server
+  delta?: string
+  // part distinguishes normal text from reasoning tokens from tool calls
+  part?: 'text' | 'reasoning' | 'tool_call' | 'tool_result' | 'image'
+  // image data for generated images
+  url?: string
+  mimeType?: string
+  message?: Message
+  error?: string
+  // optional iteration index for multi-reply endpoints
+  iteration?: number
+  messageId?: MessageId
+  // structured tool call data
+  toolCall?: ToolCall
+  // structured tool result data
+  toolResult?: {
+    tool_use_id: string
+    content: any
+    is_error: boolean
+  }
+  // free tier update data
+  remaining?: number
+  // tool permission request correlation id
+  requestId?: string
+}
+
+// Sequential event for streaming to preserve order
+export interface StreamEvent {
+  type: 'text' | 'reasoning' | 'tool_call' | 'tool_result' | 'image' | 'error' | 'notice'
+  content?: string
+  delta?: string
+  toolCall?: ToolCall
+  /** Set on `error` events. The live, in-order counterpart of a persisted ErrorBlock. */
+  errorEnvelope?: ChatErrorEnvelope
+  /** Set on `notice` events (non-terminal status such as "Reconnecting…"). */
+  noticeCode?: ChatNoticeCode
+  /** Retry/attempt counters carried by `notice` events. */
+  attempt?: number
+  maxAttempts?: number
+  // Tool result from streaming (matches server ToolResultBlock)
+  toolResult?: {
+    tool_use_id: string
+    content: any
+    is_error: boolean
+  }
+  // Image data for generated images
+  url?: string
+  mimeType?: string
+  // Indicates if this is a complete block (not a delta)
+  complete?: boolean
+}
+
+// Stream type classification for multi-stream support
+export type StreamType = 'primary' | 'subagent' | 'tool' | 'branch'
+
+export type StreamLifecycleStatus =
+  | 'idle'
+  | 'active'
+  | 'waiting_for_tool'
+  | 'aborting'
+  | 'completed'
+  | 'error'
+
+// Renderer-owned identity for an exact conversation branch/lineage. The optional
+// brand keeps string interoperability for existing callers while documenting when
+// an arbitrary string is being used as a lineage identity.
+export type LineageId = string & { readonly __lineageIdBrand?: never }
+
+// Lineage metadata for tracking stream hierarchy (subagents, tool-spawned streams)
+export interface StreamLineage {
+  lineageId?: LineageId          // Exact renderer branch/lineage identity
+  lineageIdConfirmed?: boolean  // Server resolved this run's lineage (not its initial source lineage)
+  parentStreamId?: string        // If spawned from another stream
+  rootMessageId?: MessageId      // The message whose branch this stream belongs to
+  originMessageId?: MessageId    // The message that triggered this subagent/tool-run
+  branchId?: string              // Legacy optional branch disambiguator
+}
+
+export interface WatchContinuationOwner {
+  lineageId: LineageId
+  /** Actual successor parent, not the message that originally registered the watch. */
+  parentMessageId: MessageId | null
+}
+
+export interface StreamState {
+  /** Renderer view ownership; never sent to the server. */
+  selectionRevision?: number
+  updatePath?: boolean
+  /** Follow only the selected continuation chain; never claim navigation ownership. */
+  watchContinuation?: WatchContinuationOwner
+  active: boolean
+  // Explicit lifecycle status. `waiting_for_tool` is still an in-flight stream
+  // and should stay visible/interruptible in branch-local UIs.
+  status: StreamLifecycleStatus
+  compactionStatus?: 'started' | 'completed' | 'failed'
+  buffer: string
+  // separate buffer for reasoning/thinking tokens while streaming
+  thinkingBuffer: string
+  // separate array for tool calls while streaming
+  toolCalls: ToolCall[]
+  // sequential events log to preserve order of chunks as received
+  events: StreamEvent[]
+  // Legacy/latest completed message id. Kept as a branch-selection anchor.
+  messageId: MessageId | null
+  // Stable user message that started this stream/run. Unlike branch anchors, this
+  // must not move when assistant/tool-loop turns complete.
+  triggerUserMessageId: MessageId | null
+  // Best current branch-row anchor for diagnostics/view matching. This can move
+  // from the triggering user message to live/completed assistant messages.
+  currentBranchAnchorMessageId: MessageId | null
+  // Explicit message tracking for multi-turn/tool streams.
+  branchAnchorMessageId: MessageId | null
+  liveMessageId: MessageId | null
+  lastCompletedMessageId: MessageId | null
+  // Persisted row for the current transient buffers only; cleared at each new turn.
+  // Unlike lastCompletedMessageId, this is not a branch anchor.
+  persistedTurnMessageId?: MessageId | null
+  finalMessageId: MessageId | null
+  // Incremented when stale chunks are ignored after abort/completion.
+  suppressedEventCount: number
+  error: string | null
+  finished: boolean
+  // Legacy alias for liveMessageId, preserved for existing abort/UI paths.
+  streamingMessageId: MessageId | null
+  // Conversation this stream belongs to (used to avoid cross-conversation UI bleed)
+  conversationId: ConversationId | null
+  // Lineage metadata for subagent/parallel stream support
+  lineage: StreamLineage
+  // Stream metadata
+  createdAt: string
+  streamType: StreamType
+}
+
+// Map of stream states keyed by streamId
+export interface StreamStateById {
+  [streamId: string]: StreamState
+}
+
+// Root state container for multi-stream support
+export interface StreamingRootState {
+  // Active stream IDs (in-flight)
+  activeIds: string[]
+  // All stream states keyed by ID
+  byId: StreamStateById
+  // Tracks the "primary" stream for the current view
+  primaryStreamId: string | null
+  // Last completed stream for bookkeeping
+  lastCompletedId: string | null
+}
+
+// Action payloads for streaming actions
+export interface SendingStartedPayload {
+  selectionRevision?: number
+  updatePath?: boolean
+  /** Follow only the selected continuation chain; never claim navigation ownership. */
+  watchContinuation?: WatchContinuationOwner
+  /** Reattachment must not consume unrelated composer drafts. */
+  preserveDrafts?: boolean
+  streamId: string
+  streamType?: StreamType
+  conversationId?: ConversationId | null
+  lineage?: StreamLineage
+}
+
+export interface StreamChunkPayload {
+  streamId: string
+  chunk: StreamChunk
+}
+
+export interface StreamCompletedPayload {
+  streamId: string
+  messageId: MessageId
+  updatePath?: boolean  // Controls whether to update currentPath
+}
+
+export interface StreamingAbortedPayload {
+  streamId: string
+  error?: string
+}
+
+export type StreamUndoStatus = 'available' | 'restoring' | 'restored' | 'invalidated' | 'failed'
+
+export interface StreamUndoSummary {
+  streamId: string
+  conversationId: string | null
+  parentMessageId: string | null
+  assistantMessageId?: string | null
+  status: StreamUndoStatus
+  createdAt: string
+  updatedAt: string
+  restoredAt?: string | null
+  fileCount: number
+  files: Array<{ path: string; absolutePath: string; sizeBytes: number; operationCount: number }>
+}
+
+export interface StreamUndoState {
+  byStreamId: Record<string, StreamUndoSummary>
+  streamIdsByParentMessageId: Record<string, string[]>
+  streamIdsByAssistantMessageId: Record<string, string[]>
+  loadingByConversationId: Record<string, boolean>
+  restoringByStreamId: Record<string, boolean>
+  errorByStreamId: Record<string, string | null>
+}
+
+export interface Model extends BaseModel {}
+
+export interface Provider {
+  name: string
+  url: string
+  description: string
+}
+
+export interface ProviderState {
+  providers: Provider[]
+  currentProvider: string | null
+  loading: boolean
+  error: string | null
+}
+
+// Message composition types
+export interface ImageDraft {
+  dataUrl: string
+  name: string
+  type: string
+  size: number
+  /** Durable Electron-local attachment metadata, populated before a message is sent. */
+  filePath?: string
+  attachmentId?: string
+  sha256?: string
+}
+
+export type ImageDraftTarget =
+  | { kind: 'composer' }
+  | { kind: 'branch'; messageId: MessageId }
+
+export interface MessageInput {
+  content: string
+  modelOverride?: string
+}
+
+export interface CompositionState {
+  input: MessageInput
+  sending: boolean
+  compacting: boolean
+  compactingConversationId: ConversationId | null
+  compactingParentMessageId: MessageId | null
+  compactingLineageId: LineageId | null
+  compactionSummaryMessageId: MessageId | null
+  validationError: string | null
+  draftMessage: String | null
+  multiReplyCount: number
+  imageDrafts: ImageDraft[] // base64-encoded images + metadata from drag/drop
+  imageDraftTarget: ImageDraftTarget | null // explicit owner for imageDrafts; never infer from focused message
+  imagePreparationPending: number
+  imagePreparationError: string | null
+  imagePreparationGeneration: number
+  editingBranch: boolean // true when user is editing a branch; controls UI like hiding image drafts
+  branchEditModes?: { operationMode?: OperationMode; fastMode?: boolean }
+  optimisticMessage: Message | null // temp message for instant UI feedback in web mode only
+  optimisticBranchMessage: Message | null // temp branched message for instant UI feedback in web mode only
+}
+
+export interface ConversationState {
+  currentConversationId: ConversationId | null
+  currentLineageId: LineageId | null
+  /** Conversation whose messages/tree/path are currently installed. */
+  snapshotConversationId: ConversationId | null
+  focusedChatMessageId: MessageId | null
+  currentPath: MessageId[] // Array of message IDs forming current branch
+  messages: Message[] // Linear messages in current path order
+  bookmarked: MessageId[] //each index contains id of a message selected
+  excludedMessages: MessageId[] //id of each message which are NOT to be sent for chat,
+  context: string
+  ccCwd: string
+}
+
+// Core chat state - ONLY chat concerns
+export interface ChatNode {
+  id: string
+  message: string
+  sender: 'user' | 'assistant' | 'ex_agent'
+  children: ChatNode[]
+}
+
+export interface HeimdallState {
+  treeData: ChatNode | null
+  subagentMap: Record<string, ChatNode[]>
+  loading: boolean
+  error: string | null
+  compactMode: boolean
+  lastFetchedAt: number | null
+  lastConversationId: ConversationId | null
+}
+
+export interface InitializationState {
+  loading: boolean
+  error: string | null
+  userId: string | null
+}
+
+export interface ToolCallPermissionRequest {
+  toolCall: ToolCall
+  // Set when the request originates from the server-owned loop (Phase 2): the
+  // resolver thunk POSTs the decision to /api/resume keyed by these, instead of
+  // resolving the in-process client-loop promise.
+  streamId?: string
+  toolCallId?: string
+}
+
+export type OperationMode = 'plan' | 'execute'
+
+export interface OperationModeUpgradeRequest {
+  toolCall: ToolCall
+  streamId?: string
+  toolCallId?: string
+}
+
+export interface ChatState {
+  providerState: ProviderState
+  composition: CompositionState
+  streaming: StreamingRootState
+  streamUndo: StreamUndoState
+  ui: {
+    modelSelectorOpen: boolean
+  }
+  selection: import('./chatSelection').ChatSelectionState
+  conversation: ConversationState
+  heimdall: HeimdallState
+  initialization: InitializationState
+  selectedNodes: MessageId[]
+  attachments: AttachmentsState
+  tools: tools[]
+  /** Legacy latest-request mirrors; keep for compatibility with older consumers. */
+  toolCallPermissionRequest: ToolCallPermissionRequest | null
+  operationModeUpgradeRequest: OperationModeUpgradeRequest | null
+  planClarificationRequest: PlanClarificationRequest | null
+  /**
+   * Authoritative branch/run-scoped decision state. Concurrent branch streams can pause
+   * independently; a prompt from one stream must never overwrite another stream's only
+   * resume correlation.
+   */
+  toolPermissionRequestsByStream: Record<string, ToolCallPermissionRequest>
+  operationModeUpgradeRequestsByStream: Record<string, OperationModeUpgradeRequest>
+  planClarificationRequestsByStream: Record<string, PlanClarificationRequest>
+  toolAutoApprove: boolean
+  operationMode: OperationMode
+  messageQueues: Record<string, import('../../../../../shared/queuedMessages').MessageQueueSnapshot>
+  /** Unsent selections, keyed by conversation and selected branch tip. */
+  operationModeDrafts: Record<string, OperationMode>
+  branchModelDrafts?: Record<string, import('./branchModelSelection').BranchModelSelection>
+  branchFastModeDrafts?: Record<string, boolean>
+  operationModeChanges: Record<string, {
+    mode: OperationMode
+    status: 'requesting' | 'pending'
+    requestId: string
+    streamId?: string | null
+  }>
+  freeTier: {
+    freeGenerationsRemaining: number | null
+    showLimitModal: boolean
+    isFreeTierUser: boolean
+  }
+  errorNotices: ChatErrorNoticesState
+  userSystemPrompts: UserSystemPromptsState
+}
+
+/**
+ * A failure that has no persisted assistant message to live on.
+ *
+ * Tier 1 of the error surface is a server-persisted ErrorBlock. This is tier 2:
+ * it covers what tier 1 structurally cannot — failures BEFORE the user message is
+ * persisted (the server has no row to attach to) and every renderer-local failure
+ * that never produced an SSE frame at all.
+ *
+ * It must NOT live in `streaming.byId`: that slot is pruned 30s after a run, and
+ * `selectCurrentViewStreamFor` filters on `active` first, so an errored slot is
+ * unreachable the moment it carries an error.
+ */
+export interface ChatErrorRecord {
+  id: string
+  conversationId: ConversationId
+  envelope: ChatErrorEnvelope
+  /** Anchors the bubble in the tree. Null when the failure predates any lineage. */
+  parentMessageId: MessageId | null
+  streamId: string | null
+  lineageId: LineageId | null
+  createdAt: number
+  dismissed: boolean
+}
+
+export interface ChatErrorNoticesState {
+  byConversationId: Record<string, ChatErrorRecord[]>
+}
+
+// Action payloads
+export interface LineageSelectionPayload {
+  conversationId: ConversationId
+  lineageId: LineageId
+  path: MessageId[]
+  focus: MessageId | null
+}
+
+export interface SendMessagePayload {
+  conversationId: ConversationId
+  selectionRevision?: number
+  /** Immutable branch context captured by a transcript pane before dispatch. */
+  lineageId?: LineageId | null
+  branchPath?: MessageId[]
+  input: MessageInput
+  parent: MessageId
+  repeatNum: number
+  think: boolean
+  retrigger?: boolean
+  imageConfig?: ImageConfig
+  reasoningConfig?: ReasoningConfig
+  serviceTier?: OpenAIServiceTier
+  cwd?: string | null
+  // Captured at send time: 'plan' = Chat Mode, 'execute' = Agent Mode.
+  operationMode?: OperationMode
+  /** Stream ownership defaults to `primary`; pane continuations explicitly use `branch`. */
+  streamType?: Extract<StreamType, 'primary' | 'branch'>
+  /** Whether terminal completion may advance the global conversation path. Defaults to true. */
+  updatePath?: boolean
+  /** Pane-local sends can explicitly opt out of singleton composer attachments/files. */
+  includeGlobalComposerContext?: boolean
+}
+
+export interface EditMessagePayload {
+  conversationId: ConversationId
+  selectionRevision?: number
+  /** Immutable branch context captured by a transcript pane before dispatch. */
+  lineageId?: LineageId | null
+  branchPath?: MessageId[]
+  originalMessageId: MessageId
+  newContent: string
+  modelOverride?: string
+  systemPrompt?: string
+  think: boolean
+  serviceTier?: OpenAIServiceTier
+  cwd?: string | null
+  // Captured at send time: 'plan' = Chat Mode, 'execute' = Agent Mode.
+  operationMode?: OperationMode
+}
+
+export interface BranchMessagePayload {
+  conversationId: ConversationId
+  selectionRevision?: number
+  /** Immutable branch context captured by a transcript pane before dispatch. */
+  lineageId?: LineageId | null
+  branchPath?: MessageId[]
+  parentId: MessageId
+  content: string
+  modelOverride?: string
+  systemPrompt?: string
+  think: boolean
+  serviceTier?: OpenAIServiceTier
+  cwd?: string | null
+  // Captured at send time: 'plan' = Chat Mode, 'execute' = Agent Mode.
+  operationMode?: OperationMode
+}
+
+export interface ModelSelectionPayload {
+  model: Model
+  persist?: boolean
+}
+
+// Server response types
+export interface ModelsResponse {
+  models: Model[]
+  default: Model
+}
+
+// Re-export for backward compatibility if needed
+// export type Model = string
+
+// Attachment types (mirror server `Attachment` interface)
+export interface Attachment {
+  id: MessageId
+  message_id: MessageId | null
+  kind: 'image'
+  mime_type: string
+  storage: 'file' | 'url'
+  url?: string | null
+  file_path?: string | null
+  width?: number | null
+  height?: number | null
+  size_bytes?: number | null
+  sha256?: string | null
+  created_at: string
+}
+
+export interface AttachmentsState {
+  byMessage: Record<string, Attachment[]>
+  // Backup of deleted image artifacts (as base64 data URLs) per message during branch editing
+  backup: Record<string, string[]>
+}
+
+// Tool definitions - now defined locally in toolDefinitions.ts
+// Sent with each message to the server for AI API calls
+export interface ToolDefinition {
+  name: string
+  enabled: boolean
+  description: string
+  inputSchema: {
+    type: 'object'
+    properties: Record<string, any>
+    required?: string[]
+  }
+  // Custom tool metadata (set for user-defined tools)
+  isCustom?: boolean
+  sourcePath?: string
+  version?: string
+  author?: string
+  // MCP tool metadata (set for MCP server tools)
+  isMcp?: boolean
+  mcpServerName?: string
+  mcpToolName?: string
+  mcpUi?: {
+    resourceUri?: string
+    visibility?: Array<'model' | 'app'>
+  }
+  // Custom app permissions (used by iframe bridge for custom tool UIs)
+  appPermissions?: {
+    agent?: 'read' | 'write'
+  }
+  jsRuntimeMode?: 'electron' | 'custom' | 'none'
+  jsRuntimes?: string
+}
+
+// Alias for backwards compatibility
+export type tools = ToolDefinition
+
+// User System Prompt types
+export interface UserSystemPrompt {
+  id: string
+  owner_id: string
+  name: string
+  content: string
+  description?: string | null
+  is_default: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface UserSystemPromptsState {
+  prompts: UserSystemPrompt[]
+  loading: boolean
+  error: string | null
+}

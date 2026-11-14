@@ -1,0 +1,15 @@
+
+ RUN  v2.1.9 C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r
+
+(node:71580) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ server/__tests__/hadronDesktopBridge.test.ts (7 tests) 20ms
+ ✓ server/__tests__/hadronContinuousChat.test.ts (15 tests) 1906ms
+   ✓ automatically exchanges20 alternating turns, supplies peer history, persists bindings and pauses at the budget 412ms
+   ✓ pause waits for the current turn; injection is idempotent and arrives at the next boundary 365ms
+   ✓ caps temporary recovery at two fresh attempts and supports explicit continuation without losing replies 322ms
+
+ Test Files  2 passed (2)
+      Tests  22 passed (22)
+   Start at  14:31:40
+   Duration  2.52s (transform 124ms, setup 0ms, collect 880ms, tests 1.93s, environment 0ms, prepare 258ms)

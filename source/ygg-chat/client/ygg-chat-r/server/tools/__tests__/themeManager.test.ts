@@ -1,0 +1,149 @@
+import os from 'os'
+import path from 'path'
+import { promises as fs } from 'fs'
+import { beforeEach, afterEach, describe, expect, it } from 'vitest'
+import { execute } from '../themeManager.js'
+
+describe.sequential('theme_manager tool', () => {
+  let tempRoot = ''
+  let managedDir = ''
+  let bundledDir = ''
+  const originalManagedDir = process.env.YGG_THEME_DIRECTORY
+  const originalTemplateDir = process.env.YGG_THEME_TEMPLATE_DIRECTORY
+
+  beforeEach(async () => {
+    tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'ygg-theme-manager-'))
+    managedDir = path.join(tempRoot, 'managed')
+    bundledDir = path.join(tempRoot, 'bundled')
+    process.env.YGG_THEME_DIRECTORY = managedDir
+    process.env.YGG_THEME_TEMPLATE_DIRECTORY = bundledDir
+    await fs.mkdir(bundledDir, { recursive: true })
+  })
+
+  afterEach(async () => {
+    if (originalManagedDir === undefined) {
+      delete process.env.YGG_THEME_DIRECTORY
+    } else {
+      process.env.YGG_THEME_DIRECTORY = originalManagedDir
+    }
+
+    if (originalTemplateDir === undefined) {
+      delete process.env.YGG_THEME_TEMPLATE_DIRECTORY
+    } else {
+      process.env.YGG_THEME_TEMPLATE_DIRECTORY = originalTemplateDir
+    }
+
+    if (tempRoot) {
+      await fs.rm(tempRoot, { recursive: true, force: true })
+    }
+  })
+
+  it('includes distinct grid card defaults in templates and older saved themes', async () => {
+    const template = await execute({ action: 'template' })
+    expect(template.success).toBe(true)
+    expect(template.theme?.colors.agentsGridStreamingCardBg.light).toBe('var(--agents-grid-streaming-bg)')
+    expect(template.theme?.colors.agentsGridIdleCardBg.dark).toBe('var(--agents-grid-idle-bg)')
+    const saved = await execute({ action: 'save', theme: { name: 'Older theme' } })
+    expect(saved.success).toBe(true)
+    for (const mode of ['light', 'dark'] as const) {
+      expect(template.theme?.colors.agentsGridStreamingCardBg[mode]).not.toBe(template.theme?.colors.agentsGridIdleCardBg[mode])
+      expect(saved.theme?.colors.agentsGridStreamingCardBg[mode]).toBe(template.theme?.colors.agentsGridStreamingCardBg[mode])
+      expect(saved.theme?.colors.agentsGridIdleCardBg[mode]).toBe(template.theme?.colors.agentsGridIdleCardBg[mode])
+    }
+  })
+
+  it('migrates saved fixed grid defaults to theme references', async () => {
+    const saved = await execute({ action: 'save', theme: { name: 'Legacy grid', colors: {
+      agentsGridStreamingCardBg: { light: 'rgba(16, 185, 129, 0.12)', dark: 'rgba(16, 185, 129, 0.16)' },
+      agentsGridIdleCardBg: { light: 'rgba(0, 0, 0, 0.035)', dark: 'rgba(255, 255, 255, 0.05)' },
+    } } })
+    expect(saved.success).toBe(true)
+    const read = await execute({ action: 'read', name: 'legacy-grid' })
+    expect(read.theme?.colors.agentsGridStreamingCardBg).toEqual({ light: 'var(--agents-grid-streaming-bg)', dark: 'var(--agents-grid-streaming-bg)' })
+    expect(read.theme?.colors.agentsGridIdleCardBg).toEqual({ light: 'var(--agents-grid-idle-bg)', dark: 'var(--agents-grid-idle-bg)' })
+  })
+
+  it('round-trips independently customized streaming and idle grid backgrounds', async () => {
+    const colors = {
+      agentsGridStreamingCardBg: { light: '#aabbcc', dark: '#112233' },
+      agentsGridIdleCardBg: { light: '#ddeeff', dark: '#445566' },
+    }
+    const saved = await execute({ action: 'save', theme: { name: 'Grid colors', colors } })
+    expect(saved.success).toBe(true)
+    const read = await execute({ action: 'read', name: 'grid-colors' })
+    expect(read.success).toBe(true)
+    expect(read.theme?.colors.agentsGridStreamingCardBg).toEqual(colors.agentsGridStreamingCardBg)
+    expect(read.theme?.colors.agentsGridIdleCardBg).toEqual(colors.agentsGridIdleCardBg)
+  })
+
+  it('copies bundled themes into the managed directory when listing', async () => {
+    await fs.writeFile(
+      path.join(bundledDir, 'starter.json'),
+      JSON.stringify({ name: 'Starter Theme' }, null, 2),
+      'utf8'
+    )
+
+    const result = await execute({ action: 'list' })
+
+    expect(result.success).toBe(true)
+    expect(result.directory).toBe(managedDir)
+    expect(result.totalCount).toBe(1)
+    expect(result.themes?.[0]?.id).toBe('starter')
+    expect(await fs.readFile(path.join(managedDir, 'starter.json'), 'utf8')).toContain('Starter Theme')
+  })
+
+  it('saves, lists, reads, and deletes managed theme files', async () => {
+    const saveResult = await execute({
+      action: 'save',
+      theme: {
+        name: 'Solar Fog',
+        colors: {
+          chatPanelBg: {
+            light: '#f8f5ef',
+            dark: '#18181b',
+          },
+          heimdallNodes: {
+            assistant: {
+              visibleFill: {
+                light: '#e0e7ff',
+                dark: 'rgba(129, 140, 248, 0.2)',
+              },
+            },
+          },
+        },
+      },
+    })
+
+    expect(saveResult.success).toBe(true)
+    expect(saveResult.id).toBe('solar-fog')
+    expect(saveResult.created).toBe(true)
+    expect(saveResult.theme?.name).toBe('Solar Fog')
+    expect(saveResult.theme?.colors.chatMessageListBg.dark).toBe('oklch(20.5% 0 0)')
+
+    const listResult = await execute({ action: 'list' })
+    expect(listResult.success).toBe(true)
+    expect(listResult.totalCount).toBe(1)
+    expect(listResult.themes?.[0]?.name).toBe('Solar Fog')
+
+    const readResult = await execute({ action: 'read', name: 'solar-fog' })
+    expect(readResult.success).toBe(true)
+    expect(readResult.exists).toBe(true)
+    expect(readResult.theme?.colors.chatPanelBg.light).toBe('#f8f5ef')
+    expect(readResult.theme?.colors.heimdallNodes.assistant.visibleFill.dark).toBe('rgba(129, 140, 248, 0.2)')
+    expect(readResult.theme?.colors.heimdallNodes.ex_agent.visibleFill.dark).toBe('rgba(249, 115, 22, 0.2)')
+    expect(readResult.theme?.colors.heimdallNodes.ex_agent.visibleStroke.dark).toBe('#ea580c')
+    // Ensure newly added theme surfaces are persisted/sanitized by the tool schema.
+    expect(readResult.theme?.colors.ideContextPreviewBg.dark).toBe('rgba(10, 10, 10, 0.95)')
+    expect(readResult.theme?.colors.toolJobsModalBorder.dark).toBe('#262626')
+    expect(readResult.theme?.colors.authModalSurfaceBg.dark).toBe('#09090b')
+    expect(readResult.theme?.colors.htmlToolsModalButtonActiveText.light).toBe('#171717')
+
+    const deleteResult = await execute({ action: 'delete', name: 'solar-fog' })
+    expect(deleteResult.success).toBe(true)
+    expect(deleteResult.deleted).toBe(true)
+
+    const afterDeleteRead = await execute({ action: 'read', name: 'solar-fog' })
+    expect(afterDeleteRead.success).toBe(true)
+    expect(afterDeleteRead.exists).toBe(false)
+  })
+})

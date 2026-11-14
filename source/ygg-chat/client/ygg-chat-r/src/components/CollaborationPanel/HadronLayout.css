@@ -1,0 +1,71 @@
+.hadron-shell {
+  --hh-bg: #edf0f8;
+  --hh-panel: #ffffff;
+  --hh-soft: #f6f5fc;
+  --hh-line: #d8d7ec;
+  --hh-ink: #25304a;
+  --hh-muted: #69738b;
+  --hh-violet: #7153cc;
+  --hh-cyan: #1388a8;
+  background: var(--hh-bg);
+  color: var(--hh-ink);
+  gap: 10px;
+  padding: 10px;
+}
+.dark .hadron-shell {
+  --hh-bg: #111625;
+  --hh-panel: #1a2235;
+  --hh-soft: #202840;
+  --hh-line: #394362;
+  --hh-ink: #e6eafa;
+  --hh-muted: #a4b0cc;
+  --hh-violet: #b69cff;
+  --hh-cyan: #6bd3e8;
+}
+.hadron-shell [data-existing-chat-area] { gap: 10px; }
+.hadron-shell [data-chat-pane-surface], .hadron-shell [data-hadron-tree] {
+  border: 1px solid var(--hh-line);
+  border-top: 3px solid var(--hh-cyan);
+  border-radius: 14px;
+  background: var(--hh-panel) !important;
+  margin-bottom: 0;
+}
+.hadron-shell [data-hadron-tree] { border-top-color: var(--hh-violet); overflow: hidden; }
+.hadron-shell [data-hadron-tree] > div { background: var(--hh-panel) !important; }
+.hadron-shell [data-collaboration-dock] { border: 1px solid var(--hh-line); border-top: 3px solid var(--hh-violet); border-radius: 14px; }
+.hadron-shell #hadron-collaboration-workspace { background: var(--hh-soft); color: var(--hh-ink); }
+.hadron-shell #hadron-collaboration-workspace > header { padding-bottom: 14px; border-bottom: 1px solid var(--hh-line); }
+.hadron-shell #hadron-collaboration-workspace .border { border-color: var(--hh-line); }
+.hadron-shell #hadron-collaboration-workspace section,
+.hadron-shell #hadron-collaboration-workspace fieldset,
+.hadron-shell #hadron-collaboration-workspace [class*='rounded-xl'] { border-radius: 12px; background-color: var(--hh-panel); }
+.hadron-shell #hadron-collaboration-workspace legend { color: var(--hh-violet); font-weight: 650; }
+.hadron-shell #hadron-collaboration-workspace fieldset:nth-child(2) legend { color: var(--hh-cyan); }
+.hadron-shell #hadron-collaboration-workspace .text-neutral-500 { color: var(--hh-muted); }
+.hadron-shell #hadron-collaboration-workspace div.rounded-lg { background-color: var(--hh-soft); }
+.hadron-shell button { border-radius: 10px; }
+.hadron-shell button:not(:disabled):focus-visible,
+.hadron-shell input:focus-visible, .hadron-shell textarea:focus-visible, .hadron-shell select:focus-visible {
+  outline: 2px solid var(--hh-violet); outline-offset: 2px;
+}
+.hadron-shell #hadron-collaboration-workspace button { border-color: var(--hh-line); color: var(--hh-ink); }
+.hadron-shell #hadron-collaboration-workspace button[aria-pressed='true'] { color: var(--hh-violet); background: var(--hh-soft); border-color: var(--hh-violet); }
+.hadron-shell #hadron-collaboration-workspace select,
+.hadron-shell #hadron-collaboration-workspace textarea,
+.hadron-shell #hadron-collaboration-workspace input { background: var(--hh-soft); color: var(--hh-ink); border: 1px solid var(--hh-line); border-radius: 9px; }
+.hadron-shell [aria-label='Collapsed agent workspace'] { border: 1px solid var(--hh-line); border-radius: 12px; background: var(--hh-soft); }
+.hadron-chat-intro > div > div:first-child { display: none; }
+.hadron-chat-intro > div::before {
+  content: ''; display: block; width: 160px; height: 104px; margin: 20px auto 24px;
+  background: #000 url('../../assets/hadron/eyehadron.jpg') center / contain no-repeat;
+  border-radius: 14px; box-shadow: 0 10px 28px #7153cc20;
+}
+.hadron-shell .hadron-chat-intro h3 { color: var(--hh-ink); font-size: 22px; }
+.hadron-shell .hadron-chat-intro p { color: var(--hh-muted); }
+.hadron-shell [data-hadron-empty-tree] > div:first-child { display: none; }
+.hadron-shell [data-hadron-empty-tree]::before { content: '● ─ ● ─ ●'; display: block; color: var(--hh-violet); font-size: 24px; letter-spacing: 4px; margin-bottom: 22px; }
+.hadron-shell [data-hadron-empty-tree] p { color: var(--hh-muted); }
+body:has(.hadron-shell, .hadron-profile) { background: #edf0f8; }
+body:has(.hadron-shell, .hadron-profile) .titlebar { background: #f5f4fb; border-bottom: 1px solid #d8d7ec; color: #25304a; }
+.dark body:has(.hadron-shell, .hadron-profile), .dark body:has(.hadron-shell, .hadron-profile) .titlebar { background: #111625; color: #e6eafa; }
+body:has(.hadron-shell, .hadron-profile) .titlebar button { border-radius: 9px; }

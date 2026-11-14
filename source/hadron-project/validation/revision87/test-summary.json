@@ -1,0 +1,29 @@
+{
+  "revision": 87,
+  "date": "2026-11-07",
+  "server": {
+    "passed": 460,
+    "failed": 0,
+    "skipped": 5
+  },
+  "focusedServiceAndBridge": 20,
+  "renderer": 8,
+  "typechecks": [
+    "server",
+    "renderer",
+    "Electron",
+    "mobile"
+  ],
+  "builds": [
+    "renderer",
+    "main",
+    "mobile"
+  ],
+  "desktop": "passed; original file comparison, ended current workers, existing two-file/diff/Stop/retention/quit flow",
+  "coldReopen": "passed; saved inspection, original files, historical workers not falsely confirmed, no inference replay",
+  "realProviderRequests": 0,
+  "projectWrites": 0,
+  "unlockOrResumeEnabled": false,
+  "editingEnabled": false,
+  "installedGravitonChanges": false
+}

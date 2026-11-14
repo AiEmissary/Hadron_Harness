@@ -1,0 +1,9 @@
+{
+  "success": true,
+  "actualDetachedChildren": 2,
+  "sameProviderLightweight": true,
+  "noNestedHelpers": true,
+  "parentReceivedActualChildResult": true,
+  "helperHistory": 2,
+  "realProviderRequests": 0
+}

@@ -1,0 +1,32 @@
+{
+  "revision": 82,
+  "date": "2026-11-07",
+  "focusedServer": {
+    "passed": 61,
+    "failed": 0
+  },
+  "focusedRenderer": {
+    "passed": 8,
+    "failed": 0
+  },
+  "builds": [
+    "Electron renderer",
+    "Electron main/mobile"
+  ],
+  "typechecks": [
+    "renderer",
+    "server",
+    "Electron",
+    "mobile"
+  ],
+  "desktop": "passed: missing setup reasons, rejected invented folder, New proposal, exact review, Stop, keep/clear files, saved selection, clean Quit",
+  "realProviderAcceptance": "User received actual A JSON; unsupported docs parent rejected before B. Full real A/B proposal acceptance remains pending.",
+  "automaticPaidRetries": 0,
+  "personalProjectEdits": 0,
+  "installedGravitonChanges": false,
+  "diagnostics": [
+    "An existing escape-path test now expects zero prepared drafts because parent validation rejects earlier.",
+    "First expanded desktop fixture failed on its final mock request after intentionally clearing source files; fixture now explicitly reselects the source before that request. Final full run passed."
+  ],
+  "coldReopen": "passed; saved proposal/mode restored, folder grant expired, zero inference, clean Quit"
+}

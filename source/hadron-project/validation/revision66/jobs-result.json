@@ -1,0 +1,23 @@
+{
+  "success": true,
+  "independentJobs": 9,
+  "sharedProposalContinuation": true,
+  "sharedSessions": 1,
+  "combinedAnswers": 1,
+  "collaborationRequests": 5,
+  "crossReviews": 2,
+  "projectListChatRestore": true,
+  "restoredAgentAAndB": true,
+  "projectOpenInferenceRequests": 0,
+  "separateResponses": true,
+  "centralTrees": true,
+  "branching": true,
+  "nestedBranches": true,
+  "selectedHistoryOnly": true,
+  "leftConversation": true,
+  "nextTaskEditable": true,
+  "followUpEditable": true,
+  "journalFiles": 14,
+  "realCredentialsUsed": false,
+  "syntheticInference": true
+}

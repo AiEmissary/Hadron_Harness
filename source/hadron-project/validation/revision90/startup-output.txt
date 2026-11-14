@@ -1,0 +1,104 @@
+Execution startup project: C:\Users\rajka\AppData\Local\Temp\hadron-desktop-smoke-3K8YLk
+{
+  "success": true,
+  "mode": "project",
+  "health": {
+    "status": "ok",
+    "mode": "local-sync",
+    "pid": 28440,
+    "appId": "com.hadron.harness",
+    "executionSession": {
+      "mode": "project",
+      "startupBlocked": false,
+      "execution": {
+        "ready": true,
+        "reason": "clean"
+      }
+    },
+    "utilityRuntimeAvailable": false,
+    "heldLegacyJobs": 1
+  },
+  "noInference": true,
+  "externalLaunchPolicy": true,
+  "interceptedShellCalls": 0,
+  "heldPendingJobUnchanged": true,
+  "customCodeNotImported": true
+}
+Execution startup standard: C:\Users\rajka\AppData\Local\Temp\hadron-desktop-smoke-k6AuO7
+{
+  "success": true,
+  "mode": "standard",
+  "health": {
+    "status": "ok",
+    "mode": "local-sync",
+    "pid": 86156,
+    "appId": "com.hadron.harness",
+    "executionSession": {
+      "mode": "standard",
+      "startupBlocked": false,
+      "execution": {
+        "ready": false,
+        "reason": "intervention_required"
+      }
+    },
+    "utilityRuntimeAvailable": true,
+    "heldLegacyJobs": 0
+  },
+  "noInference": true,
+  "externalLaunchPolicy": true,
+  "interceptedShellCalls": 3,
+  "heldPendingJobUnchanged": false,
+  "customCodeNotImported": true
+}
+Execution startup blocked: C:\Users\rajka\AppData\Local\Temp\hadron-desktop-smoke-vzWt1b
+{
+  "success": true,
+  "mode": "blocked",
+  "health": {
+    "status": "ok",
+    "mode": "local-sync",
+    "pid": 37220,
+    "appId": "com.hadron.harness",
+    "executionSession": {
+      "mode": "project",
+      "startupBlocked": true,
+      "execution": {
+        "ready": false,
+        "reason": "intervention_required"
+      }
+    },
+    "utilityRuntimeAvailable": false,
+    "heldLegacyJobs": 0
+  },
+  "noInference": true,
+  "externalLaunchPolicy": true,
+  "interceptedShellCalls": 0,
+  "heldPendingJobUnchanged": false,
+  "customCodeNotImported": true
+}
+Execution startup draft-storage: C:\Users\rajka\AppData\Local\Temp\hadron-desktop-smoke-U0fPnz
+{
+  "success": true,
+  "mode": "draft-storage",
+  "health": {
+    "status": "ok",
+    "mode": "local-sync",
+    "pid": 47516,
+    "appId": "com.hadron.harness",
+    "executionSession": {
+      "mode": "project",
+      "startupBlocked": false,
+      "execution": {
+        "ready": true,
+        "reason": "clean"
+      }
+    },
+    "utilityRuntimeAvailable": false,
+    "heldLegacyJobs": 0
+  },
+  "noInference": true,
+  "externalLaunchPolicy": true,
+  "interceptedShellCalls": 0,
+  "heldPendingJobUnchanged": false,
+  "customCodeNotImported": true
+}

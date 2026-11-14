@@ -1,0 +1,14 @@
+{
+  "success": true,
+  "allowlistedFiles": [
+    "appearance.png",
+    "release-check.json",
+    "test-summary.json",
+    "windows.json",
+    "workspace.png"
+  ],
+  "version": "0.4.10.0",
+  "includesDatabaseOrAccountStores": false,
+  "initialAttemptWithoutReport": true,
+  "repeatDiagnosticPassed": true
+}

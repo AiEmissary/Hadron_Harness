@@ -1,0 +1,13 @@
+Project worker runtime: C:\Users\rajka\AppData\Local\Temp\hadron-project-worker-uDpVPe
+{
+  "success": true,
+  "productionTransportJoins": true,
+  "cancellationJoins": true,
+  "abruptHelperDeathRechecked": true,
+  "consumerFailureJoins": true,
+  "liveOwnerNotReportedEnded": true,
+  "actualBundledCodexProjectStatus": true,
+  "realProviderRequests": 0,
+  "realCredentialsUsed": false,
+  "canonicalEditingEnabled": false
+}

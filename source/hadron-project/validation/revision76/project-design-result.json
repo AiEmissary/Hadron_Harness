@@ -1,0 +1,11 @@
+{
+  "success": true,
+  "threePanes": true,
+  "historySteps": 6,
+  "reviewAndLogNavigation": true,
+  "simulationLabeled": true,
+  "noNativeBridge": true,
+  "externalRequests": 0,
+  "providerRequests": 0,
+  "projectWrites": 0
+}

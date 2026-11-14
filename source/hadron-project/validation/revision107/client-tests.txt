@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r
+
+ ✓ src/features/collaboration/independentClient.test.ts (8 tests) 19ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  14:05:11
+   Duration  809ms (transform 156ms, setup 0ms, collect 257ms, tests 19ms, environment 0ms, prepare 217ms)
+

@@ -1,0 +1,267 @@
+{
+  "success": true,
+  "installedVersion": "0.4.16.0",
+  "installerExit": 0,
+  "installedArchiveMatchesBuild": true,
+  "databases": [
+    {
+      "name": "hadron-continuous-chat.db",
+      "integrity": "ok",
+      "tables": [
+        {
+          "table": "hadron_continuous_sessions",
+          "baselineRows": 6,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_continuous_turns",
+          "baselineRows": 148,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_continuous_messages",
+          "baselineRows": 3,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_continuous_context",
+          "baselineRows": 4,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_continuous_memory",
+          "baselineRows": 0,
+          "baselineUnchanged": true
+        }
+      ]
+    },
+    {
+      "name": "hadron-project-builds.db",
+      "integrity": "ok",
+      "tables": [
+        {
+          "table": "hadron_project_leases",
+          "baselineRows": 5,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_project_writes",
+          "baselineRows": 3,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_project_reviews",
+          "baselineRows": 3,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_project_review_history",
+          "baselineRows": 3,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_project_recoveries",
+          "baselineRows": 0,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_project_builds",
+          "baselineRows": 5,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_project_build_attempts",
+          "baselineRows": 8,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_project_applications",
+          "baselineRows": 1,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_project_checks",
+          "baselineRows": 0,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_project_repairs",
+          "baselineRows": 0,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_project_cycles",
+          "baselineRows": 0,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_project_directories",
+          "baselineRows": 0,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_project_acceptance",
+          "baselineRows": 0,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_project_milestone_links",
+          "baselineRows": 0,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_project_folder_activity",
+          "baselineRows": 6,
+          "baselineUnchanged": true
+        }
+      ]
+    },
+    {
+      "name": "local-sync.db",
+      "integrity": "ok",
+      "tables": [
+        {
+          "table": "users",
+          "baselineRows": 1,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "projects",
+          "baselineRows": 3,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "conversations",
+          "baselineRows": 54,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "lineages",
+          "baselineRows": 43,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "fork_operations",
+          "baselineRows": 24,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "messages",
+          "baselineRows": 149,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hook_runs",
+          "baselineRows": 0,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "streaming_runs",
+          "baselineRows": 151,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "tool_invocations",
+          "baselineRows": 0,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "subagent_runs",
+          "baselineRows": 151,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "subagent_messages",
+          "baselineRows": 302,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_sessions",
+          "baselineRows": 12,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_participants",
+          "baselineRows": 24,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_independent_jobs",
+          "baselineRows": 18,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "message_attachments",
+          "baselineRows": 0,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "message_attachment_links",
+          "baselineRows": 0,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "provider_cost",
+          "baselineRows": 0,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "html_tools",
+          "baselineRows": 0,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "provider_tokens",
+          "baselineRows": 0,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "tool_jobs",
+          "baselineRows": 0,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_workflows",
+          "baselineRows": 11,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_workflow_runs",
+          "baselineRows": 33,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_verification_runs",
+          "baselineRows": 3,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_helpers",
+          "baselineRows": 0,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_helper_preferences",
+          "baselineRows": 0,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_context_copies",
+          "baselineRows": 4,
+          "baselineUnchanged": true
+        },
+        {
+          "table": "hadron_recycle_bin",
+          "baselineRows": 16,
+          "baselineUnchanged": true
+        }
+      ]
+    }
+  ],
+  "savedHistory": {
+    "projects": 3,
+    "conversationsIncludingBin": 54,
+    "messages": 149,
+    "originalMessageContentAndParentLinksUnchanged": true
+  }
+}

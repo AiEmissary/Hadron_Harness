@@ -1,0 +1,13 @@
+{
+  "success": true,
+  "allowlistedFiles": [
+    "appearance.png",
+    "release-check.json",
+    "startup-trace.json",
+    "test-summary.json",
+    "windows.json",
+    "workspace.png"
+  ],
+  "invocationMatches": true,
+  "includesAccountStores": false
+}

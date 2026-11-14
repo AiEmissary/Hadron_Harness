@@ -1,0 +1,19 @@
+{
+  "version": "0.4.10",
+  "binaryBuildRevision": "0efaad43502c22811f6f35df35713ce0724abf91",
+  "sourceRevision": "03dae56",
+  "sourceIncludesAdditionalValidationScripts": true,
+  "installer": {
+    "name": "Hadron-Harness-0.4.10-win-x64.exe",
+    "bytes": 370841253,
+    "sha256": "7e2258dd5dded50bc068d2928a6188b96ca9494129d5955413bffb92f3c96200"
+  },
+  "source": {
+    "name": "Hadron-Harness-0.4.10-source.zip",
+    "bytes": 8081733,
+    "sha256": "5f9509ee7257c081f4383070a4979f37d0d50aa1d319f8d53c2fd420ffb5c199"
+  },
+  "desktopCopyVerified": true,
+  "installerUpgradePassed": "0.4.9 -> 0.4.10",
+  "previewQualificationsRemain": true
+}

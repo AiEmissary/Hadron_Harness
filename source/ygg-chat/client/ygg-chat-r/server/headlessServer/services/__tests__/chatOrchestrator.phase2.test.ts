@@ -1,0 +1,1306 @@
+import type Database from 'better-sqlite3'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { createHash } from 'node:crypto'
+import { createRequire } from 'node:module'
+import { MessageRepo } from '../../persistence/messageRepo.js'
+import { LineageRepo } from '../../persistence/lineageRepo.js'
+import {
+  ChatOrchestrator,
+  linkPreparedAttachmentsToMessage,
+  shouldRejectSourceLineageMismatch,
+} from '../chatOrchestrator.js'
+
+let BetterSqlite3Ctor: (new (filename: string) => Database.Database) | null = null
+let FullAccessSqliteCtor: (new (filename: string) => Database.Database) | null = null
+
+try {
+  const sqliteModule = await import('better-sqlite3')
+  const candidate = sqliteModule.default as new (filename: string) => Database.Database
+  const probe = new candidate(':memory:')
+  probe.close()
+  BetterSqlite3Ctor = candidate
+} catch {
+  // Match topLevelUserMessages.test.ts: use real Node SQLite when the installed
+  // addon targets Electron. Savepoints preserve the repos' nested transactions.
+  try {
+    const { DatabaseSync } = createRequire(import.meta.url)('node:sqlite')
+    FullAccessSqliteCtor = class {
+      private db: any
+      private savepoint = 0
+      constructor(filename: string) { this.db = new DatabaseSync(filename) }
+      prepare(sql: string) { return this.db.prepare(sql) }
+      exec(sql: string) { return this.db.exec(sql) }
+      close() { this.db.close() }
+      transaction<T>(run: () => T): () => T {
+        return () => {
+          const name = `test_${this.savepoint++}`
+          this.db.exec(`SAVEPOINT ${name}`)
+          try {
+            const result = run()
+            this.db.exec(`RELEASE ${name}`)
+            return result
+          } catch (error) {
+            this.db.exec(`ROLLBACK TO ${name}; RELEASE ${name}`)
+            throw error
+          }
+        }
+      }
+    } as unknown as new (filename: string) => Database.Database
+  } catch { FullAccessSqliteCtor = null }
+}
+FullAccessSqliteCtor ??= BetterSqlite3Ctor
+
+const describeIfSqlite = BetterSqlite3Ctor ? describe : describe.skip
+
+function createSchema(db: Database.Database): void {
+  db.exec(`
+    CREATE TABLE projects (
+      id TEXT PRIMARY KEY,
+      name TEXT,
+      user_id TEXT,
+      context TEXT,
+      system_prompt TEXT,
+      storage_mode TEXT,
+      created_at TEXT,
+      updated_at TEXT
+    );
+
+    CREATE TABLE conversations (
+      id TEXT PRIMARY KEY,
+      project_id TEXT,
+      user_id TEXT,
+      title TEXT,
+      model_name TEXT,
+      system_prompt TEXT,
+      conversation_context TEXT,
+      research_note TEXT,
+      cwd TEXT,
+      storage_mode TEXT,
+      created_at TEXT,
+      updated_at TEXT
+    );
+
+    CREATE TABLE messages (
+      id TEXT PRIMARY KEY,
+      conversation_id TEXT NOT NULL,
+      parent_id TEXT,
+      lineage_id TEXT,
+      children_ids TEXT,
+      role TEXT,
+      content TEXT,
+      plain_text_content TEXT,
+      thinking_block TEXT,
+      tool_calls TEXT,
+      tool_call_id TEXT,
+      model_name TEXT,
+      note TEXT,
+      note_color TEXT,
+      ex_agent_session_id TEXT,
+      ex_agent_type TEXT,
+      content_blocks TEXT,
+      created_at TEXT,
+      meta TEXT
+    );
+
+    CREATE TABLE lineages (
+      id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL, parent_lineage_id TEXT,
+      forked_from_message_id TEXT, root_message_id TEXT, head_message_id TEXT,
+      status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    );
+    CREATE TABLE fork_operations (
+      id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL, source_lineage_id TEXT,
+      target_lineage_id TEXT NOT NULL, source_message_id TEXT, materialized_message_id TEXT,
+      operation TEXT NOT NULL, status TEXT NOT NULL, metadata_json TEXT,
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    );
+    CREATE TABLE message_attachments (
+      id TEXT PRIMARY KEY,
+      file_path TEXT,
+      mime_type TEXT,
+      sha256 TEXT,
+      created_at TEXT
+    );
+
+    CREATE TABLE message_attachment_links (
+      id TEXT PRIMARY KEY,
+      message_id TEXT NOT NULL,
+      attachment_id TEXT NOT NULL,
+      created_at TEXT,
+      UNIQUE(message_id, attachment_id)
+    );
+  `)
+}
+
+function createStatements(db: Database.Database): any {
+  const invocations = new Map<string, any>()
+  return {
+    insertToolInvocation: { run: (id: string, conversation_id: string, lineage_id: string, run_id: string, parent_tool_invocation_id: string, tool_call_id: string, assistant_message_id: string, tool_name: string, started_at: string) => {
+      invocations.set(id, { id, conversation_id, lineage_id, run_id, parent_tool_invocation_id, tool_call_id, assistant_message_id, tool_name, started_at, status: 'running' })
+    } },
+    getToolInvocationById: { get: (id: string) => invocations.get(id) },
+    finishToolInvocation: { run: (status: string, ended_at: string, duration_ms: number, error: string, _updated: string, id: string) => {
+      Object.assign(invocations.get(id), { status, ended_at, duration_ms, error })
+    } },
+    upsertConversation: db.prepare(`
+      INSERT INTO conversations (id, project_id, user_id, title, model_name, system_prompt, conversation_context, research_note, cwd, storage_mode, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        project_id = excluded.project_id,
+        title = excluded.title,
+        model_name = excluded.model_name,
+        system_prompt = excluded.system_prompt,
+        conversation_context = excluded.conversation_context,
+        research_note = excluded.research_note,
+        cwd = excluded.cwd,
+        storage_mode = excluded.storage_mode,
+        updated_at = excluded.updated_at
+    `),
+    getConversationById: db.prepare('SELECT * FROM conversations WHERE id = ?'),
+
+    upsertMessage: db.prepare(`
+      INSERT INTO messages (id, conversation_id, parent_id, children_ids, role, content, plain_text_content, thinking_block, tool_calls, tool_call_id, model_name, note, note_color, ex_agent_session_id, ex_agent_type, content_blocks, created_at, meta)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        content = excluded.content,
+        plain_text_content = excluded.plain_text_content,
+        thinking_block = excluded.thinking_block,
+        tool_calls = excluded.tool_calls,
+        tool_call_id = excluded.tool_call_id,
+        model_name = excluded.model_name,
+        note = excluded.note,
+        note_color = excluded.note_color,
+        ex_agent_session_id = excluded.ex_agent_session_id,
+        ex_agent_type = excluded.ex_agent_type,
+        content_blocks = excluded.content_blocks
+    `),
+    getMessageById: db.prepare('SELECT * FROM messages WHERE id = ?'),
+    getMessagesByConversationId: db.prepare('SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC'),
+    getAttachmentById: db.prepare('SELECT * FROM message_attachments WHERE id = ?'),
+    linkAttachment: db.prepare(`
+      INSERT OR IGNORE INTO message_attachment_links (id, message_id, attachment_id, created_at)
+      VALUES (?, ?, ?, ?)
+    `),
+    getAttachmentsByMessageId: db.prepare(`
+      SELECT ma.* FROM message_attachment_links mal
+      JOIN message_attachments ma ON ma.id = mal.attachment_id
+      WHERE mal.message_id = ? ORDER BY ma.created_at ASC
+    `),
+    insertLineage: db.prepare('INSERT INTO lineages VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'),
+    getLineageById: db.prepare('SELECT * FROM lineages WHERE id = ?'),
+    listLineagesByConversation: db.prepare('SELECT * FROM lineages WHERE conversation_id = ? ORDER BY created_at, id'),
+    resolveLineageByMessage: db.prepare('SELECT l.* FROM messages m JOIN lineages l ON l.id = m.lineage_id WHERE m.id = ?'),
+    resolveAncestorLineageByMessage: db.prepare(`WITH RECURSIVE ancestors(id, parent_id, lineage_id, depth) AS (
+      SELECT id, parent_id, lineage_id, 0 FROM messages WHERE id = ? UNION ALL
+      SELECT m.id, m.parent_id, m.lineage_id, a.depth + 1 FROM messages m JOIN ancestors a ON m.id = a.parent_id WHERE a.depth < 100
+    ) SELECT l.* FROM ancestors a JOIN lineages l ON l.id = a.lineage_id ORDER BY a.depth LIMIT 1`),
+    attachMessageToLineage: db.prepare('UPDATE messages SET lineage_id = ? WHERE id = ? AND conversation_id = (SELECT conversation_id FROM lineages WHERE id = ?) AND (lineage_id IS NULL OR lineage_id = ?)'),
+    advanceLineage: db.prepare('UPDATE lineages SET root_message_id = COALESCE(root_message_id, ?), head_message_id = ?, status = ?, updated_at = ? WHERE id = ?'),
+    insertForkOperation: db.prepare('INSERT INTO fork_operations VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'),
+    getForkOperationById: db.prepare('SELECT * FROM fork_operations WHERE id = ?'),
+    materializeForkOperation: db.prepare("UPDATE fork_operations SET materialized_message_id = ?, status = 'materialized', updated_at = ? WHERE id = ? AND status = 'pending'"),
+    attachStreamingRunToLineage: { run: () => {} },
+    upsertStreamingRun: { run: () => {} },
+    getStreamingRunById: { get: () => null },
+    updateStreamingRun: { run: () => {} },
+  }
+}
+
+class FakeProviderRouter {
+  public calls: any[] = []
+  private readonly queuedOutputs: any[] = []
+
+  enqueue(output: any): void {
+    this.queuedOutputs.push(output)
+  }
+
+  async generate(_provider: string, input: any): Promise<any> {
+    this.calls.push(input)
+    if (this.queuedOutputs.length > 0) {
+      const next = this.queuedOutputs.shift()
+      if (next instanceof Error) throw next
+      return next
+    }
+    return { content: `assistant:${input.userContent}` }
+  }
+}
+
+describe('prepared attachment linking', () => {
+  it('deduplicates IDs, links them to the server-assigned message, and returns metadata', () => {
+    const rows = new Map([
+      ['att-1', { id: 'att-1', file_path: '/tmp/one.png' }],
+      ['att-2', { id: 'att-2', file_path: '/tmp/two.png' }],
+    ])
+    const links: any[][] = []
+    const statements = {
+      getAttachmentById: { get: (id: string) => rows.get(id) },
+      linkAttachment: { run: (...args: any[]) => links.push(args) },
+    }
+
+    const linked = linkPreparedAttachmentsToMessage(statements, 'message-1', [
+      { attachmentId: 'att-1' },
+      { attachment_id: 'att-1' },
+      { attachmentId: 'att-2' },
+    ])
+
+    expect(linked).toEqual([rows.get('att-1'), rows.get('att-2')])
+    expect(links).toHaveLength(2)
+    expect(links.map(([, messageId, attachmentId]) => [messageId, attachmentId])).toEqual([
+      ['message-1', 'att-1'],
+      ['message-1', 'att-2'],
+    ])
+  })
+})
+
+describe('source lineage membership validation', () => {
+  it('allows an inferred creation owner whose moving head is on a sibling path', () => {
+    expect(shouldRejectSourceLineageMismatch(null, false)).toBe(false)
+    expect(shouldRejectSourceLineageMismatch(undefined, false)).toBe(false)
+  })
+
+  it('still rejects a mismatched lineage explicitly asserted by the client', () => {
+    expect(shouldRejectSourceLineageMismatch('lineage-c', false)).toBe(true)
+    expect(shouldRejectSourceLineageMismatch('lineage-c', true)).toBe(false)
+  })
+})
+
+;(FullAccessSqliteCtor ? describe : describe.skip)('ChatOrchestrator Full access notifications', () => {
+  let db: Database.Database
+  let statements: any
+  let messageRepo: MessageRepo
+  let providerRouter: FakeProviderRouter
+  let orchestrator: ChatOrchestrator
+  let testDirectory: string
+
+  beforeEach(() => {
+    if (!FullAccessSqliteCtor) throw new Error('SQLite is unavailable in this runtime')
+
+    testDirectory = mkdtempSync(path.join(os.tmpdir(), 'chat-image-lifecycle-'))
+    mkdirSync(path.join(testDirectory, 'user_images'))
+    db = new FullAccessSqliteCtor(path.join(testDirectory, 'chat.db'))
+    createSchema(db)
+    statements = createStatements(db)
+
+    const now = new Date().toISOString()
+    statements.upsertConversation.run('c1', null, 'u1', 'Conversation', 'gpt-5.1-codex-mini', null, null, null, null, 'local', now, now)
+
+    messageRepo = new MessageRepo({ db, statements })
+    providerRouter = new FakeProviderRouter()
+    orchestrator = new ChatOrchestrator({ db, statements, providerRouter: providerRouter as any })
+  })
+
+  afterEach(() => {
+    if (db) {
+      db.close()
+    }
+    if (testDirectory) rmSync(testDirectory, { recursive: true, force: true })
+  })
+
+  // Hadron P0: exercise the real orchestrator and SQLite with a deterministic
+  // two-request barrier. No provider/network calls, hooks, or writable tools.
+  it.each([false, true])('Hadron P0 isolates concurrent branches (cancel A: %s)', async cancelA => {
+    const anchor = messageRepo.createMessage({ conversationId: 'c1', parentId: null,
+      role: 'user', content: 'Shared Hadron task' })
+    const events: Record<string, any[]> = { a: [], b: [] }
+    const pending = new Map<string, { input: any; finish: () => void }>()
+    const controllers = { a: new AbortController(), b: new AbortController() }
+    const executeTool = vi.fn(async () => 'Unexpected tool execution')
+    orchestrator = new ChatOrchestrator({ db, statements, providerRouter: providerRouter as any,
+      toolExecutor: executeTool, cloudChatEnabled: false })
+    vi.spyOn(providerRouter, 'generate').mockImplementation(async (_provider, input: any) => {
+      const id = input.userContent.endsWith('a') ? 'a' : 'b'
+      return new Promise((resolve, reject) => {
+        const abort = () => reject(new DOMException('P0 cancelled', 'AbortError'))
+        const finish = () => {
+          input.signal?.removeEventListener('abort', abort)
+          resolve({ content: `Independent answer ${id}` })
+        }
+        pending.set(id, { input, finish })
+        if (input.signal?.aborted) abort()
+        else input.signal?.addEventListener('abort', abort, { once: true })
+      })
+    })
+    const run = (id: 'a' | 'b') => orchestrator.runMessage({ operation: 'branch',
+      conversationId: 'c1', messageId: anchor.id, content: `Independent participant ${id}`,
+      provider: 'openaichatgpt', modelName: 'test', streamId: `hadron-${id}`,
+      operationId: `hadron-operation-${id}`, tools: [], hooksEnabled: false,
+      toolAutoApprove: false, operationMode: 'plan',
+    }, event => events[id].push(event), controllers[id].signal)
+    const runs = [run('a'), run('b')]
+    // Attach rejection handlers immediately, including failures during setup.
+    const settled = Promise.allSettled(runs)
+    try {
+      await vi.waitFor(() => expect(pending.size).toBe(2))
+      for (const id of ['a', 'b'] as const) {
+        const peer = id === 'a' ? 'b' : 'a'
+        const input = pending.get(id)!.input
+        expect(input.history.some((row: any) => row.content === anchor.content)).toBe(true)
+        expect(input.history.some((row: any) => row.content === `Independent participant ${peer}`)).toBe(false)
+        expect(input.history.some((row: any) => row.content?.startsWith('Independent answer'))).toBe(false)
+        expect(input.tools ?? []).toHaveLength(0)
+        expect(events[id].some(event => event.type === 'complete')).toBe(false)
+      }
+      const started = ['a', 'b'].map(id => events[id].find(event => event.type === 'started'))
+      expect(started.map(event => event.streamId)).toEqual(['hadron-a', 'hadron-b'])
+      expect(new Set(started.map(event => event.lineageId)).size).toBe(2)
+
+      // Characterization, NOT an isolation pass: main chat currently supplies the
+      // same provider session/cache key to sibling runs. This is a P0 release gate.
+      expect(pending.get('a')!.input.railwayTurn.conversationId).toBe('c1')
+      expect(pending.get('b')!.input.railwayTurn.conversationId).toBe('c1')
+
+      if (cancelA) controllers.a.abort()
+      else pending.get('a')!.finish()
+      pending.get('b')!.finish()
+      const results = await settled
+      expect(results.every(result => result.status === 'fulfilled')).toBe(true)
+      expect(events.b.find(event => event.type === 'complete').message.content).toBe('Independent answer b')
+      if (cancelA) {
+        expect(events.a.some(event => event.type === 'complete')).toBe(false)
+        expect(events.a.some(event => event.type === 'error' && event.terminal)).toBe(true)
+      } else {
+        expect(events.a.find(event => event.type === 'complete').message.content).toBe('Independent answer a')
+      }
+      const rows = statements.getMessagesByConversationId.all('c1') as any[]
+      for (const id of ['a', 'b'] as const) {
+        const user = rows.find(row => row.content === `Independent participant ${id}`)
+        expect(user.parent_id).toBe(anchor.id)
+        const answer = rows.find(row => row.content === `Independent answer ${id}`)
+        if (id === 'a' && cancelA) expect(answer).toBeUndefined()
+        else expect(answer).toBeTruthy()
+        const lineage = new LineageRepo({ db, statements }).get(started[id === 'a' ? 0 : 1].lineageId)
+        // Mode/context notifications may sit between the input and answer or be
+        // the cancelled branch head. Assert canonical ancestry, not adjacency.
+        const ancestry: string[] = []
+        let cursor = rows.find(row => row.id === lineage?.head_message_id)
+        while (cursor) {
+          ancestry.push(cursor.id)
+          cursor = rows.find(row => row.id === cursor.parent_id)
+        }
+        expect(ancestry).toContain(user.id)
+        expect(ancestry).toContain(anchor.id)
+        if (answer) expect(lineage?.head_message_id).toBe(answer.id)
+        const peer = rows.find(row => row.content === `Independent participant ${id === 'a' ? 'b' : 'a'}`)
+        expect(ancestry).not.toContain(peer.id)
+      }
+      expect(executeTool).not.toHaveBeenCalled()
+    } finally {
+      controllers.a.abort()
+      controllers.b.abort()
+      for (const entry of pending.values()) entry.finish()
+      await settled
+    }
+  })
+
+  it.each([true, false])('persists Fast mode %s on user and assistant rows', async fastMode => {
+    const events: any[] = []
+    await orchestrator.runMessage({
+      operation: 'send', conversationId: 'c1', content: 'hello', provider: 'openaichatgpt',
+      modelName: 'test', streamId: 'fast-run', serviceTier: fastMode ? 'priority' : undefined,
+    }, event => events.push(event))
+    const user = events.find(event => event.type === 'user_message_persisted').message
+    const assistant = events.find(event => event.type === 'complete').message
+    for (const row of [user, assistant]) {
+      const meta = typeof row.meta === 'string' ? JSON.parse(row.meta) : row.meta
+      expect(meta.fastMode).toBe(fastMode)
+      expect(meta.modelSelection).toEqual({ provider: 'openaichatgpt', model: 'test' })
+    }
+  })
+
+  it('accepts FIFO follow-ups during manual compaction and delivers only after summary commit', async () => {
+    orchestrator = new ChatOrchestrator({ db, statements, providerRouter: providerRouter as any,
+      toolExecutor: async () => 'Read result' })
+    const events: any[] = []
+    let call = 0
+    vi.spyOn(providerRouter, 'generate').mockImplementation(async (_provider, input) => {
+      call++
+      if (call <= 2) {
+        const requestId = `q${call}`
+        const accepted = orchestrator.submitQueuedMessage('c1', 'manual', { requestId, content: `Follow-up ${call}` })
+        expect(accepted.snapshot?.items.find(item => item.requestId === requestId)?.status).toBe('queued')
+        expect(events.some(event => event.type === 'queued_user_message_persisted')).toBe(false)
+        expect(input.history.some((row: any) => row.content?.startsWith('Follow-up'))).toBe(false)
+        if (call === 1) return { content: '', toolCalls: [{ id: 'read', name: 'read_file', arguments: {} }] }
+        return { content: 'Committed summary' }
+      }
+      expect(input.history[0].meta).toContain('compaction_summary')
+      expect(input.history.filter((row: any) => row.content?.startsWith('Follow-up')).map((row: any) => row.content))
+        .toEqual(['Follow-up 1', 'Follow-up 2'])
+      return { content: 'Follow-ups answered' }
+    })
+    await orchestrator.runMessage({ operation: 'send', conversationId: 'c1', content: '/compact',
+      provider: 'openaichatgpt', modelName: 'test', streamId: 'manual', manualCompaction: true }, event => events.push(event))
+    expect(call).toBe(3)
+    const completedIndex = events.findIndex(event => event.type === 'context_compaction' && event.status === 'completed')
+    const queued = events.filter(event => event.type === 'queued_user_message_persisted')
+    expect(queued).toHaveLength(2)
+    for (const event of queued) {
+      expect(events.indexOf(event)).toBeGreaterThan(completedIndex)
+      expect(JSON.parse(event.message.meta || '{}').kind).not.toBe('compaction_instruction')
+    }
+    expect(queued[1].message.parent_id).toBe(queued[0].message.id)
+    expect(events.find(event => event.type === 'complete').message.content).toBe('Follow-ups answered')
+    expect(orchestrator.getMessageQueue('c1', 'manual').items.map(item => item.status)).toEqual(['delivered', 'delivered'])
+
+    const successor = orchestrator.submitQueuedMessage('c1', 'manual', { requestId: 'late', content: 'One more follow-up' })
+    expect(successor.restart).toMatchObject({ content: 'One more follow-up', manualCompaction: false })
+    const nextEvents: any[] = []
+    providerRouter.generate = async () => ({ content: 'Late follow-up answered' })
+    await orchestrator.runMessage(successor.restart!, event => nextEvents.push(event))
+    expect(nextEvents.some(event => event.type === 'context_compaction')).toBe(false)
+    expect(nextEvents.find(event => event.type === 'user_message_persisted').message.content).toBe('One more follow-up')
+  })
+
+  it('inserts one Full access notice after queued input without upgrading the live run', async () => {
+    const events: any[] = []
+    let call = 0
+    vi.spyOn(providerRouter, 'generate').mockImplementation(async (_provider, input) => {
+      expect((orchestrator as any).inputRuns.get('active').request.fullAccess).toBe(false)
+      if (++call === 1) {
+        for (const requestId of ['q1', 'q2']) {
+          orchestrator.submitQueuedMessage('c1', 'active', { requestId, content: requestId,
+            fullAccess: true, fullAccessNotificationId: 'toggle-queued' })
+        }
+      } else {
+        const notices = input.history.filter((row: any) => JSON.parse(row.meta || '{}').kind === 'full_access_change')
+        expect(notices).toHaveLength(1)
+        expect(notices[0].content).toContain('does not change this active run')
+        expect(notices[0].parent_id).toBe(events.find(event => event.type === 'queued_user_message_persisted').message.id)
+      }
+      return { content: 'answer' }
+    })
+    await orchestrator.runMessage({ operation: 'send', conversationId: 'c1', content: 'original',
+      provider: 'openaichatgpt', modelName: 'test', streamId: 'active', fullAccess: false }, event => events.push(event))
+    expect(call).toBe(2)
+    const accessEvents = events.filter(event => event.type === 'user_message_persisted' &&
+      JSON.parse(event.message.meta || '{}').kind === 'full_access_change')
+    expect(accessEvents).toHaveLength(2) // the second input acknowledges the same durable notice
+    expect(accessEvents[0].message.id).toBe(accessEvents[1].message.id)
+    const queuedEvents = events.filter(event => event.type === 'queued_user_message_persisted')
+    expect(queuedEvents[1].message.parent_id).toBe(accessEvents[0].message.id)
+  })
+
+  it('persists request throughput before completion and isolates consecutive runs', async () => {
+    const runs = new Map<string, any>()
+    statements.getStreamingRunById = { get: (id: string) => runs.get(id) }
+    statements.upsertStreamingRun = { run: (...values: any[]) => {
+      runs.set(values[0], { status: values[7], metadata_json: values[18], started_at: values[19] })
+    } }
+    statements.updateStreamingRun = { run: (...values: any[]) => {
+      Object.assign(runs.get(values[10]), { status: values[0], metadata_json: values[6] })
+    } }
+    let now = 0
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now)
+    const generate = vi.spyOn(providerRouter, 'generate').mockImplementation(async () => {
+      now += 2000
+      return { content: 'done', raw: { usage: { output_tokens: 100 } } }
+    })
+    try {
+      for (const streamId of ['throughput-1', 'throughput-2']) {
+        let completed = false
+        await orchestrator.runMessage({ operation: 'send', conversationId: 'c1', content: 'hello',
+          provider: 'openaichatgpt', modelName: 'test', streamId }, event => {
+          if (event.type !== 'complete') return
+          completed = true
+          const row = runs.get(streamId)
+          expect(row.status).toBe('completed')
+          const metadata = JSON.parse(row.metadata_json)
+          expect(metadata.runResponseCount).toBe(1)
+          expect(metadata.runStatistics.version).toBe(1)
+          expect(metadata.modelThroughput).toMatchObject({ outputTokens: 100, requestDurationMs: 2000,
+            requests: 1, measuredRequests: 1, coverage: 'complete' })
+        })
+        expect(completed).toBe(true)
+      }
+    } finally {
+      clock.mockRestore()
+      generate.mockRestore()
+    }
+  })
+
+  it.each(['send', 'branch', 'edit-branch'] as const)('persists the deferred Full access notice after new input for %s', async operation => {
+    const original = messageRepo.createMessage({ conversationId: 'c1', parentId: null, role: 'user', content: 'original' })
+    const events: any[] = []
+    await orchestrator.runMessage({
+      operation, conversationId: 'c1', parentId: original.id, messageId: original.id,
+      content: 'new input', provider: 'openaichatgpt', modelName: 'test',
+      fullAccess: true, fullAccessNotificationId: 'toggle-1',
+    }, event => events.push(event))
+    const rows = statements.getMessagesByConversationId.all('c1') as any[]
+    const notice = rows.find(row => JSON.parse(row.meta || '{}').kind === 'full_access_change')
+    const user = rows.find(row => row.content === 'new input')
+    expect(notice?.role).toBe('user')
+    expect(user.parent_id).toBe(operation === 'edit-branch' ? null : original.id)
+    expect(notice.parent_id).toBe(user.id)
+    expect(notice.lineage_id).toBe(user.lineage_id)
+    const lineages = new LineageRepo({ db, statements })
+    const countBefore = lineages.list('c1').length
+    lineages.reconcileLegacyConversation('c1')
+    expect(lineages.list('c1')).toHaveLength(countBefore)
+    expect(notice.content).toContain('<system-reminder>')
+    expect(notice.content).toContain('already-running run')
+    const persisted = events.filter(event => event.type === 'user_message_persisted')
+    expect(persisted.map(event => event.message.id)).toEqual([user.id, notice.id])
+    expect(events.find(event => event.type === 'started').parentId).toBe(user.id)
+    const modelHistory = providerRouter.calls[0].history
+    expect(modelHistory.findIndex((row: any) => row.id === notice.id)).toBeGreaterThan(modelHistory.findIndex((row: any) => row.id === user.id))
+    expect(rows.find(row => JSON.parse(row.meta || '{}').kind === 'operation_mode_change')?.parent_id).toBe(notice.id)
+    expect(JSON.stringify(providerRouter.calls)).toContain('Full access enabled for this new run')
+    expect(events.at(-1).type).toBe('complete')
+  })
+
+  it('deduplicates a committed toggle when its first SSE acknowledgement was lost', async () => {
+    const request = { operation: 'send' as const, conversationId: 'c1', parentId: null,
+      content: 'first', provider: 'openaichatgpt', modelName: 'test',
+      fullAccess: true, fullAccessNotificationId: 'toggle-retry' }
+    await expect(orchestrator.runMessage(request, event => {
+      if (event.type === 'started') throw new Error('disconnected after commit')
+    })).rejects.toThrow('disconnected after commit')
+    const notice = messageRepo.findFullAccessNotification('c1', 'toggle-retry')
+    expect(notice).toBeTruthy()
+    const events: any[] = []
+    await orchestrator.runMessage({ ...request, content: 'second' }, event => events.push(event))
+    const notices = (statements.getMessagesByConversationId.all('c1') as any[])
+      .filter(row => JSON.parse(row.meta || '{}').kind === 'full_access_change')
+    expect(notices).toHaveLength(1)
+    expect(events.filter(event => event.type === 'user_message_persisted').at(-1).message.id).toBe(notice.id)
+    expect(messageRepo.findFullAccessNotification('other-conversation', 'toggle-retry')).toBeNull()
+  })
+
+  it.each([
+    { fullAccess: false, fullAccessNotificationId: 'toggle-1' },
+    { fullAccess: true },
+  ])('does not announce without an enabled pending human toggle: %j', async access => {
+    await orchestrator.runMessage({ operation: 'send', conversationId: 'c1', parentId: null,
+      content: 'input', provider: 'openaichatgpt', modelName: 'test', ...access }, () => {})
+    const rows = statements.getMessagesByConversationId.all('c1') as any[]
+    expect(rows.some(row => JSON.parse(row.meta || '{}').kind === 'full_access_change')).toBe(false)
+  })
+
+})
+
+describeIfSqlite('ChatOrchestrator continuation semantics', () => {
+  let db: Database.Database
+  let statements: any
+  let messageRepo: MessageRepo
+  let providerRouter: FakeProviderRouter
+  let orchestrator: ChatOrchestrator
+  let testDirectory: string
+
+  beforeEach(() => {
+    if (!BetterSqlite3Ctor) {
+      throw new Error('better-sqlite3 is unavailable in this runtime')
+    }
+
+    testDirectory = mkdtempSync(path.join(os.tmpdir(), 'chat-image-lifecycle-'))
+    mkdirSync(path.join(testDirectory, 'user_images'))
+    db = new BetterSqlite3Ctor(path.join(testDirectory, 'chat.db'))
+    createSchema(db)
+    statements = createStatements(db)
+
+    const now = new Date().toISOString()
+    statements.upsertConversation.run('c1', null, 'u1', 'Conversation', 'gpt-5.1-codex-mini', null, null, null, null, 'local', now, now)
+
+    messageRepo = new MessageRepo({ db, statements })
+    providerRouter = new FakeProviderRouter()
+    orchestrator = new ChatOrchestrator({ db, statements, providerRouter: providerRouter as any })
+  })
+
+  afterEach(() => {
+    if (db) {
+      db.close()
+    }
+    if (testDirectory) rmSync(testDirectory, { recursive: true, force: true })
+  })
+
+  it('send creates user then assistant', async () => {
+    const events: any[] = []
+    await orchestrator.runMessage(
+      {
+        operation: 'send',
+        conversationId: 'c1',
+        parentId: null,
+        content: 'hello',
+        provider: 'openaichatgpt',
+        modelName: 'gpt-5.1-codex-mini',
+      },
+      event => events.push(event)
+    )
+
+    const messages = statements.getMessagesByConversationId.all('c1') as any[]
+    const user = messages.find(m => m.role === 'user')
+    const assistant = messages.find(m => m.role === 'assistant')
+
+    expect(user).toBeTruthy()
+    expect(assistant).toBeTruthy()
+    expect(assistant.parent_id).toBe(user.id)
+    expect(events.some(evt => evt.type === 'user_message_persisted')).toBe(true)
+    expect(events[events.length - 1].type).toBe('complete')
+  })
+
+  it('persists automated watcher input on the live safe tail and in a completed-run successor', async () => {
+    const events: any[] = []
+    let release: (() => void) | undefined
+    let lineageId = ''
+    await orchestrator.runMessage({ operation: 'send', conversationId: 'c1', streamId: 'watch-origin',
+      content: 'benchmark task', provider: 'openaichatgpt', modelName: 'test' }, event => {
+      events.push(event)
+      if (event.type === 'started') lineageId = event.lineageId!
+      if (event.type === 'assistant_message_persisted' && !release) {
+        release = orchestrator.retainWatch({ conversationId: 'c1', lineageId, streamId: 'watch-origin', messageId: event.message.id })
+        orchestrator.submitWatchMessage('c1', lineageId, 'watch-origin', {
+          requestId: 'watcher:live', content: 'Watcher completion: live',
+          watcherCompletion: { handle: 'live', originMessageId: event.message.id },
+        })
+      }
+    })
+    const queued = events.find(event => event.type === 'queued_user_message_persisted')
+    expect(queued.message.role).toBe('user')
+    expect(JSON.parse(statements.getMessageById.get(queued.message.id).meta)).toMatchObject({ kind: 'watcher_completion', handle: 'live' })
+    expect(providerRouter.calls).toHaveLength(2)
+    const result = orchestrator.submitWatchMessage('c1', lineageId, 'watch-origin', {
+      requestId: 'watcher:idle', content: 'Watcher completion: idle',
+      watcherCompletion: { handle: 'idle', originMessageId: queued.message.id },
+    })
+    expect(result.restart?.lineageId).toBe(lineageId)
+    const successorEvents: any[] = []
+    await orchestrator.runMessage(result.restart!, event => successorEvents.push(event))
+    const nextUser = successorEvents.find(event => event.type === 'user_message_persisted').message
+    expect(nextUser.parent_id).toBe(result.restart!.parentId)
+    expect(JSON.parse(statements.getMessageById.get(nextUser.id).meta)).toMatchObject({ kind: 'watcher_completion', handle: 'idle' })
+    expect(successorEvents.find(event => event.type === 'started').lineageId).toBe(lineageId)
+    release?.()
+  })
+
+  it('links prepared image attachments before emitting the persisted user message', async () => {
+    const now = new Date().toISOString()
+    db.prepare(
+      'INSERT INTO message_attachments (id, file_path, mime_type, sha256, created_at) VALUES (?, ?, ?, ?, ?)'
+    ).run('att-1', path.join(testDirectory, 'user_images/image.png'), 'image/png', createHash('sha256').update('a').digest('hex'), now)
+    writeFileSync(path.join(testDirectory, 'user_images/image.png'), 'a')
+
+    const events: any[] = []
+    await orchestrator.runMessage(
+      {
+        operation: 'send',
+        conversationId: 'c1',
+        parentId: null,
+        content: 'describe this image',
+        provider: 'openaichatgpt',
+        modelName: 'gpt-5.1-codex-mini',
+        attachmentsBase64: [
+          {
+            dataUrl: 'data:image/png;base64,YQ==',
+            attachmentId: 'att-1',
+            filePath: '/tmp/image.png',
+          },
+        ],
+      },
+      event => events.push(event)
+    )
+
+    const persisted = events.find(event => event.type === 'user_message_persisted')
+    expect(persisted?.message).toMatchObject({
+      attachments_count: 1,
+      has_attachments: true,
+      attachments: [expect.objectContaining({ id: 'att-1' })],
+    })
+    expect(statements.getAttachmentsByMessageId.all(persisted.message.id)).toEqual([
+      expect.objectContaining({ id: 'att-1' }),
+    ])
+  })
+
+  it.each(['send', 'branch', 'edit-branch'] as const)('retains %s images through tool continuation, reload, repeat, and sibling isolation', async operation => {
+    const image = Buffer.from('durable-image')
+    const dataUrl = `data:image/png;base64,${image.toString('base64')}`
+    const filename = path.join(testDirectory, 'user_images/image.png')
+    writeFileSync(filename, image)
+    db.prepare('INSERT INTO message_attachments (id, file_path, mime_type, sha256, created_at) VALUES (?, ?, ?, ?, ?)')
+      .run('image-a', filename, 'image/png', createHash('sha256').update(image).digest('hex'), new Date().toISOString())
+    const source = messageRepo.createMessage({ conversationId: 'c1', parentId: null, role: 'user', content: 'source' })
+    providerRouter.enqueue({ content: '', toolCalls: [{ id: 'read', name: 'read_file', arguments: {} }] })
+    providerRouter.enqueue({ content: 'image understood' })
+    orchestrator = new ChatOrchestrator({ db, statements, providerRouter: providerRouter as any,
+      toolExecutor: async () => ({ content: 'done' }) })
+    const events: any[] = []
+    await orchestrator.runMessage({ operation, conversationId: 'c1', content: 'inspect',
+      messageId: operation === 'send' ? undefined : source.id,
+      parentId: operation === 'send' ? source.id : undefined,
+      provider: 'openaichatgpt', modelName: 'test', autoCompactionEnabled: false,
+      attachmentsBase64: [{ attachmentId: 'image-a', dataUrl }],
+    }, event => events.push(event))
+    const user = events.find(event => event.type === 'user_message_persisted').message
+    expect(providerRouter.calls).toHaveLength(2)
+    for (const call of providerRouter.calls) {
+      expect(call.history.find((row: any) => row.id === user.id).attachments).toEqual([{ dataUrl }])
+      expect(call.railwayTurn.attachmentsBase64).toBeNull()
+    }
+    expect(JSON.stringify(events)).not.toContain(dataUrl)
+    const last = events.find(event => event.type === 'complete').message
+    orchestrator = new ChatOrchestrator({ db, statements, providerRouter: providerRouter as any })
+    await orchestrator.runMessage({ operation: 'send', conversationId: 'c1', parentId: last.id,
+      content: 'look again', provider: 'openaichatgpt', modelName: 'test' }, () => {})
+    expect(providerRouter.calls.at(-1).history.find((row: any) => row.id === user.id).artifacts).toEqual([dataUrl])
+    await orchestrator.runMessage({ operation: 'repeat', conversationId: 'c1', messageId: user.id,
+      provider: 'openaichatgpt', modelName: 'test' }, () => {})
+    expect(providerRouter.calls.at(-1).history.find((row: any) => row.id === user.id).artifacts).toEqual([dataUrl])
+    await orchestrator.runMessage({ operation: 'branch', conversationId: 'c1', messageId: source.id,
+      content: 'unrelated sibling', provider: 'openaichatgpt', modelName: 'test' }, () => {})
+    expect(providerRouter.calls.at(-1).history.some((row: any) => row.artifacts?.length)).toBe(false)
+  })
+
+  it('hydrates queued ID-only images before acceptance and retains them in a later request', async () => {
+    const image = Buffer.from('queued-image')
+    const filename = path.join(testDirectory, 'user_images/queued.png')
+    const dataUrl = `data:image/png;base64,${image.toString('base64')}`
+    writeFileSync(filename, image)
+    db.prepare('INSERT INTO message_attachments (id, file_path, mime_type, sha256, created_at) VALUES (?, ?, ?, ?, ?)')
+      .run('queued-image', filename, 'image/png', createHash('sha256').update(image).digest('hex'), new Date().toISOString())
+    const events: any[] = []
+    let queued = false
+    await orchestrator.runMessage({ operation: 'send', conversationId: 'c1', streamId: 'queued-images',
+      content: 'start', provider: 'openaichatgpt', modelName: 'test' }, event => {
+      events.push(event)
+      if (event.type === 'assistant_message_persisted' && !queued) {
+        queued = true
+        orchestrator.submitQueuedMessage('c1', 'queued-images', { requestId: 'image-q', content: 'inspect queued',
+          attachmentsBase64: [{ attachmentId: 'queued-image' }] })
+      }
+    })
+    const row = events.find(event => event.type === 'queued_user_message_persisted').message
+    expect(row.attachments).toEqual([expect.objectContaining({ id: 'queued-image' })])
+    expect(providerRouter.calls.at(-1).history.find((item: any) => item.id === row.id).artifacts).toEqual([dataUrl])
+    const last = events.find(event => event.type === 'complete').message
+    orchestrator = new ChatOrchestrator({ db, statements, providerRouter: providerRouter as any })
+    await orchestrator.runMessage({ operation: 'send', conversationId: 'c1', parentId: last.id,
+      content: 'again', provider: 'openaichatgpt', modelName: 'test' }, () => {})
+    expect(providerRouter.calls.at(-1).history.find((item: any) => item.id === row.id).artifacts).toEqual([dataUrl])
+  })
+
+  it('rejects unprepared images before acknowledging or persisting the user row', async () => {
+    const events: any[] = []
+    await expect(orchestrator.runMessage({ operation: 'send', conversationId: 'c1', content: 'inspect',
+      provider: 'openaichatgpt', modelName: 'test', attachmentsBase64: [{ dataUrl: 'data:image/png;base64,YQ==' }],
+    }, event => events.push(event))).rejects.toThrow('must be prepared')
+    expect(events.some(event => event.type === 'user_message_persisted')).toBe(false)
+    expect(providerRouter.calls).toHaveLength(0)
+  })
+
+  it('replays only the latest compaction summary and subsequent branch messages', async () => {
+    const rootUser = messageRepo.createMessage({
+      conversationId: 'c1',
+      parentId: null,
+      role: 'user',
+      content: 'old context that must not be replayed',
+      modelName: 'gpt-5.1-codex-mini',
+    })
+    const oldAssistant = messageRepo.createMessage({
+      conversationId: 'c1',
+      parentId: rootUser.id,
+      role: 'assistant',
+      content: 'old assistant context that must not be replayed',
+      modelName: 'gpt-5.1-codex-mini',
+    })
+    const summary = messageRepo.createMessage({
+      conversationId: 'c1',
+      parentId: oldAssistant.id,
+      role: 'system',
+      content: 'Following is summary of the session, you have to resume the work.\n\nCompacted context.',
+      modelName: 'gpt-5.1-codex-mini',
+      note: '__auto_compaction_summary__',
+    })
+
+    await orchestrator.runMessage(
+      {
+        operation: 'send',
+        conversationId: 'c1',
+        parentId: summary.id,
+        content: 'continue from the summary',
+        provider: 'openaichatgpt',
+        modelName: 'gpt-5.1-codex-mini',
+      },
+      () => {}
+    )
+
+    expect(providerRouter.calls[0].history.map((message: any) => message.id)).toEqual([summary.id])
+    expect(providerRouter.calls[0].history[0].note).toBe('__auto_compaction_summary__')
+  })
+
+  it('turns post-retry OpenAI provider errors into a persisted assistant response', async () => {
+    providerRouter.enqueue(
+      new Error(
+        'ChatGPT backend request failed (429): {"error":{"type":"usage_limit_reached","message":"The usage limit has been reached","resets_at":1782168563}}'
+      )
+    )
+
+    const events: any[] = []
+    await orchestrator.runMessage(
+      {
+        operation: 'send',
+        conversationId: 'c1',
+        parentId: null,
+        content: 'hello',
+        provider: 'openaichatgpt',
+        modelName: 'gpt-5.4-mini',
+      },
+      event => events.push(event)
+    )
+
+    const messages = statements.getMessagesByConversationId.all('c1') as any[]
+    const user = messages.find((msg: any) => msg.role === 'user')
+    const assistants = messages.filter((msg: any) => msg.role === 'assistant')
+    // The row carrying the classified failure — identified by its ErrorBlock, not by
+    // position, so this holds whether or not the loop also persisted a partial/prose row.
+    const errorRow = assistants.find((msg: any) => String(msg.content_blocks ?? '').includes('"type":"error"'))
+
+    expect(user).toBeTruthy()
+    expect(errorRow).toBeTruthy()
+    // R1(c): the error row hangs off the D1 partial when the loop wrote one, and off the
+    // user turn when it did not. Either way it is a descendant of this turn.
+    const partialIds = assistants.filter((msg: any) => msg.id !== errorRow.id).map((msg: any) => msg.id)
+    expect([user.id, ...partialIds]).toContain(errorRow.parent_id)
+    expect(events.some(evt => evt.type === 'assistant_message_persisted' && evt.message.id === errorRow.id)).toBe(true)
+    expect(events.some(evt => evt.type === 'error')).toBe(false)
+    // CHANGED DELIBERATELY (was `message: { id: <prose row> }`). `complete.message` is
+    // what sseProjection rebuilds `currentPath` from (streamCompleted updatePath:true),
+    // so naming the error row's PARENT truncated the error row off the rendered path —
+    // it existed in SQLite and was never drawn. The terminal frame names the error row.
+    expect(events[events.length - 1]).toMatchObject({
+      type: 'complete',
+      providerError: true,
+      message: { id: errorRow.id },
+    })
+    // R2 (one bubble per failure): the row IS the surface, so the badged completion no
+    // longer carries an `envelope` for the renderer to record a second time.
+    expect((events[events.length - 1] as any).envelope).toBeUndefined()
+  })
+
+  it('repeat regenerates assistant without creating new user', async () => {
+    const user = messageRepo.createMessage({
+      conversationId: 'c1',
+      parentId: null,
+      role: 'user',
+      content: 'original question',
+      modelName: 'gpt-5.1-codex-mini',
+    })
+    const originalAssistant = messageRepo.createMessage({
+      conversationId: 'c1',
+      parentId: user.id,
+      role: 'assistant',
+      content: 'old answer',
+      modelName: 'gpt-5.1-codex-mini',
+    })
+
+    await orchestrator.runMessage(
+      {
+        operation: 'repeat',
+        conversationId: 'c1',
+        parentId: null,
+        messageId: originalAssistant.id,
+        content: '',
+        provider: 'openaichatgpt',
+        modelName: 'gpt-5.1-codex-mini',
+      },
+      () => {}
+    )
+
+    const messages = statements.getMessagesByConversationId.all('c1') as any[]
+    const users = messages.filter(m => m.role === 'user')
+    const assistants = messages.filter(m => m.role === 'assistant')
+    const newestAssistant = assistants[assistants.length - 1]
+
+    expect(users).toHaveLength(1)
+    expect(assistants.length).toBe(2)
+    expect(newestAssistant.parent_id).toBe(user.id)
+    expect(providerRouter.calls[0].userContent).toBe('original question')
+  })
+
+  it('branch creates child user off message and assistant under that branch', async () => {
+    const rootUser = messageRepo.createMessage({
+      conversationId: 'c1',
+      parentId: null,
+      role: 'user',
+      content: 'root',
+      modelName: 'gpt-5.1-codex-mini',
+    })
+
+    await orchestrator.runMessage(
+      {
+        operation: 'branch',
+        conversationId: 'c1',
+        parentId: null,
+        messageId: rootUser.id,
+        content: 'new branch prompt',
+        provider: 'openaichatgpt',
+        modelName: 'gpt-5.1-codex-mini',
+      },
+      () => {}
+    )
+
+    const messages = statements.getMessagesByConversationId.all('c1') as any[]
+    const branchedUser = messages.find(m => m.role === 'user' && m.content === 'new branch prompt')
+    const branchedAssistant = messages.find(m => m.role === 'assistant' && m.parent_id === branchedUser.id)
+
+    expect(branchedUser.parent_id).toBe(rootUser.id)
+    expect(branchedAssistant).toBeTruthy()
+  })
+
+  it('edit-branch creates sibling user and assistant', async () => {
+    const originalUser = messageRepo.createMessage({
+      conversationId: 'c1',
+      parentId: null,
+      role: 'user',
+      content: 'old user text',
+      modelName: 'gpt-5.1-codex-mini',
+    })
+
+    await orchestrator.runMessage(
+      {
+        operation: 'edit-branch',
+        conversationId: 'c1',
+        parentId: null,
+        messageId: originalUser.id,
+        content: 'edited user text',
+        provider: 'openaichatgpt',
+        modelName: 'gpt-5.1-codex-mini',
+      },
+      () => {}
+    )
+
+    const messages = statements.getMessagesByConversationId.all('c1') as any[]
+    const editedUser = messages.find(m => m.role === 'user' && m.content === 'edited user text')
+    const editedAssistant = messages.find(m => m.role === 'assistant' && m.parent_id === editedUser.id)
+
+    expect(editedUser.parent_id).toBeNull()
+    expect(editedAssistant).toBeTruthy()
+  })
+
+  it('runs tool loop server-side: assistant tool call -> tool result -> continued assistant', async () => {
+    providerRouter.enqueue({
+      content: '',
+      toolCalls: [
+        {
+          id: 'call-1',
+          name: 'read_file',
+          arguments: { path: 'README.md' },
+        },
+      ],
+      contentBlocks: [
+        {
+          type: 'tool_use',
+          id: 'call-1',
+          name: 'read_file',
+          input: { path: 'README.md' },
+        },
+      ],
+    })
+
+    providerRouter.enqueue({
+      content: 'Final answer after tool.',
+      contentBlocks: [{ type: 'text', content: 'Final answer after tool.' }],
+    })
+
+    const orchestratorWithTools = new ChatOrchestrator({
+      db,
+      statements,
+      providerRouter: providerRouter as any,
+      toolExecutor: async toolCall => {
+        if (toolCall.name === 'read_file') {
+          return 'README file contents'
+        }
+        throw new Error(`Unexpected tool: ${toolCall.name}`)
+      },
+    })
+
+    const events: any[] = []
+    await orchestratorWithTools.runMessage(
+      {
+        operation: 'send',
+        conversationId: 'c1',
+        parentId: null,
+        content: 'Read README and summarize',
+        provider: 'openaichatgpt',
+        modelName: 'gpt-5.1-codex-mini',
+        tools: [
+          {
+            name: 'read_file',
+            description: 'Read file',
+            inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
+          },
+        ],
+      },
+      event => events.push(event)
+    )
+
+    expect(providerRouter.calls).toHaveLength(2)
+    expect(providerRouter.calls[0].tools?.[0]?.name).toBe('read_file')
+    expect(providerRouter.calls[1].history.some((entry: any) => entry.role === 'tool' && entry.tool_call_id === 'call-1')).toBe(
+      true
+    )
+
+    const messages = statements.getMessagesByConversationId.all('c1') as any[]
+    const assistantMessages = messages.filter(m => m.role === 'assistant')
+    expect(assistantMessages.length).toBe(2)
+
+    const firstAssistant = assistantMessages[0]
+    const firstAssistantBlocks = JSON.parse(firstAssistant.content_blocks || '[]') as any[]
+    expect(firstAssistantBlocks.some(block => block.type === 'tool_result' && block.tool_use_id === 'call-1')).toBe(true)
+
+    const firstAssistantCalls = JSON.parse(firstAssistant.tool_calls || '[]') as any[]
+    expect(firstAssistantCalls[0]?.status).toBe('complete')
+    expect(firstAssistantCalls[0]?.result).toContain('README file contents')
+
+    const finalAssistant = assistantMessages[1]
+    expect(finalAssistant.content).toBe('Final answer after tool.')
+
+    expect(events.some(evt => evt.type === 'chunk' && evt.part === 'tool_call')).toBe(true)
+    expect(events.some(evt => evt.type === 'chunk' && evt.part === 'tool_result')).toBe(true)
+    expect(events.some(evt => evt.type === 'tool_execution' && evt.status === 'started' && evt.toolCallId === 'call-1')).toBe(
+      true
+    )
+    expect(
+      events.some(evt => evt.type === 'tool_execution' && evt.status === 'completed' && evt.toolCallId === 'call-1')
+    ).toBe(true)
+
+    const turnEvents = events.filter(evt => evt.type === 'tool_loop')
+    expect(turnEvents.some((evt: any) => evt.status === 'turn_started' && evt.turn === 1)).toBe(true)
+    expect(turnEvents.some((evt: any) => evt.status === 'turn_completed' && evt.turn === 1 && evt.continued === true)).toBe(
+      true
+    )
+    expect(turnEvents.some((evt: any) => evt.status === 'turn_completed' && evt.turn === 2 && evt.continued === false)).toBe(
+      true
+    )
+
+    expect(events[events.length - 1].type).toBe('complete')
+  })
+
+  it('uses server default tools provider when request omits tools', async () => {
+    providerRouter.enqueue({ content: 'No tools needed.' })
+
+    const orchestratorWithDefaultTools = new ChatOrchestrator({
+      db,
+      statements,
+      providerRouter: providerRouter as any,
+      defaultToolsProvider: () => [
+        {
+          name: 'read_file',
+          description: 'Read file',
+          inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] },
+        },
+      ],
+    })
+
+    await orchestratorWithDefaultTools.runMessage(
+      {
+        operation: 'send',
+        conversationId: 'c1',
+        parentId: null,
+        content: 'hello with fallback tools',
+        provider: 'openaichatgpt',
+        modelName: 'gpt-5.1-codex-mini',
+      },
+      () => {}
+    )
+
+    const latestCall = providerRouter.calls[providerRouter.calls.length - 1]
+    expect(latestCall.tools?.[0]?.name).toBe('read_file')
+  })
+})
+
+
+describeIfSqlite('ChatOrchestrator prompt resolution', () => {
+  let db: Database.Database
+  let statements: any
+  let providerRouter: FakeProviderRouter
+  let orchestrator: ChatOrchestrator
+
+  beforeEach(() => {
+    if (!BetterSqlite3Ctor) {
+      throw new Error('better-sqlite3 is unavailable in this runtime')
+    }
+
+    db = new BetterSqlite3Ctor(':memory:')
+    createSchema(db)
+    statements = createStatements(db)
+    providerRouter = new FakeProviderRouter()
+    orchestrator = new ChatOrchestrator({ db, statements, providerRouter: providerRouter as any })
+  })
+
+  afterEach(() => {
+    if (db) {
+      db.close()
+    }
+  })
+
+  it('uses sqlite project and conversation prompts for provider instructions', async () => {
+    const now = new Date().toISOString()
+    db.prepare(
+      `INSERT INTO projects (id, name, user_id, context, system_prompt, storage_mode, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run('p1', 'Project', 'u1', 'Project context', 'Project prompt from sqlite', 'local', now, now)
+
+    statements.upsertConversation.run(
+      'c-prompts',
+      'p1',
+      'u1',
+      'Conversation',
+      'gpt-5.5',
+      'Conversation prompt from sqlite',
+      'Conversation context from sqlite',
+      null,
+      null,
+      'local',
+      now,
+      now
+    )
+
+    await orchestrator.runMessage(
+      {
+        operation: 'send',
+        conversationId: 'c-prompts',
+        parentId: null,
+        content: 'hello',
+        provider: 'openaichatgpt',
+        modelName: 'gpt-5.5',
+      },
+      () => {}
+    )
+
+    const providerInput = providerRouter.calls[0]
+    expect(providerInput.systemPrompt).toContain('Agent Prompt: Chat and Agent modes')
+    expect(providerInput.systemPrompt).toContain('Project prompt from sqlite')
+    expect(providerInput.systemPrompt).toContain('Conversation prompt from sqlite')
+    expect(providerInput.systemPrompt.indexOf('Agent Prompt: Chat and Agent modes')).toBeLessThan(
+      providerInput.systemPrompt.indexOf('Project prompt from sqlite')
+    )
+    expect(providerInput.railwayTurn.conversationContext).toBe('Conversation context from sqlite')
+    expect(providerInput.railwayTurn.projectContext).toBe('Project context')
+  })
+
+  it('uses renderer-selected Agent and subagent baselines without appending bundled defaults', async () => {
+    const now = new Date().toISOString()
+    statements.upsertConversation.run('c-custom-prompt', null, 'u1', 'Conversation', 'gpt-5.5', null, null, null, null, 'local', now, now)
+
+    await orchestrator.runMessage(
+      {
+        operation: 'send',
+        conversationId: 'c-custom-prompt',
+        parentId: null,
+        content: 'hello',
+        provider: 'openaichatgpt',
+        modelName: 'gpt-5.5',
+        operationModePrompt: 'Custom Agent baseline',
+        agentModePrompt: 'Custom Agent baseline',
+        subagentModePrompt: 'Custom Subagent baseline',
+      },
+      () => {}
+    )
+
+    expect(providerRouter.calls[0].systemPrompt).toContain('Custom Agent baseline')
+    expect(providerRouter.calls[0].systemPrompt).not.toContain('Agent Prompt: Chat and Agent modes')
+  })
+
+  it('uses chat mode prompts for plan mode requests', async () => {
+    const now = new Date().toISOString()
+    statements.upsertConversation.run('c-plan', null, 'u1', 'Conversation', 'gpt-5.5', null, null, null, null, 'local', now, now)
+
+    await orchestrator.runMessage(
+      {
+        operation: 'send',
+        conversationId: 'c-plan',
+        parentId: null,
+        content: 'hello',
+        provider: 'openaichatgpt',
+        modelName: 'gpt-5.5',
+        operationMode: 'plan',
+      },
+      () => {}
+    )
+
+    expect(providerRouter.calls[0].systemPrompt).toContain('Agent Prompt: Chat and Agent modes')
+  })
+
+  it('falls back to a non-empty instruction when prompts are disabled and no sqlite prompts exist', async () => {
+    const now = new Date().toISOString()
+    statements.upsertConversation.run('c-empty', null, 'u1', 'Conversation', 'gpt-5.5', null, null, null, null, 'local', now, now)
+
+    await orchestrator.runMessage(
+      {
+        operation: 'send',
+        conversationId: 'c-empty',
+        parentId: null,
+        content: 'hello',
+        provider: 'openaichatgpt',
+        modelName: 'gpt-5.5',
+        includeOperationModePrompt: false,
+      },
+      () => {}
+    )
+
+    expect(providerRouter.calls[0].systemPrompt).toBe('You are ChatGPT.')
+  })
+})
+
+describeIfSqlite('ChatOrchestrator plan mode tool policy', () => {
+  let db: Database.Database
+  let statements: any
+  let providerRouter: FakeProviderRouter
+  let orchestrator: ChatOrchestrator
+
+  beforeEach(() => {
+    if (!BetterSqlite3Ctor) {
+      throw new Error('better-sqlite3 is unavailable in this runtime')
+    }
+
+    db = new BetterSqlite3Ctor(':memory:')
+    createSchema(db)
+    statements = createStatements(db)
+
+    const now = new Date().toISOString()
+    statements.upsertConversation.run('c-tools', null, 'u1', 'Conversation', 'gpt-5.5', null, null, null, null, 'local', now, now)
+
+    providerRouter = new FakeProviderRouter()
+    orchestrator = new ChatOrchestrator({
+      db,
+      statements,
+      providerRouter: providerRouter as any,
+      defaultToolsProvider: () => [
+        { name: 'bash' },
+        { name: 'powershell' },
+        { name: 'edit_file' },
+        { name: 'read_file' },
+        { name: 'mcp__server__tool' },
+      ],
+    })
+  })
+
+  afterEach(() => {
+    if (db) {
+      db.close()
+    }
+  })
+
+  it('filters default runtime tools for plan mode while keeping bash and powershell', async () => {
+    await orchestrator.runMessage(
+      {
+        operation: 'send',
+        conversationId: 'c-tools',
+        parentId: null,
+        content: 'hello',
+        provider: 'openaichatgpt',
+        modelName: 'gpt-5.5',
+        operationMode: 'plan',
+      },
+      () => {}
+    )
+
+    const toolNames = (providerRouter.calls[0].tools || []).map((tool: any) => tool.name)
+    expect(toolNames).toContain('bash')
+    expect(toolNames).toContain('powershell')
+    expect(toolNames).toContain('read_file')
+    expect(toolNames).not.toContain('edit_file')
+    expect(toolNames).not.toContain('mcp__server__tool')
+  })
+})

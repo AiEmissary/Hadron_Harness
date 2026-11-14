@@ -1,0 +1,39 @@
+{
+  "revision": 80,
+  "date": "2026-11-06",
+  "server": {
+    "passed": 432,
+    "skipped": 5,
+    "failed": 0
+  },
+  "focused": {
+    "executionStartup": 8,
+    "executionGate": 14,
+    "coordinator": 48,
+    "writer": 25,
+    "windowsCommit": 4
+  },
+  "additionalRegressions": {
+    "workerAndJournal": 55,
+    "legacyOrchestrator": 16
+  },
+  "typechecks": [
+    "server passed",
+    "Electron passed",
+    "mobile passed"
+  ],
+  "build": "Electron main/mobile passed",
+  "builtWindowsDesktop": {
+    "projectOnlyStartup": "passed; utility skipped, pending job unchanged",
+    "standardStartup": "passed; actual utility initialized and legacy observed",
+    "nativeProjectReader": "passed; simulated picker/provider, actual bounded read/revoke/block",
+    "corruptLedgerStartup": "passed; viewer/server available, execution denied, damaged marker unchanged"
+  },
+  "realProviderRequests": 0,
+  "personalProjectEdits": 0,
+  "runningUserAppsRestarted": false,
+  "installedGravitonChanges": false,
+  "liveProjectEditingEnabled": false,
+  "canonicalApply": "host-only; no production consent composition",
+  "restartUnlock": "read-only inspection; previous-process proof unfinished"
+}

@@ -1,0 +1,38 @@
+{
+  "revision": 84,
+  "date": "2026-11-07",
+  "focusedServerTests": {
+    "passed": 28,
+    "failed": 0
+  },
+  "typechecks": [
+    "renderer",
+    "server",
+    "Electron",
+    "mobile"
+  ],
+  "builds": [
+    "Electron renderer",
+    "main",
+    "mobile"
+  ],
+  "entry": {
+    "success": true,
+    "logoLoaded": true,
+    "visibleAt2500ms": true,
+    "minimumDisplayMs": 4000,
+    "elapsedMs": 4025
+  },
+  "firstEntryElapsedMs": 4051,
+  "startedMaximized": true,
+  "desktop": "passed: existing proposal/review, two-file display, Stop, keep/clear, saved proposal, exact diff and clean Quit",
+  "coldReopen": "passed: minimum logo hold, maximized, both selected paths restored, native grant expired, no inference replay, clean Quit",
+  "realPreviewAcceptance": "user screenshot; read-only actual saved A/B records completed, B approve, two source hashes unchanged",
+  "realProviderRequestsByTests": 0,
+  "personalProjectEdits": 0,
+  "installedGravitonChanges": false,
+  "userAppsRestartedByAgent": false,
+  "continuousChat": "expanded plan only; not enabled",
+  "editingEnabled": false,
+  "remaining": "PROJECT_ACTIVATION_AUDIT.md; external launches/configurable theme storage, process recovery, supported metadata, exact native consent, then contained commands"
+}

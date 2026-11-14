@@ -1,0 +1,12 @@
+{
+  "success": true,
+  "freshPathLaunches": 50,
+  "templateIntegrityAndIdempotence": true,
+  "registryWrites": 0,
+  "applicationFilesChanged": false,
+  "templatePatched": true,
+  "upstream": "https://github.com/electron-userland/electron-builder/pull/9564",
+  "originalSha256": "401ed51f541f6bfdbf8f855b026ff6708f20ed2c67569f7b89e5f6942e1e8558",
+  "patchedSha256": "0c3b8bd0c67f8ae14a0d1a92e66f46063ba38bb263327d8d00a8edd7d995bc3d",
+  "scope": "Hadron-local build dependency only; no system or original application changes"
+}

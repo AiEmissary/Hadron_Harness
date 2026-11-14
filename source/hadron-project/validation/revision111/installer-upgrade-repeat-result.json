@@ -1,0 +1,24 @@
+{
+  "success": true,
+  "root": "C:\\Users\\rajka\\AppData\\Local\\Temp\\hadron-installer-check-BEqSTi",
+  "cleanWindows": false,
+  "scope": "Real NSIS current-user installation, same-version repair install and uninstall on this existing Windows host; isolated installation directory and diagnostic profile.",
+  "personalProfilesUsed": false,
+  "installed": true,
+  "shortcutCorrect": true,
+  "installedStartupPassed": true,
+  "savedMessagesBefore": 2,
+  "sqliteBackupRestored": true,
+  "simulatedCorruptionDetected": true,
+  "unfinishedHelperNotReplayed": true,
+  "sameVersionReinstallPassed": true,
+  "privateDataPreserved": true,
+  "versionUpgrade": {
+    "from": "0.4.10",
+    "to": "0.4.11"
+  },
+  "savedMessagesAfter": 2,
+  "savedMessagesPreserved": true,
+  "uninstallPassed": true,
+  "originalShortcutsRestored": true
+}

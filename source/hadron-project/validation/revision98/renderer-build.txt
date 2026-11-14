@@ -1,0 +1,1 @@
+npm run build:electron passed: TypeScript + Vite renderer production build. Existing mixed-import/bundle-size warnings remain. Full log: workspace validation/revision98/renderer-build.txt.

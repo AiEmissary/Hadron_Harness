@@ -1,0 +1,28 @@
+{
+  "revision": 77,
+  "date": "2026-11-06",
+  "fullServerBeforeFinalTwoTestCases": {
+    "passed": 380,
+    "skipped": 5,
+    "failed": 0
+  },
+  "finalCoordinator": {
+    "passed": 29,
+    "failed": 0
+  },
+  "projectWriter": {
+    "passed": 20
+  },
+  "projectReader": {
+    "passed": 9
+  },
+  "actualWorkerRegression": {
+    "passed": 52
+  },
+  "serverTypecheck": "passed",
+  "providerTransport": "simulated; production worker engine used",
+  "realProviderRequests": 0,
+  "personalProjectEdits": 0,
+  "userAppRestarts": 0,
+  "productionEditingEnabled": false
+}

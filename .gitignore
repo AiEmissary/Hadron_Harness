@@ -1,0 +1,10 @@
+**/node_modules/
+**/.codex/
+**/.claude/
+**/.qubit/
+**/.env*
+**/auth.json
+*.db
+*.sqlite*
+*.exe
+*.log

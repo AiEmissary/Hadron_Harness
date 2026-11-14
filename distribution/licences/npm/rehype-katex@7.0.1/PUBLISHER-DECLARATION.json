@@ -1,0 +1,8 @@
+{
+  "name": "rehype-katex",
+  "version": "7.0.1",
+  "license": "MIT",
+  "author": "Junyoung Choi <fluke8259@gmail.com> (https://rokt33r.github.io)",
+  "repository": "https://github.com/remarkjs/remark-math/tree/main/packages/rehype-katex",
+  "source": "https://registry.npmjs.org/rehype-katex/7.0.1"
+}

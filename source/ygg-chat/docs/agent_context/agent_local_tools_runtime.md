@@ -1,0 +1,135 @@
+---
+paths:
+  - "client/ygg-chat-r/server/tools/**"
+  - "client/ygg-chat-r/server/toolRuntimeUtility.ts"
+  - "client/ygg-chat-r/server/builtinToolRegistry.ts"
+  - "client/ygg-chat-r/server/headlessServer/index.ts"
+  - "client/ygg-chat-r/server/headlessServer/services/toolLoopService.ts"
+  - "client/ygg-chat-r/server/headlessServer/services/chatOrchestrator.ts"
+  - "client/ygg-chat-r/server/headlessServer/services/multiCallExecutor.ts"
+  - "client/ygg-chat-r/server/headlessServer/routes/chatRoutes.ts"
+  - "client/ygg-chat-r/electron/UtilityToolRuntimeHost.ts"
+  - "client/ygg-chat-r/server/routes/toolExecutionRoutes.ts"
+  - "client/ygg-chat-r/server/routes/jobRoutes.ts"
+  - "client/ygg-chat-r/src/services/ToolJobManager.ts"
+---
+
+# Agent Context: Local Tools Runtime
+
+Last reviewed: 2026-08-01
+
+## Purpose
+
+Documents Electron-side local tool implementations, execution routes, job orchestration, utility runtime, and validation. Tool *execution* for the main chat loop now runs inside the headless server loop (see "Server-Owned Chat Loop Execution"); this file remains the reference for the tool implementations and the in-process orchestrator they all share.
+
+## When to Open This File
+
+Use this when changing:
+- built-in tools such as read/edit/bash/ripgrep/glob;
+- tool execution endpoints;
+- background tool jobs;
+- WSL/PowerShell/file safety behaviour;
+- tool tests.
+
+## Key Files
+
+- `client/ygg-chat-r/server/tools/*`: built-in tool implementations.
+- `client/ygg-chat-r/server/tools/runtime/*`: utility tool runtime protocol/host.
+- `client/ygg-chat-r/server/toolRuntimeUtility.ts`: utility runtime entry.
+- `client/ygg-chat-r/server/localServer.ts`: embedded local server (prefers :3002). Initializes `toolOrchestrator`, registers built-in/custom/MCP tool handlers with it, and hosts the job routes (submit/list/get/cancel, WebSocket subscribe). Mounts the headless server (`registerHeadlessServerRoutes`) which owns the chat loop.
+- `client/ygg-chat-r/server/tools/orchestrator/*`: background job queue/lifecycle (`toolOrchestrator` singleton). The SAME in-process orchestrator serves both the job routes and the server chat/subagent loops.
+- `client/ygg-chat-r/server/headlessServer/index.ts` (`executeToolViaOrchestrator`): the leaf `ToolExecutor` for the server-owned chat + subagent loops. Parses args, honors `context.signal`, `toolOrchestrator.submit(...)`, then polls `toolOrchestrator.getJob(...)` every 100ms until terminal or `timeoutMs` (clamped 1s–600s, default 300s). No HTTP round-trip, no renderer involvement.
+- `client/ygg-chat-r/server/headlessServer/services/multiCallExecutor.ts`: in-process `multi_call` composite dispatcher. Runs up to 20 validated leaf calls sequentially or with concurrency capped at 4, preserves result order, forwards abort/workspace context, and routes each nested call back through the caller's policy-aware executor. Recursive `multi_call`, `html_renderer`, and `plan_md` with `action:'display'` are rejected; `subagent` is permitted for parent-chat batches.
+- `client/ygg-chat-r/server/headlessServer/services/toolLoopService.ts` (`ToolLoopService.run`): server-side agent loop; calls `this.executeTool(toolCall, ctx)` per tool call.
+- `client/ygg-chat-r/server/headlessServer/services/chatOrchestrator.ts` (`createChatPausingExecutor`): per-run executor wrapper that pauses each tool call for permission/clarify before delegating to the base executor.
+- `client/ygg-chat-r/src/services/ToolJobManager.ts`: renderer client for the tool-jobs UI/background jobs (still live — `ToolJobsModal`, `useToolJobs`). It subscribes first, reconciles `/jobs` after every subscription/reconnect, fetches active jobs independently of history pagination, and exposes acknowledged live status. It is not part of the main chat loop's execution path.
+- `client/ygg-chat-r/server/tools/__tests__/*`: tool tests.
+- `client/ygg-chat-r/server/tools/TEST_PLAN.md`: tool test plan.
+
+## Server-Owned Chat Loop Execution
+
+The main chat agent loop no longer runs in the React renderer; it runs inside the local headless Express server (127.0.0.1:3002) in the Electron main process. Tool execution follows the loop, not the renderer:
+
+1. `ChatOrchestrator.runMessage` (`server/headlessServer/services/chatOrchestrator.ts`) builds a per-run `ToolLoopService`.
+2. `ToolLoopService.run` (`toolLoopService.ts`) drives turns and calls `this.executeTool(toolCall, ctx)` for each tool call.
+3. `executeTool` is the pausing wrapper `createChatPausingExecutor` (`chatOrchestrator.ts`, `createChatPausingExecutor`). Per tool call it optionally pauses on `DecisionBroker.requestDecision` (unless the stream is auto-approve or the tool is in `ALWAYS_BYPASS_TOOLS` = `skill_manager`/`multi_call`/`context_status`, or a discovery/management `mcp_manager` or non-`invoke` `custom_tool_manager` action). PreToolUse hooks may deny/rewrite args before any prompt.
+4. On approval it delegates to the base executor `executeToolViaOrchestrator` (`index.ts`, `createOrchestratorToolExecutor`), which runs the tool through the shared in-process `toolOrchestrator` (same registered handlers as the job routes).
+
+Permission/clarify decisions are NOT renderer-owned pre-checks anymore. The loop pauses server-side and asks via SSE `permission_required` / `clarify_required`; the renderer answers with `POST /api/resume` (`server/headlessServer/routes/chatRoutes.ts`). Broker key = `` `${streamId}::${toolCallId}` `` (`server/headlessServer/services/decisionBroker.ts`). Run abort rejects pending decisions and cancels the in-flight job. Connection close aborts only non-resumable runs; resumable runs detach and continue until explicit cancellation or session cleanup. Subagents use the same base executor via `SubagentRunService`.
+
+## Data Flow
+
+1. Model emits a tool call inside the server-owned chat loop (`ToolLoopService.run`) — or a user/agent invokes a tool-manager action, or the tool-jobs UI submits a background job.
+2. For the chat loop, the server pauses per tool call for permission/clarify via `DecisionBroker` (renderer answers `POST /api/resume`) unless auto-approved or bypassed. There is no renderer-side pre-execution permission check.
+3. The loop calls the base executor `executeToolViaOrchestrator` in-process (Electron main), which submits to `toolOrchestrator` and polls `getJob` until terminal. UI-triggered theme and iframe tool calls use `POST /api/jobs/execute-and-wait`; background jobs and the tool-jobs UI use the same job routes. The direct `/api/tools/execute` endpoint has been removed. Execute-and-wait jobs currently continue after caller disconnect and are still bounded by the existing job/wait timeouts.
+4. Composite `multi_call` calls are intercepted in-process; each nested call re-enters the chat permission/hook wrapper or the subagent approval gate before reaching the leaf executor. Ordinary calls go directly to `toolOrchestrator`, which dispatches to the registered built-in/custom/MCP implementation.
+5. Tool returns a structured success/error payload.
+6. Result is streamed to the renderer as SSE `tool_execution` / `chunk` (`tool_result`) events and persisted as a tool-result message via the loop's message sink (`TreeMessageSink`/`CloudMirrorSink`).
+
+## Important Invariants
+
+- File tools must respect workspace/root path and safety constraints, except `html_renderer` file reads: it accepts exactly one of inline `html` or a raw `path`, reads UTF-8 HTML without workspace/provenance restrictions, and uses `cwd` (defaulting to the workspace root or process cwd) only as a relative-path base. Absolute paths, `~/`, outside-workspace paths, and symlink targets are allowed; OS read permissions still apply. Both built-in registries return the same `{ success, html }` payload for the existing HTML viewer.
+- Mutating operations should be explicit and auditable.
+- Search tools (`glob`, `ripgrep`) receive the orchestrator's `signal` and `deadlineMs` in both built-in registries. Their independent defaults remain 5 seconds and 30 seconds; preparation consumes the budget and an earlier caller deadline wins. Timeout/cancellation returns structured failure rather than successful empty/partial matches. These budgets are independent of the renderer SSE watchdog and Settings.
+- Glob uses abortable incremental iteration and stops at its match cap, rather than collecting the full tree first. Its Windows Node filesystem cwd must remain a native/UNC path, not be converted back into a WSL Linux path.
+- Foreground `bash` and `powershell` commands have a 180-second (3-minute) default and maximum. Zero/invalid timeouts use the default. Shell execution includes preparation, captures bounded stdout/stderr, and returns a structured timeout/cancellation result after at most 300ms cleanup without relying on the child `close` event.
+- `server/tools/shellExecutionPolicy.ts` defines the shared timeout policy. The shell runner owns process cleanup; the orchestrator passes an AbortSignal and a shell deadline before its own timeout so partial output can return first. AbortSignal stays in-process; utility IPC carries per-request cancellation instead.
+- Do not retry shell commands after uncertain utility execution. A transport timeout or process failure after dispatch can leave an executed command. Built-in/custom utility fallback now requires a known pre-dispatch failure and no cancellation; this also prevents duplicate file edits on transport failures.
+- Caller deadlines include queue time. Expired jobs do not invoke handlers. Cancelled jobs retain their terminal status even if a handler resolves later. Utility startup and shell preparation consume the original execution budget.
+- Process cleanup is best effort: POSIX groups receive TERM then KILL; Windows uses bounded taskkill with direct-child fallback; WSL uses an invocation-owned setsid group. Unresponsive WSL or descendants that deliberately detach can survive, but the tool still returns at its deadline plus cleanup grace. JavaScript timers require a responsive event loop.
+- Tool result shapes should remain stable for ChatMessage/tool rendering.
+- The chat loop and the job routes execute through the SAME in-process `toolOrchestrator` and its registered handlers — keep tool registration in `localServer.ts` and any new execution entry point consistent, so behaviour is identical regardless of caller.
+- Large/model-only tool payloads use split channels: `displayContent`/`persistedContent` stay compact, while ephemeral `modelContent` is used only for the immediate provider continuation. Never persist `modelContent` in chat history, tool-job rows, hooks, or logs.
+- `view_image` returns compact path/MIME/size metadata for display and persistence, with exactly one typed `input_image` data URL in ephemeral `modelContent`.
+- Background jobs need status transitions: pending -> running -> completed/failed/cancelled.
+- Interactive decision state is keyed by `streamId` in Redux; concurrent branch runs must never overwrite another branch's permission/clarify/operation-mode correlation.
+- A duplicate resumable-run POST for an existing `streamId` must reattach to that `RunSession` instead of starting a replacement; explicit replacement callers must abort the old session before replacing it. Deleting without aborting creates an unreachable run that no UI, reaper, or Stop request can reach.
+- The Tool Jobs live badge means the WebSocket subscription was acknowledged, not merely that a socket object exists.
+
+## Gotchas
+
+- On macOS/Linux, GUI-launched Electron inherits a minimal `PATH`. The Bash tool runs commands through the user's configured `$SHELL` as an interactive login shell (`-lic`) and falls back to `/bin/bash`; native ripgrep execution imports that shell's `PATH` before spawning `rg`, so terminal-managed Homebrew/nvm/asdf paths remain available.
+- On Windows/Electron, Bash may route through WSL/path conversion; PowerShell may be required for native paths.
+- `edit_file` uses layered matching and line hints; preserve validation semantics.
+- `edit_file` and `multi_edit` in execute mode create managed per-stream undo backups through `streamUndoManager`; keep local-server and utility-runtime registration behavior aligned.
+- Tests may depend on temporary filesystem harnesses in `server/tools/__tests__/helpers`.
+- Two large test fixtures under `server/tools/__tests__/` use a `.ts.test` extension (`dummyfile.ts.test`, `dummyFilechatAction.ts.test`) and are verbatim snapshots of pre-migration source read as plain text by `editFile.test.ts`. They are never imported/compiled but still contain retired symbols (e.g. `claudeCode`, `dualSyncManager`); grepping the tree will hit them — they are fixtures, not live code.
+
+## Testing and Validation
+
+```bash
+npm --prefix client/ygg-chat-r run test:tools
+```
+
+For targeted Vitest runs, use the relevant config in `client/ygg-chat-r/vitest.tools.config.ts`.
+
+## Related Docs
+
+- `agent_tool_registry.md`
+- [Tool permission flow](../tool-permissions.md)
+
+## Asynchronous watches
+
+`watcher` is a branch-scoped headless executor, like `subagent_manager`, not a
+long-lived leaf job or utility-process plugin. `services/watchService.ts` owns
+bounded memory-only condition checks; `ToolOrchestrator.publishWatchCompletion`
+pushes fixed metadata over the existing subscribed-job WebSocket channel and
+replays bounded completion history on reconnect. `ToolJobManager` projects these
+into the agents pill via `uiActions.notificationAdded`. Watch completion also
+submits a provenance-tagged user message through ChatOrchestrator's safe-boundary
+queue; normally completed branches use the shared successor launcher. Watches
+pin origin/latest lineage mailboxes until completion. Accepted stream identity
+pushes let the renderer reattach without changing selected branch or drafts.
+Stopped/failed/unavailable branches report delivery failure, not a silent fork.
+`stopLocalServer` cancels watches before transport teardown.
+See [watcher schema and limitations](../watcher-tool.md) and
+`server/headlessServer/services/__tests__/watchService.test.ts`.
+
+## Full access opt-in
+
+The Chat popover's **Full access** switch is a renderer-session-only default for new runs (off after reload). `fullAccess === true` travels separately from `rootPath`, operation mode and approval through chat requests, the shared loop, child requests and live tool jobs. Existing runs retain their launch setting. `toolAccessContext.ts` uses AsyncLocalStorage to scope the workspace bypass to one invocation; the utility process restores it from trusted execution options, never model arguments. Relative paths still use the original cwd. Only workspace containment checks are lifted; approval, Chat-mode policy, OS permissions, cancellation and file-integrity checks remain. The flag is not persisted with jobs, so restored jobs are restricted. REPL/multi-call nested tools inherit their caller's execution context.
+
+
+## Hadron execution boundary (2026-11-06)
+
+Hadron guards audited legacy starts through `server/hadronTools/executionGate.ts`. ToolOrchestrator observes submission/restored queues as well as actual dispatch. Interrupted running tool jobs now fail for review instead of being replayed; truly pending jobs retain queue semantics. ProjectBuildCoordinator owns an opaque execution scope alongside its durable folder lease. Current desktop startup does not configure a writer-capable ledger or enable project apply. See `hadron-project/PROJECT_EXECUTION_BOUNDARIES.md` at the checkout root for the guarded paths and remaining startup/recovery/metadata requirements. Never clear a marker on age/PID alone or treat this cooperative gate as an OS sandbox.

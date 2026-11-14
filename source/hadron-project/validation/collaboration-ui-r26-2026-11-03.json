@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "frozenContext": "{\"messages\":[{\"role\":\"user\",\"text\":\"Check the proposal\"},{\"role\":\"assistant\",\"text\":\"Selected branch evidence\"}]}",
+  "controls": [
+    "Agent A provider",
+    "Agent A model",
+    "Agent B provider",
+    "Agent B model"
+  ],
+  "startDisabled": true,
+  "focus": "Close",
+  "mobileOverflow": false,
+  "focusRestored": true,
+  "fetches": 0
+}

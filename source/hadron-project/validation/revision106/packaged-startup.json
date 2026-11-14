@@ -1,0 +1,89 @@
+{
+  "success": true,
+  "ui": {
+    "route": "#/chat/f49f6626-2ae4-49b9-9450-e7dba060327b/1be9be52-9b18-4635-ae28-88f1624e30cf",
+    "workspace": true,
+    "remote": false,
+    "help": true,
+    "copy": true,
+    "localOwnerReady": true,
+    "projectBridgeReady": true,
+    "recycleBinReady": true,
+    "paletteChoices": 5
+  },
+  "setup": {
+    "packaged": true,
+    "version": "0.4.6",
+    "items": [
+      {
+        "id": "electron",
+        "name": "Hadron application engine",
+        "ready": true,
+        "required": true,
+        "detail": "Electron 38.8.4 and Node 22.22.0 are included. Do not install Electron separately."
+      },
+      {
+        "id": "codex",
+        "name": "ChatGPT subscription engine",
+        "ready": true,
+        "required": true,
+        "detail": "Bundled with Hadron. Connect your own ChatGPT subscription in Subscriptions."
+      },
+      {
+        "id": "claude",
+        "name": "Claude subscription engine",
+        "ready": true,
+        "required": true,
+        "detail": "Bundled with Hadron. Connect your own Claude subscription if you want Claude agents."
+      },
+      {
+        "id": "worker",
+        "name": "Windows worker controller",
+        "ready": true,
+        "required": true,
+        "detail": "Included. Controls the lifetime of AI and project-check processes."
+      },
+      {
+        "id": "licences",
+        "name": "Licences and source information",
+        "ready": true,
+        "required": true,
+        "detail": "Included licence and third-party notices. The corresponding Hadron source archive and build instructions accompany the installer."
+      },
+      {
+        "id": "powershell",
+        "name": "Windows PowerShell",
+        "ready": true,
+        "required": true,
+        "detail": "Windows component used to preserve file permissions when applying reviewed changes. If missing, repair this Windows component before project editing."
+      },
+      {
+        "id": "vscode",
+        "name": "Visual Studio Code",
+        "ready": true,
+        "required": false,
+        "detail": "Optional editor for opening your project yourself. Hadron does not require it.",
+        "download": "https://code.visualstudio.com/download"
+      },
+      {
+        "id": "git",
+        "name": "Git",
+        "ready": true,
+        "required": false,
+        "detail": "Optional for projects that use Git version control.",
+        "download": "https://git-scm.com/install/windows"
+      },
+      {
+        "id": "node",
+        "name": "External Node.js and npm",
+        "ready": true,
+        "required": false,
+        "detail": "Optional for projects requiring npm package installation or external Node commands. Hadron’s built-in Node test/build-script checks use its bundled engine.",
+        "download": "https://nodejs.org/en/download"
+      }
+    ]
+  },
+  "startedMaximized": true,
+  "privateProfile": true,
+  "modelRequests": 0
+}

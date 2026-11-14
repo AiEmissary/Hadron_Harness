@@ -1,0 +1,27 @@
+/* Flat Hadron controls; focus outlines remain available for keyboard use. */
+body:is(.hadron-app, :has(.hadron-shell)) {
+ --hh-button-text:var(--hp-ink,#293d4c);
+ --hh-button-face:var(--hp-soft,#edf1f5);
+}
+.dark body:is(.hadron-app, :has(.hadron-shell)) {
+ --hh-button-text:var(--hp-dark-ink,#edf2f5);
+ --hh-button-face:var(--hp-dark-soft,#303943);
+}
+body:is(.hadron-app, :has(.hadron-shell)) button {
+ border:0!important;border-radius:12px!important;background:var(--hh-button-face)!important;
+ color:var(--hh-button-text)!important;box-shadow:none!important;font-weight:500;
+ letter-spacing:normal;transition:background-color 140ms ease;translate:none!important;
+}
+body:is(.hadron-app, :has(.hadron-shell)) button :is(span,div,svg) {color:inherit!important}
+body:is(.hadron-app, :has(.hadron-shell)) button:not(:disabled):not([aria-disabled='true']):hover {
+ background:color-mix(in srgb,var(--hp-accent,#5a7e9a) 15%,var(--hh-button-face))!important;box-shadow:none!important;
+}
+body:is(.hadron-app, :has(.hadron-shell)) button:focus-visible {outline:2px solid var(--hp-accent,#5a7e9a)!important;outline-offset:2px!important}
+body:is(.hadron-app, :has(.hadron-shell)) button:is([aria-pressed='true'],[aria-selected='true'],[data-state='open'],[type='submit']) {
+ background:color-mix(in srgb,var(--hp-accent,#5a7e9a) 22%,var(--hh-button-face))!important;
+}
+body:is(.hadron-app, :has(.hadron-shell)) button[class*='text-red-']:not(:disabled) {background:#f6e4e4!important;color:#823d3d!important}
+body:is(.hadron-app, :has(.hadron-shell)) button:is(:disabled,[aria-disabled='true']) {opacity:.5!important;box-shadow:none!important;cursor:default}
+body:is(.hadron-app, :has(.hadron-shell)) button .titlebar-control-icon-shell,
+body:is(.hadron-app, :has(.hadron-shell)) button > span[class*='acrylic'] {background:transparent!important;box-shadow:none!important;border:0!important;backdrop-filter:none!important}
+@media (prefers-reduced-motion:reduce) {body:is(.hadron-app, :has(.hadron-shell)) button {transition:none}}

@@ -1,0 +1,11 @@
+# Persistent task feedback - 9 November 2026
+
+The latest one-agent file-work task had saved a document, but selecting a proposed file or stage hid its conclusion. There was no clear receipt stating what had actually been saved or that tests had not run. The original saved task/file were inspected read-only; no user project work was rerun.
+
+Project build now always shows Task update above the report: named agent(s), host-confirmed saved-file count, Created/Updated/Not applied per file, and actual test/build states. It never treats a model summary or prepared change as a file-write receipt. Uncertain, stopped and failed work remain explicit. A not-run test state explicitly says no tests were run. Errors also appear beside feedback in the response pane. File-name buttons inspect changes; Read task report returns to the summary. The full conclusion remains visible while inspecting a file or stage. A newly launched task scrolls its feedback into view when observed work settles. Saved-history viewing does not start work.
+
+How to use Hadron explains where to find the result. Automatic execution, native approvals, tests and file-write permissions were not expanded. Installer/EXE/source ZIP remain frozen.
+
+Validation: seven focused outcome/receipt tests, production renderer build and Electron typecheck. The native synthetic-provider work audit now asserts an Agent B saved-file receipt and that both file and stage inspection retain it and the full conclusion. Five disposable coding tasks and their checks still run through the native flow. Provider replies are fixtures; file operations and Node checks are real. No paid task or user project edit is part of validation.
+
+Activation: the user approved reopening. The normal installed app is open with the feedback fix. Installed startup passed with zero model requests; all 1,508 baseline logical records and three database integrity checks passed. The EXE and installer hashes are unchanged. Private rollback is Local-Test-Builds/access-LvRKDf/baseline-app.asar plus baseline-localAnalyticsWorker.mjs; database backups are under Local-Test-Backups/task-feedback-activation-20261109-180330. Preserve current user databases when rolling back resources.

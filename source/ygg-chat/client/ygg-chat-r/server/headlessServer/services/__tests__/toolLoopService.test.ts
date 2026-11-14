@@ -1,0 +1,1528 @@
+import type Database from 'better-sqlite3'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { MessageRepo } from '../../persistence/messageRepo.js'
+import { createModelThroughput, recordModelRequest, readModelThroughput } from '../../../../../../shared/runStatistics.js'
+import type { MessageSink } from '../messageSink.js'
+import { ProviderRouter } from '../providerRouter.js'
+import { ProviderEmptyResponseError, ToolLoopService } from '../toolLoopService.js'
+import { createContextStatusExecutor } from '../contextStatusTool.js'
+import { createMultiCallDispatchExecutor } from '../multiCallExecutor.js'
+import { createReplDispatchExecutor, ReplSessions } from '../replExecutor.js'
+import { calculateBranchContextUsage } from '../../../../shared/contextTokenEstimate.js'
+
+let BetterSqlite3Ctor: (new (filename: string) => Database.Database) | null = null
+
+try {
+  const sqliteModule = await import('better-sqlite3')
+  const candidate = sqliteModule.default as new (filename: string) => Database.Database
+  const probe = new candidate(':memory:')
+  probe.close()
+  BetterSqlite3Ctor = candidate
+} catch {
+  BetterSqlite3Ctor = null
+}
+
+const describeIfSqlite = BetterSqlite3Ctor ? describe : describe.skip
+
+function createSchema(db: Database.Database): void {
+  db.exec(`
+    CREATE TABLE projects (
+      id TEXT PRIMARY KEY,
+      name TEXT,
+      user_id TEXT,
+      context TEXT,
+      system_prompt TEXT,
+      storage_mode TEXT,
+      created_at TEXT,
+      updated_at TEXT
+    );
+
+    CREATE TABLE conversations (
+      id TEXT PRIMARY KEY,
+      project_id TEXT,
+      user_id TEXT,
+      title TEXT,
+      model_name TEXT,
+      system_prompt TEXT,
+      conversation_context TEXT,
+      research_note TEXT,
+      cwd TEXT,
+      storage_mode TEXT,
+      created_at TEXT,
+      updated_at TEXT
+    );
+
+    CREATE TABLE messages (
+      id TEXT PRIMARY KEY,
+      conversation_id TEXT NOT NULL,
+      parent_id TEXT,
+      children_ids TEXT,
+      role TEXT,
+      content TEXT,
+      plain_text_content TEXT,
+      thinking_block TEXT,
+      tool_calls TEXT,
+      tool_call_id TEXT,
+      model_name TEXT,
+      note TEXT,
+      note_color TEXT,
+      ex_agent_session_id TEXT,
+      ex_agent_type TEXT,
+      content_blocks TEXT,
+      created_at TEXT,
+      meta TEXT
+    );
+  `)
+}
+
+function createStatements(db: Database.Database): any {
+  return {
+    upsertConversation: db.prepare(`
+      INSERT INTO conversations (id, project_id, user_id, title, model_name, system_prompt, conversation_context, research_note, cwd, storage_mode, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        project_id = excluded.project_id,
+        title = excluded.title,
+        model_name = excluded.model_name,
+        system_prompt = excluded.system_prompt,
+        conversation_context = excluded.conversation_context,
+        research_note = excluded.research_note,
+        cwd = excluded.cwd,
+        storage_mode = excluded.storage_mode,
+        updated_at = excluded.updated_at
+    `),
+    getConversationById: db.prepare('SELECT * FROM conversations WHERE id = ?'),
+
+    upsertMessage: db.prepare(`
+      INSERT INTO messages (id, conversation_id, parent_id, children_ids, role, content, plain_text_content, thinking_block, tool_calls, tool_call_id, model_name, note, note_color, ex_agent_session_id, ex_agent_type, content_blocks, created_at, meta)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        content = excluded.content,
+        plain_text_content = excluded.plain_text_content,
+        thinking_block = excluded.thinking_block,
+        tool_calls = excluded.tool_calls,
+        tool_call_id = excluded.tool_call_id,
+        model_name = excluded.model_name,
+        note = excluded.note,
+        note_color = excluded.note_color,
+        ex_agent_session_id = excluded.ex_agent_session_id,
+        ex_agent_type = excluded.ex_agent_type,
+        content_blocks = excluded.content_blocks
+    `),
+    getMessageById: db.prepare('SELECT * FROM messages WHERE id = ?'),
+    getMessagesByConversationId: db.prepare('SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC'),
+  }
+}
+
+class FakeProviderRouter {
+  private readonly queuedOutputs: any[] = []
+  readonly calls: Array<{ provider: string; input: any }> = []
+
+  enqueue(output: any): void {
+    this.queuedOutputs.push(output)
+  }
+
+  async generate(provider: string, input: any): Promise<any> {
+    this.calls.push({ provider, input })
+    if (this.queuedOutputs.length > 0) {
+      const next = this.queuedOutputs.shift()
+      if (next instanceof Error) throw next
+      return next
+    }
+    return { content: 'default' }
+  }
+}
+
+describeIfSqlite('ToolLoopService', () => {
+  let db: Database.Database
+  let statements: any
+  let messageRepo: MessageRepo
+
+  beforeEach(() => {
+    if (!BetterSqlite3Ctor) {
+      throw new Error('better-sqlite3 is unavailable in this runtime')
+    }
+
+    db = new BetterSqlite3Ctor(':memory:')
+    createSchema(db)
+    statements = createStatements(db)
+
+    const now = new Date().toISOString()
+    statements.upsertConversation.run('c1', null, 'u1', 'Conversation', 'gpt-5.1-codex-mini', null, null, null, null, 'local', now, now)
+
+    messageRepo = new MessageRepo({ db, statements })
+  })
+
+  afterEach(() => {
+    db.close()
+  })
+
+  it('does not replay persisted history before the latest compaction summary', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue({ content: 'continued from summary' })
+    const service = new ToolLoopService({
+      messageRepo,
+      providerRouter: providerRouter as unknown as ProviderRouter,
+    })
+
+    await service.run({
+      provider: 'openaichatgpt',
+      modelName: 'gpt-5.4',
+      conversationId: 'c1',
+      assistantParentId: 'summary',
+      history: [
+        { id: 'old-user', role: 'user', content: 'old context' },
+        { id: 'old-assistant', role: 'assistant', content: 'old answer' },
+        {
+          id: 'summary',
+          role: 'system',
+          note: '__auto_compaction_summary__',
+          content: 'Following is summary of the session, you have to resume the work.\n\nsummary',
+        },
+        { id: 'new-user', role: 'user', content: 'new context' },
+      ],
+      userContent: 'continue',
+    })
+
+    expect(providerRouter.calls[0].input.history.map((message: any) => message.id)).toEqual(['summary', 'new-user'])
+  })
+
+  const retryRunInput = (robustness: any) => ({
+    provider: 'zai',
+    modelName: 'glm-4.6',
+    conversationId: 'c1',
+    assistantParentId: null,
+    history: [{ role: 'user', content: 'hi' }],
+    userContent: 'hi',
+    robustness,
+  })
+
+  it('retries a transient provider error before continuing (provider_retry)', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue(new Error('request failed (503): overloaded'))
+    providerRouter.enqueue({ content: 'recovered' })
+    const service = new ToolLoopService({ messageRepo, providerRouter: providerRouter as unknown as ProviderRouter })
+
+    const events: any[] = []
+    const result = await service.run(
+      retryRunInput({ retryProviderError: true, providerRetryBackoffMs: 1, maxProviderRetries: 2 }),
+      (event: any) => events.push(event)
+    )
+
+    expect(providerRouter.calls).toHaveLength(2) // one failure + one successful retry
+    const retry = events.find(e => e.type === 'tool_loop' && e.status === 'provider_retry')
+    expect(retry).toMatchObject({ turn: 1, attempt: 1, maxAttempts: 2 })
+    expect(result.finalAssistantMessage?.content).toContain('recovered')
+    expect(result.turnsUsed).toBe(1) // the retry did NOT advance the turn counter
+  })
+
+  it('gives up after exhausting provider retries', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue(new Error('request failed (503)'))
+    providerRouter.enqueue(new Error('request failed (503)'))
+    providerRouter.enqueue(new Error('request failed (503)'))
+    const service = new ToolLoopService({ messageRepo, providerRouter: providerRouter as unknown as ProviderRouter })
+
+    await expect(
+      service.run(retryRunInput({ retryProviderError: true, providerRetryBackoffMs: 1, maxProviderRetries: 2 }), () => {})
+    ).rejects.toThrow('request failed (503)')
+    expect(providerRouter.calls).toHaveLength(3) // initial + 2 retries
+  })
+
+  it('does not retry a non-transient provider error', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue(new Error('request failed (400): bad request'))
+    const service = new ToolLoopService({ messageRepo, providerRouter: providerRouter as unknown as ProviderRouter })
+
+    await expect(
+      service.run(retryRunInput({ retryProviderError: true, providerRetryBackoffMs: 1, maxProviderRetries: 2 }), () => {})
+    ).rejects.toThrow('request failed (400)')
+    expect(providerRouter.calls).toHaveLength(1) // no retry for a 400
+  })
+
+  it('does not retry provider errors when retryProviderError is off (main-chat default)', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue(new Error('request failed (503)'))
+    const service = new ToolLoopService({ messageRepo, providerRouter: providerRouter as unknown as ProviderRouter })
+
+    await expect(service.run(retryRunInput(undefined), () => {})).rejects.toThrow('request failed (503)')
+    expect(providerRouter.calls).toHaveLength(1) // opt-in only; no robustness => no retry
+  })
+
+  it('compacts an OpenAI tool loop before its next continuation request', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue({
+      content: '',
+      toolCalls: [{ id: 'call-compact', name: 'read_file', arguments: { path: 'README.md' } }],
+      contentBlocks: [{ type: 'tool_use', id: 'call-compact', name: 'read_file', input: { path: 'README.md' } }],
+      contextUsage: {
+        provider: 'openai',
+        inputTokens: 220_000,
+        cachedInputTokens: 0,
+        outputTokens: 1_000,
+        reasoningTokens: 0,
+        totalTokens: 221_000,
+        usedTokens: 221_000,
+        recordedAt: '2026-01-01T00:00:00.000Z',
+      },
+    })
+    providerRouter.enqueue({ content: 'Compacted context' })
+    providerRouter.enqueue({ content: 'Continued after compaction.' })
+
+    let compactionCalls = 0
+    const service = new ToolLoopService({
+      messageRepo,
+      providerRouter: providerRouter as unknown as ProviderRouter,
+      executeTool: async () => 'README body',
+      maxTurns: 4,
+      compactBranch: async input => {
+        compactionCalls++
+        const summary = messageRepo.createMessage({
+          conversationId: input.conversationId,
+          parentId: input.parentMessageId,
+          role: 'system',
+          content: 'Compacted context',
+          modelName: input.modelName,
+          contentBlocks: [],
+          note: '__auto_compaction_summary__',
+        })
+        return { message: summary }
+      },
+    })
+
+    const events: any[] = []
+    const result = await service.run(
+      {
+        provider: 'openaichatgpt',
+        modelName: 'gpt-5.4',
+        conversationId: 'c1',
+        assistantParentId: null,
+        history: [],
+        userContent: 'read and summarize',
+        autoCompactionEnabled: true,
+        contextLength: 258_000,
+      },
+      event => events.push(event)
+    )
+
+    expect(result.finalAssistantMessage.content).toBe('Continued after compaction.')
+    expect(compactionCalls).toBe(0)
+    expect(providerRouter.calls[1].input.history.at(-1).role).toBe('user')
+    expect(JSON.parse(providerRouter.calls[2].input.history[0].meta).kind).toBe('compaction_summary')
+    expect(events.some(event => event.type === 'context_compaction' && event.status === 'completed')).toBe(true)
+  })
+
+  it('pauses continuation when the ordinary summary request fails', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue({
+      content: '',
+      toolCalls: [{ id: 'call-fail', name: 'read_file', arguments: { path: 'README.md' } }],
+      contextUsage: {
+        provider: 'openai',
+        inputTokens: 220_000,
+        cachedInputTokens: 0,
+        outputTokens: 1_000,
+        reasoningTokens: 0,
+        totalTokens: 221_000,
+        usedTokens: 221_000,
+        recordedAt: '2026-01-01T00:00:00.000Z',
+      },
+    })
+
+    providerRouter.enqueue(new Error('summary provider unavailable'))
+    const service = new ToolLoopService({
+      messageRepo,
+      providerRouter: providerRouter as unknown as ProviderRouter,
+      executeTool: async () => 'README body',
+    })
+    const events: any[] = []
+
+    await expect(
+      service.run(
+        {
+          provider: 'openai',
+          modelName: 'gpt-5.4',
+          conversationId: 'c1',
+          assistantParentId: null,
+          history: [],
+          userContent: 'read it',
+          autoCompactionEnabled: true,
+          contextLength: 258_000,
+        },
+        event => events.push(event)
+      )
+    ).rejects.toThrow('summary provider unavailable')
+
+    expect(providerRouter.calls).toHaveLength(2)
+    expect(events.some(event => event.type === 'context_compaction' && event.status === 'failed')).toBe(true)
+  })
+
+  it('executes tool calls and continues to a second turn', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue({
+      content: '',
+      toolCalls: [{ id: 'call-1', name: 'read_file', arguments: { path: 'README.md' } }],
+      contentBlocks: [{ type: 'tool_use', id: 'call-1', name: 'read_file', input: { path: 'README.md' } }],
+    })
+    providerRouter.enqueue({ content: 'Final answer.' })
+
+    const service = new ToolLoopService({
+      messageRepo,
+      providerRouter: providerRouter as unknown as ProviderRouter,
+      executeTool: async () => 'README body',
+      maxTurns: 4,
+    })
+
+    const events: any[] = []
+    const result = await service.run(
+      {
+        provider: 'openaichatgpt',
+        modelName: 'gpt-5.1-codex-mini',
+        conversationId: 'c1',
+        assistantParentId: null,
+        history: [],
+        userContent: 'read and summarize',
+      },
+      event => events.push(event)
+    )
+
+    expect(result.turnsUsed).toBe(2)
+    expect(result.finalAssistantMessage.content).toBe('Final answer.')
+
+    const messages = statements.getMessagesByConversationId.all('c1') as any[]
+    const firstAssistant = messages.find((msg: any) => msg.role === 'assistant' && msg.content === '')
+    const firstCalls = JSON.parse(firstAssistant.tool_calls || '[]') as any[]
+    expect(firstCalls[0]?.status).toBe('complete')
+
+    const firstBlocks = JSON.parse(firstAssistant.content_blocks || '[]') as any[]
+    const firstResults = firstBlocks.filter((block: any) => block.type === 'tool_result' && block.tool_use_id === 'call-1')
+    expect(firstResults).toHaveLength(1)
+    expect(firstResults[0]?.content).toBe('README body')
+
+    expect(events.some((evt: any) => evt.type === 'tool_execution' && evt.status === 'started')).toBe(true)
+    expect(events.some((evt: any) => evt.type === 'tool_execution' && evt.status === 'completed')).toBe(true)
+    expect(events.some((evt: any) => evt.type === 'tool_loop' && evt.status === 'turn_completed' && evt.continued)).toBe(true)
+
+    expect(providerRouter.calls).toHaveLength(2)
+    expect(providerRouter.calls[1].input.railwayTurn?.previousResponseId).toBeUndefined()
+    expect(providerRouter.calls[1].input.history.some((entry: any) => entry.role === 'assistant')).toBe(true)
+    expect(providerRouter.calls[1].input.history.some((entry: any) => entry.role === 'tool' && entry.tool_call_id === 'call-1')).toBe(true)
+  })
+
+  it('persists a user-facing assistant response when OpenAI fails after retries', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue(
+      new Error(
+        'ChatGPT backend request failed (429): {"error":{"type":"usage_limit_reached","message":"The usage limit has been reached","resets_at":1782168563}}'
+      )
+    )
+
+    const service = new ToolLoopService({
+      messageRepo,
+      providerRouter: providerRouter as unknown as ProviderRouter,
+      maxTurns: 3,
+    })
+
+    const events: any[] = []
+    await expect(
+      service.run(
+        {
+          provider: 'openaichatgpt',
+          modelName: 'gpt-5.4-mini',
+          conversationId: 'c1',
+          assistantParentId: null,
+          history: [],
+          userContent: 'hello',
+        },
+        event => events.push(event)
+      )
+    ).rejects.toMatchObject({ name: 'ProviderErrorAssistantResponse' })
+
+    const messages = statements.getMessagesByConversationId.all('c1') as any[]
+    const assistant = messages.find((msg: any) => msg.role === 'assistant')
+    expect(assistant.content).toContain('I could not complete the OpenAI ChatGPT (gpt-5.4-mini) response after retrying')
+    expect(assistant.content).toContain('The usage limit has been reached')
+    expect(assistant.content).toContain('HTTP status: 429')
+    expect(assistant.content).toContain('Error type: usage_limit_reached')
+    expect(events.some((evt: any) => evt.type === 'chunk' && evt.part === 'text' && evt.delta.includes('usage limit'))).toBe(true)
+    expect(events.some((evt: any) => evt.type === 'assistant_message_persisted' && evt.message.id === assistant.id)).toBe(true)
+    expect(events.some((evt: any) => evt.type === 'error')).toBe(false)
+  })
+
+  it('continues loop when all tool executions fail', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue({
+      content: '',
+      toolCalls: [{ id: 'call-1', name: 'read_file', arguments: { path: 'README.md' } }],
+      contentBlocks: [{ type: 'tool_use', id: 'call-1', name: 'read_file', input: { path: 'README.md' } }],
+    })
+    providerRouter.enqueue({ content: 'Recovered after tool failure.' })
+
+    const service = new ToolLoopService({
+      messageRepo,
+      providerRouter: providerRouter as unknown as ProviderRouter,
+      executeTool: async () => {
+        throw new Error('execution denied')
+      },
+      maxTurns: 3,
+    })
+
+    const events: any[] = []
+    const result = await service.run(
+      {
+        provider: 'openaichatgpt',
+        modelName: 'gpt-5.1-codex-mini',
+        conversationId: 'c1',
+        assistantParentId: null,
+        history: [],
+        userContent: 'read and summarize',
+      },
+      event => events.push(event)
+    )
+
+    expect(result.turnsUsed).toBe(2)
+    expect(result.finalAssistantMessage.content).toBe('Recovered after tool failure.')
+    expect(events.some((evt: any) => evt.type === 'tool_execution' && evt.status === 'failed')).toBe(true)
+    expect(events.some((evt: any) => evt.type === 'tool_loop' && evt.status === 'turn_completed' && evt.turn === 1 && evt.continued === true)).toBe(
+      true
+    )
+  })
+})
+
+
+describeIfSqlite('ToolLoopService model-facing tool result sanitization', () => {
+  let db: Database.Database
+  let statements: any
+  let messageRepo: MessageRepo
+
+  beforeEach(() => {
+    if (!BetterSqlite3Ctor) {
+      throw new Error('better-sqlite3 is unavailable in this runtime')
+    }
+
+    db = new BetterSqlite3Ctor(':memory:')
+    createSchema(db)
+    statements = createStatements(db)
+
+    const now = new Date().toISOString()
+    statements.upsertConversation.run('c1', null, 'u1', 'Conversation', 'gpt-5.1-codex-mini', null, null, null, null, 'local', now, now)
+
+    messageRepo = new MessageRepo({ db, statements })
+  })
+
+  afterEach(() => {
+    db.close()
+  })
+
+  it('persists compact view_image metadata while sending only typed modelContent to continuation history', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue({
+      content: '',
+      toolCalls: [{ id: 'call-image', name: 'view_image', arguments: { path: '/tmp/image.png' } }],
+      contentBlocks: [{ type: 'tool_use', id: 'call-image', name: 'view_image', input: { path: '/tmp/image.png' } }],
+    })
+    providerRouter.enqueue({ content: 'I can see the image.' })
+
+    const dataUrl = `data:image/png;base64,${'a'.repeat(2048)}`
+    const service = new ToolLoopService({
+      messageRepo,
+      providerRouter: providerRouter as unknown as ProviderRouter,
+      executeTool: async () => ({
+        success: true,
+        displayContent: '[Image: image/png, 1.5 KB, detail=high]',
+        persistedContent: {
+          success: true,
+          path: '/tmp/image.png',
+          mimeType: 'image/png',
+          sizeBytes: 1536,
+          detail: 'high',
+          summary: '[Image: image/png, 1.5 KB, detail=high]',
+        },
+        modelContent: [{ type: 'input_image', image_url: dataUrl, detail: 'high' }],
+      }),
+      maxTurns: 4,
+    })
+
+    await service.run({
+      provider: 'openaichatgpt',
+      modelName: 'gpt-5.1-codex-mini',
+      conversationId: 'c1',
+      assistantParentId: null,
+      history: [],
+      userContent: 'inspect the image',
+    })
+
+    const messages = statements.getMessagesByConversationId.all('c1') as any[]
+    const firstAssistant = messages.find((msg: any) => msg.role === 'assistant' && msg.content === '')
+    const firstBlocks = JSON.parse(firstAssistant.content_blocks || '[]') as any[]
+    const persistedToolResult = firstBlocks.find((block: any) => block.type === 'tool_result' && block.tool_use_id === 'call-image')
+    expect(persistedToolResult.content).toContain('/tmp/image.png')
+    expect(persistedToolResult.content).not.toContain('base64')
+    expect(persistedToolResult.content).not.toContain(dataUrl)
+
+    const continuationToolMessage = providerRouter.calls[1].input.history.find(
+      (entry: any) => entry.role === 'tool' && entry.tool_call_id === 'call-image'
+    )
+    expect(JSON.parse(continuationToolMessage.content)).toEqual([
+      { type: 'input_image', image_url: dataUrl, detail: 'high' },
+    ])
+  })
+
+  it('keeps raw plan_md display content persisted while sending only modelContent to continuation history', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue({
+      content: '',
+      toolCalls: [{ id: 'call-plan', name: 'plan_md', arguments: { action: 'display', name: 'sample-plan' } }],
+      contentBlocks: [{ type: 'tool_use', id: 'call-plan', name: 'plan_md', input: { action: 'display', name: 'sample-plan' } }],
+    })
+    providerRouter.enqueue({ content: 'Plan displayed above' })
+
+    const rawToolResult = {
+      displayed: true,
+      exists: true,
+      name: 'sample-plan',
+      content: '# Long plan\n\nThis should be rendered but not sent back to the model.',
+      modelContent: 'Plan "sample-plan" was displayed to the user in the chat view. Do not repeat the plan unless the user asks.',
+    }
+
+    const service = new ToolLoopService({
+      messageRepo,
+      providerRouter: providerRouter as unknown as ProviderRouter,
+      executeTool: async () => rawToolResult,
+      maxTurns: 4,
+    })
+
+    await service.run({
+      provider: 'openaichatgpt',
+      modelName: 'gpt-5.1-codex-mini',
+      conversationId: 'c1',
+      assistantParentId: null,
+      history: [],
+      userContent: 'display the plan',
+    })
+
+    const messages = statements.getMessagesByConversationId.all('c1') as any[]
+    const firstAssistant = messages.find((msg: any) => msg.role === 'assistant' && msg.content === '')
+    const firstBlocks = JSON.parse(firstAssistant.content_blocks || '[]') as any[]
+    const persistedToolResult = firstBlocks.find((block: any) => block.type === 'tool_result' && block.tool_use_id === 'call-plan')
+    expect(JSON.parse(persistedToolResult.content).content).toContain('# Long plan')
+
+    expect(providerRouter.calls).toHaveLength(2)
+    const continuationToolMessage = providerRouter.calls[1].input.history.find(
+      (entry: any) => entry.role === 'tool' && entry.tool_call_id === 'call-plan'
+    )
+    expect(continuationToolMessage.content).toBe(
+      'Plan "sample-plan" was displayed to the user in the chat view. Do not repeat the plan unless the user asks.'
+    )
+    expect(continuationToolMessage.content).not.toContain('# Long plan')
+  })
+})
+
+describeIfSqlite('ToolLoopService plan mode runtime block list', () => {
+  let db: Database.Database
+  let statements: any
+  let messageRepo: MessageRepo
+
+  beforeEach(() => {
+    if (!BetterSqlite3Ctor) {
+      throw new Error('better-sqlite3 is unavailable in this runtime')
+    }
+
+    db = new BetterSqlite3Ctor(':memory:')
+    createSchema(db)
+    statements = createStatements(db)
+
+    const now = new Date().toISOString()
+    statements.upsertConversation.run('c1', null, 'u1', 'Conversation', 'gpt-5.1-codex-mini', null, null, null, null, 'local', now, now)
+
+    messageRepo = new MessageRepo({ db, statements })
+  })
+
+  afterEach(() => {
+    db.close()
+  })
+
+  it('allows bash and powershell execution in plan mode before invoking the executor', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue({
+      content: '',
+      toolCalls: [
+        { id: 'call-bash', name: 'bash', arguments: { command: 'pwd', description: 'print working directory' } },
+        { id: 'call-powershell', name: 'powershell', arguments: { command: 'Get-Location', description: 'print working directory' } },
+      ],
+    })
+    providerRouter.enqueue({ content: 'done' })
+
+    const executedToolNames: string[] = []
+    const service = new ToolLoopService({
+      messageRepo,
+      providerRouter: providerRouter as unknown as ProviderRouter,
+      executeTool: async toolCall => {
+        executedToolNames.push(toolCall.name)
+        return `${toolCall.name}-ok`
+      },
+      maxTurns: 3,
+    })
+
+    await service.run(
+      {
+        provider: 'openaichatgpt',
+        modelName: 'gpt-5.1-codex-mini',
+        conversationId: 'c1',
+        assistantParentId: null,
+        history: [],
+        userContent: 'inspect',
+        operationMode: 'plan',
+      },
+      () => {}
+    )
+
+    expect(executedToolNames).toEqual(['bash', 'powershell'])
+  })
+
+  it('writes streamed text to the SQLite messages row when an active turn is cancelled', async () => {
+    const controller = new AbortController()
+    const providerRouter = {
+      generate: vi.fn((_provider: string, _input: any, emit: (event: any) => void) => {
+        emit({ type: 'chunk', part: 'text', delta: 'durable partial text' })
+        return new Promise(() => {})
+      }),
+    }
+    const service = new ToolLoopService({
+      messageRepo,
+      providerRouter: providerRouter as unknown as ProviderRouter,
+    })
+
+    const run = service.run(
+      {
+        provider: 'openaichatgpt',
+        modelName: 'gpt-5.6-sol',
+        conversationId: 'c1',
+        assistantParentId: null,
+        history: [],
+        userContent: 'stream then cancel',
+        signal: controller.signal,
+      },
+      () => {}
+    )
+    controller.abort()
+
+    await expect(run).rejects.toMatchObject({ name: 'AbortError' })
+    const messages = statements.getMessagesByConversationId.all('c1') as any[]
+    expect(messages).toHaveLength(1)
+    expect(messages[0]).toMatchObject({ role: 'assistant', content: 'durable partial text' })
+    expect(messages[0].plain_text_content).toBe('durable partial text')
+    const blocks = JSON.parse(messages[0].content_blocks || '[]')
+    expect(blocks).toEqual([{ type: 'text', content: 'durable partial text' }])
+  })
+
+  it('requests an Agent-mode upgrade before executing a mutating Plan-mode tool', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue({ content: '', toolCalls: [{ id: 'call-edit', name: 'edit_file', arguments: { path: 'README.md' } }] })
+    providerRouter.enqueue({ content: 'done' })
+
+    const requested: string[] = []
+    const executedModes: string[] = []
+    const service = new ToolLoopService({
+      messageRepo,
+      providerRouter: providerRouter as unknown as ProviderRouter,
+      executeTool: async (_toolCall, context) => {
+        executedModes.push(context.operationMode || '')
+        return 'edited'
+      },
+      maxTurns: 3,
+    })
+
+    await service.run(
+      {
+        provider: 'openaichatgpt',
+        modelName: 'gpt-5.1-codex-mini',
+        conversationId: 'c1',
+        assistantParentId: null,
+        history: [],
+        userContent: 'edit',
+        systemPrompt: 'Custom Plan baseline\n\n## Plan Response Style',
+        agentSystemPrompt: 'Custom Agent baseline',
+        operationMode: 'plan',
+        requestOperationModeUpgrade: async toolCall => {
+          requested.push(toolCall.id)
+          return true
+        },
+      },
+      () => {}
+    )
+
+    expect(requested).toEqual(['call-edit'])
+    expect(executedModes).toEqual(['execute'])
+    expect(providerRouter.calls[0].input.systemPrompt).toContain('Custom Plan baseline')
+    expect(providerRouter.calls[1].input.systemPrompt).toBe(providerRouter.calls[0].input.systemPrompt)
+  })
+
+  it('blocks mutating tools in plan mode before invoking the executor', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue({
+      content: '',
+      toolCalls: [{ id: 'call-edit', name: 'edit_file', arguments: { path: 'README.md' } }],
+    })
+    providerRouter.enqueue({ content: 'recovered' })
+
+    let executorCalled = false
+    const service = new ToolLoopService({
+      messageRepo,
+      providerRouter: providerRouter as unknown as ProviderRouter,
+      executeTool: async () => {
+        executorCalled = true
+        return 'should-not-run'
+      },
+      maxTurns: 3,
+    })
+
+    const events: any[] = []
+    await service.run(
+      {
+        provider: 'openaichatgpt',
+        modelName: 'gpt-5.1-codex-mini',
+        conversationId: 'c1',
+        assistantParentId: null,
+        history: [],
+        userContent: 'edit',
+        operationMode: 'plan',
+      },
+      event => events.push(event)
+    )
+
+    expect(executorCalled).toBe(false)
+    expect(events.some((event: any) => event.type === 'tool_execution' && event.status === 'failed')).toBe(true)
+  })
+
+})
+
+// These exercise the loop control flow (signal, robustness) without SQLite by
+// injecting an in-memory MessageSink, so they run in every environment.
+class FakeSink implements MessageSink {
+  readonly persisted: any[] = []
+  persistControlMessage(draft: any) {
+    const row = { ...draft, id: `control-${this.persisted.length}`, role: 'user', parent_id: draft.parentId }
+    this.persisted.push(row); return row
+  }
+  finaliseCompaction(id: string, update: any) {
+    const row = this.persisted.find(row => row.id === id)
+    Object.assign(row, { content: update.content, content_blocks: JSON.stringify(update.contentBlocks), meta: update.meta })
+    return row
+  }
+  private seq = 0
+
+  persistAssistantMessage(draft: any): any {
+    const message = {
+      id: `m${++this.seq}`,
+      role: 'assistant',
+      content: draft.content ?? '',
+      content_blocks: JSON.stringify(draft.contentBlocks ?? null),
+      tool_calls: JSON.stringify(draft.toolCalls ?? null),
+      parent_id: draft.parentId ?? null,
+      conversation_id: draft.conversationId,
+      ...(draft.contextUsage ? { context_usage: draft.contextUsage } : {}),
+    }
+    this.persisted.push(message)
+    return message
+  }
+
+  updateAssistantToolState(messageId: string, update: any): any | null {
+    const message = this.persisted.find(m => m.id === messageId)
+    if (!message) return null
+    message.content_blocks = JSON.stringify(update.contentBlocks ?? null)
+    message.tool_calls = JSON.stringify(update.toolCalls ?? null)
+    return message
+  }
+}
+
+const baseRunInput = {
+  provider: 'openaichatgpt',
+  modelName: 'gpt-5.6-sol',
+  conversationId: 'c1',
+  assistantParentId: null,
+  history: [] as any[],
+  userContent: 'do the task',
+}
+
+describe('ToolLoopService signal + robustness (in-memory sink)', () => {
+  it('keeps MCP discovery out of model definitions even with a legacy refresh hook', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue({
+      content: '',
+      toolCalls: [{ id: 'discover', name: 'mcp_manager', arguments: { action: 'list_tools', name: 'demo' } }],
+    })
+    providerRouter.enqueue({ content: 'used discovered schema' })
+
+    const initialTools = [{ name: 'mcp_manager', inputSchema: { type: 'object', properties: {} } }]
+    const discoveredTool = {
+      name: 'mcp__demo__echo',
+      description: 'Echo input',
+      inputSchema: { type: 'object', properties: { text: { type: 'string' } } },
+    }
+    let discovered = false
+    const events: any[] = []
+    const service = new ToolLoopService({
+      sink: new FakeSink(),
+      providerRouter: providerRouter as unknown as ProviderRouter,
+      executeTool: async () => {
+        discovered = true
+        return { success: true }
+      },
+      maxTurns: 3,
+    })
+
+    await service.run(
+      {
+        ...baseRunInput,
+        tools: initialTools,
+        refreshTools: current => discovered ? [...current, discoveredTool] : current,
+      },
+      event => events.push(event)
+    )
+
+    expect(providerRouter.calls[0].input.tools.map((tool: any) => tool.name)).toEqual(['mcp_manager'])
+    expect(providerRouter.calls[1].input.tools).toEqual(providerRouter.calls[0].input.tools)
+    expect(events.some(event => event.type === 'tools_updated')).toBe(false)
+  })
+
+  it('does not silently self-upgrade out of plan mode when no upgrade handler is wired', async () => {
+    // Regression: requiresAgentMode() is true for ANYTHING outside the plan allow
+    // list, but assertToolAllowedForOperationMode() throws only for the blocked list
+    // and `mcp__*`. html_renderer is in neither, so with no requestOperationModeUpgrade
+    // handler (the subagent case, and the main loop without a decisionBroker) the guard
+    // used to fall through: the tool ran AND activeOperationMode became 'execute' for
+    // the REST of the run. Turn 2's edit_file proves the mode did not stick.
+    //
+    // Lives in the in-memory-sink suite on purpose: the plan-mode gate has nothing to
+    // do with SQLite, and describeIfSqlite is skipped wherever better-sqlite3 is
+    // unavailable — which is exactly where a regression would go unnoticed.
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue({
+      content: '',
+      toolCalls: [{ id: 'call-html', name: 'html_renderer', arguments: { html: '<p>hi</p>' } }],
+    })
+    providerRouter.enqueue({
+      content: '',
+      toolCalls: [{ id: 'call-edit', name: 'edit_file', arguments: { path: 'README.md' } }],
+    })
+    providerRouter.enqueue({ content: 'recovered' })
+
+    const executed: string[] = []
+    const service = new ToolLoopService({
+      sink: new FakeSink(),
+      providerRouter: providerRouter as unknown as ProviderRouter,
+      executeTool: async toolCall => {
+        executed.push(toolCall.name)
+        return 'should-not-run'
+      },
+      maxTurns: 4,
+    })
+
+    const events: any[] = []
+    await service.run(
+      // requestOperationModeUpgrade deliberately omitted.
+      { ...baseRunInput, userContent: 'render then edit', operationMode: 'plan' },
+      event => events.push(event)
+    )
+
+    expect(executed).toEqual([])
+    const failures = events.filter((event: any) => event.type === 'tool_execution' && event.status === 'failed')
+    expect(failures.map((event: any) => event.toolName)).toEqual(['html_renderer', 'edit_file'])
+  })
+
+  it('forwards a live child abort signal to the provider request', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue({ content: 'done' })
+    const controller = new AbortController()
+    const service = new ToolLoopService({
+      sink: new FakeSink(),
+      providerRouter: providerRouter as unknown as ProviderRouter,
+    })
+
+    await service.run({ ...baseRunInput, signal: controller.signal }, () => {})
+
+    expect(providerRouter.calls[0].input.signal).toBeInstanceOf(AbortSignal)
+    expect(providerRouter.calls[0].input.signal).not.toBe(controller.signal)
+    expect(providerRouter.calls[0].input.signal.aborted).toBe(false)
+  })
+
+  it('keeps an active provider turn alive beyond the timeout and rearms from each chunk', async () => {
+    vi.useFakeTimers()
+    try {
+      const sink = new FakeSink()
+      const providerRouter = {
+        generate: vi.fn((_provider: string, _input: any, emit: (event: any) => void) =>
+          new Promise(resolve => {
+            setTimeout(() => emit({ type: 'chunk', part: 'text', delta: 'one ' }), 4_000)
+            setTimeout(() => emit({ type: 'chunk', part: 'text', delta: 'two ' }), 8_000)
+            setTimeout(() => resolve({ content: 'one two done' }), 12_000)
+          })
+        ),
+      }
+      const service = new ToolLoopService({
+        sink,
+        providerRouter: providerRouter as unknown as ProviderRouter,
+        providerTurnTimeoutMs: 5_000,
+      })
+
+      const run = service.run(baseRunInput, () => {})
+      await vi.advanceTimersByTimeAsync(12_000)
+      const result = await run
+
+      expect(result.finalAssistantMessage.content).toBe('one two done')
+      expect(providerRouter.generate).toHaveBeenCalledTimes(1)
+      expect(sink.persisted).toHaveLength(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('aborts an idle provider attempt and persists text already streamed before timeout', async () => {
+    vi.useFakeTimers()
+    try {
+      const sink = new FakeSink()
+      let attemptSignal: AbortSignal | null = null
+      let emitLate: ((event: any) => void) | null = null
+      const events: any[] = []
+      const providerRouter = {
+        generate: vi.fn((_provider: string, input: any, emit: (event: any) => void) => {
+          attemptSignal = input.signal
+          emitLate = emit
+          emit({ type: 'chunk', part: 'text', delta: 'kept text' })
+          return new Promise(() => {})
+        }),
+      }
+      const service = new ToolLoopService({
+        sink,
+        providerRouter: providerRouter as unknown as ProviderRouter,
+        providerTurnTimeoutMs: 5_000,
+      })
+
+      const run = service.run(
+        { ...baseRunInput, robustness: { retryProviderError: true, maxProviderRetries: 2 } },
+        event => events.push(event)
+      )
+      const rejection = expect(run).rejects.toMatchObject({ name: 'ProviderErrorAssistantResponse' })
+      await vi.advanceTimersByTimeAsync(5_000)
+      await rejection
+
+      expect(attemptSignal?.aborted).toBe(true)
+      expect(sink.persisted).toHaveLength(1)
+      expect(sink.persisted[0].content).toBe('kept text')
+      expect(events.some(event => event.type === 'assistant_message_persisted' && event.message.content === 'kept text')).toBe(true)
+
+      emitLate?.({ type: 'chunk', part: 'text', delta: ' late text' })
+      expect(events.some(event => event.type === 'chunk' && event.delta === ' late text')).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('classifies a provider-originated AbortError as a provider failure, not user cancellation', async () => {
+    const sink = new FakeSink()
+    const providerAbort = new Error('provider aborted the response')
+    providerAbort.name = 'AbortError'
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue(providerAbort)
+    const service = new ToolLoopService({
+      sink,
+      providerRouter: providerRouter as unknown as ProviderRouter,
+    })
+
+    await expect(service.run(baseRunInput, () => {})).rejects.not.toMatchObject({ name: 'AbortError' })
+  })
+
+  it('persists streamed text on parent cancellation without converting it to a provider error', async () => {
+    const sink = new FakeSink()
+    const controller = new AbortController()
+    const providerRouter = {
+      generate: vi.fn((_provider: string, _input: any, emit: (event: any) => void) => {
+        emit({ type: 'chunk', part: 'text', delta: 'cancelled but kept' })
+        return new Promise(() => {})
+      }),
+    }
+    const service = new ToolLoopService({
+      sink,
+      providerRouter: providerRouter as unknown as ProviderRouter,
+    })
+
+    const run = service.run({ ...baseRunInput, signal: controller.signal }, () => {})
+    controller.abort()
+
+    await expect(run).rejects.toMatchObject({ name: 'AbortError' })
+    expect(sink.persisted).toHaveLength(1)
+    expect(sink.persisted[0].content).toBe('cancelled but kept')
+  })
+
+  it('replaces the persisted fallback with one real result before continuation', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue({
+      content: '',
+      toolCalls: [{ id: 'call-1', name: 'read_file', arguments: { path: 'a' } }],
+    })
+    providerRouter.enqueue({ content: 'done' })
+    const sink = new FakeSink()
+    const service = new ToolLoopService({
+      sink,
+      providerRouter: providerRouter as unknown as ProviderRouter,
+      executeTool: async () => 'real output',
+    })
+
+    await service.run(baseRunInput, () => {})
+
+    const persistedBlocks = JSON.parse(sink.persisted[0].content_blocks || '[]') as any[]
+    const persistedResults = persistedBlocks.filter(
+      block => block.type === 'tool_result' && block.tool_use_id === 'call-1'
+    )
+    expect(persistedResults).toEqual([
+      { type: 'tool_result', tool_use_id: 'call-1', content: 'real output', is_error: false },
+    ])
+
+    const continuationBlocks = providerRouter.calls[1].input.history.flatMap((entry: any) =>
+      JSON.parse(entry.content_blocks || '[]')
+    )
+    expect(continuationBlocks.some((block: any) => block.content === 'Tool execution did not complete.')).toBe(false)
+  })
+
+  it('stops before the next turn when aborted during tool execution', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue({
+      content: '',
+      toolCalls: [{ id: 'call-1', name: 'read_file', arguments: { path: 'a' } }],
+    })
+    providerRouter.enqueue({ content: 'should never run' })
+    const controller = new AbortController()
+    const sink = new FakeSink()
+    const service = new ToolLoopService({
+      sink,
+      providerRouter: providerRouter as unknown as ProviderRouter,
+      executeTool: async () => {
+        controller.abort()
+        return 'tool output'
+      },
+    })
+
+    await expect(service.run({ ...baseRunInput, signal: controller.signal }, () => {})).rejects.toMatchObject({
+      name: 'AbortError',
+    })
+    expect(providerRouter.calls).toHaveLength(1)
+  })
+
+  it('propagates an abort thrown by a tool without recording a failed tool result', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue({
+      content: '',
+      toolCalls: [{ id: 'call-1', name: 'read_file', arguments: { path: 'a' } }],
+    })
+    const controller = new AbortController()
+    const sink = new FakeSink()
+    const service = new ToolLoopService({
+      sink,
+      providerRouter: providerRouter as unknown as ProviderRouter,
+      executeTool: async () => {
+        controller.abort()
+        const abortError = new Error('aborted')
+        abortError.name = 'AbortError'
+        throw abortError
+      },
+    })
+
+    const events: any[] = []
+    await expect(
+      service.run({ ...baseRunInput, signal: controller.signal }, event => events.push(event))
+    ).rejects.toMatchObject({ name: 'AbortError' })
+    expect(events.some(event => event.type === 'tool_execution' && event.status === 'failed')).toBe(false)
+
+    const persistedBlocks = JSON.parse(sink.persisted[0].content_blocks || '[]') as any[]
+    expect(persistedBlocks).toContainEqual({
+      type: 'tool_result',
+      tool_use_id: 'call-1',
+      content: 'Tool execution did not complete.',
+      is_error: true,
+    })
+
+    const initialPersistEvent = events.find(event => event.type === 'assistant_message_persisted')
+    const streamedBlocks = JSON.parse(initialPersistEvent?.message?.content_blocks || '[]') as any[]
+    expect(streamedBlocks.some(block => block.type === 'tool_result' && block.tool_use_id === 'call-1')).toBe(false)
+  })
+
+  it('retries once on an empty turn and recovers', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue({ content: '' })
+    providerRouter.enqueue({ content: 'recovered answer' })
+    const sink = new FakeSink()
+    const service = new ToolLoopService({
+      sink,
+      providerRouter: providerRouter as unknown as ProviderRouter,
+    })
+
+    const events: any[] = []
+    const result = await service.run(
+      { ...baseRunInput, robustness: { retryEmptyTurn: true, emptyTurnRetryDelayMs: 1 } },
+      event => events.push(event)
+    )
+
+    expect(providerRouter.calls).toHaveLength(2)
+    expect(result.finalAssistantMessage.content).toBe('recovered answer')
+    expect(sink.persisted).toHaveLength(1)
+    expect(events.some(event => event.type === 'tool_loop' && event.status === 'empty_turn_retry')).toBe(true)
+  })
+
+  it('throws ProviderEmptyResponseError when a no-tool run stays empty after retry', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue({ content: '' })
+    providerRouter.enqueue({ content: '   ' })
+    const service = new ToolLoopService({
+      sink: new FakeSink(),
+      providerRouter: providerRouter as unknown as ProviderRouter,
+    })
+
+    await expect(
+      service.run({ ...baseRunInput, robustness: { retryEmptyTurn: true, emptyTurnRetryDelayMs: 1 } }, () => {})
+    ).rejects.toBeInstanceOf(ProviderEmptyResponseError)
+    expect(providerRouter.calls).toHaveLength(2)
+  })
+
+  it('runs a tool-free finalization turn when tools ran but no answer was produced', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue({
+      content: '',
+      toolCalls: [{ id: 'call-1', name: 'read_file', arguments: { path: 'a' } }],
+    })
+    providerRouter.enqueue({ content: '' })
+    providerRouter.enqueue({ content: 'final summary' })
+    const service = new ToolLoopService({
+      sink: new FakeSink(),
+      providerRouter: providerRouter as unknown as ProviderRouter,
+      executeTool: async () => 'tool output',
+      maxTurns: 5,
+    })
+
+    const events: any[] = []
+    const result = await service.run(
+      { ...baseRunInput, robustness: { finalizeOnSilentToolEnd: true } },
+      event => events.push(event)
+    )
+
+    expect(result.finalAssistantMessage.content).toBe('final summary')
+    expect(result.anyToolsExecuted).toBe(true)
+    expect(providerRouter.calls[2].input.tools).toBeUndefined()
+    expect(events.some(event => event.type === 'tool_loop' && event.status === 'finalization_turn')).toBe(true)
+  })
+
+  it('finalizes instead of throwing when max turns are exhausted with tool activity', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue({
+      content: '',
+      toolCalls: [{ id: 'call-1', name: 'read_file', arguments: { path: 'a' } }],
+    })
+    providerRouter.enqueue({ content: 'wrapped up' })
+    const service = new ToolLoopService({
+      sink: new FakeSink(),
+      providerRouter: providerRouter as unknown as ProviderRouter,
+      executeTool: async () => 'tool output',
+      maxTurns: 1,
+    })
+
+    const result = await service.run(
+      { ...baseRunInput, robustness: { finalizeOnSilentToolEnd: true } },
+      () => {}
+    )
+
+    expect(result.finalAssistantMessage.content).toBe('wrapped up')
+  })
+
+  it('still throws on max turns when finalization is disabled', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue({
+      content: '',
+      toolCalls: [{ id: 'call-1', name: 'read_file', arguments: { path: 'a' } }],
+    })
+    const service = new ToolLoopService({
+      sink: new FakeSink(),
+      providerRouter: providerRouter as unknown as ProviderRouter,
+      executeTool: async () => 'tool output',
+      maxTurns: 1,
+    })
+
+    await expect(service.run({ ...baseRunInput }, () => {})).rejects.toThrow('reached max turns')
+  })
+
+  it('clamps the per-run maxTurns override', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue({
+      content: '',
+      toolCalls: [{ id: 'a', name: 'read_file', arguments: {} }],
+    })
+    providerRouter.enqueue({
+      content: '',
+      toolCalls: [{ id: 'b', name: 'read_file', arguments: {} }],
+    })
+    providerRouter.enqueue({ content: 'unreached' })
+    const service = new ToolLoopService({
+      sink: new FakeSink(),
+      providerRouter: providerRouter as unknown as ProviderRouter,
+      executeTool: async () => 'tool output',
+      maxTurns: 400,
+    })
+
+    const events: any[] = []
+    await expect(
+      service.run({ ...baseRunInput, maxTurns: 2 }, event => events.push(event))
+    ).rejects.toThrow('reached max turns (2)')
+    expect(providerRouter.calls).toHaveLength(2)
+    expect(events.some(event => event.type === 'tool_loop' && event.status === 'max_turns_reached' && event.maxTurns === 2)).toBe(true)
+  })
+})
+
+describe('ToolLoopService context_status (in-memory sink)', () => {
+  it('isolates concurrent branches, passes reported usage and each run context limit', async () => {
+    const reports: any[] = []
+    const leaf = vi.fn(async () => { throw new Error('Unexpected job dispatch') })
+    const dispatch = createMultiCallDispatchExecutor(createContextStatusExecutor(leaf))
+    const execute = async (call: any, context: any) => {
+      const result = await dispatch(call, context)
+      reports.push({ lineageId: context.lineageId, result })
+      return result
+    }
+    const run = async (lineageId: string, usedTokens: number, limit: number) => {
+      const providerRouter = new FakeProviderRouter()
+      providerRouter.enqueue({ content: '', contextUsage: {
+        provider: 'openai', usedTokens, inputTokens: usedTokens, outputTokens: 0,
+        cachedInputTokens: 0, reasoningTokens: 0, totalTokens: usedTokens, recordedAt: '2026-10-06T00:00:00.000Z',
+      }, toolCalls: [{ id: `batch-${lineageId}`, name: 'multi_call', arguments: { calls: [{ tool: 'context_status' }] } }] })
+      providerRouter.enqueue({ content: 'done' })
+      const service = new ToolLoopService({ sink: new FakeSink(), providerRouter: providerRouter as any, executeTool: execute })
+      await service.run({ ...baseRunInput, lineageId, streamId: `run-${lineageId}`, contextLength: limit, operationMode: 'plan' }, () => {})
+    }
+    await Promise.all([run('a', 200, 1000), run('b', 500, 2000)])
+    for (const [lineageId, usedTokens, totalContextLimit] of [['a', 200, 1000], ['b', 500, 2000]] as const) {
+      const report = reports.find(item => item.lineageId === lineageId && item.result.results).result.results[0].data
+      expect(report).toMatchObject({ remainingTokens: totalContextLimit - usedTokens,
+        remainingPercent: Math.round((totalContextLimit - usedTokens) / totalContextLimit * 100) })
+    }
+    expect(leaf).not.toHaveBeenCalled()
+  })
+
+  it('estimates only active branch history after compaction, using meter prompts and no duplicate tool rows', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue({ content: '', toolCalls: [{ id: 'status', name: 'context_status', arguments: {} }] })
+    providerRouter.enqueue({ content: 'done' })
+    const sink = new FakeSink()
+    const reports: any[] = []
+    const executor = createContextStatusExecutor(vi.fn())
+    const service = new ToolLoopService({ sink, providerRouter: providerRouter as any, executeTool: async (call, context) => {
+      const result = await executor(call, context)
+      reports.push(result)
+      return result
+    } })
+    const summary = { id: 'summary', role: 'system', note: '__auto_compaction_summary__', content: 'summary' }
+    const prompts = ['project prompt', 'conversation context']
+    let expectedTokens = 0
+    await service.run({ ...baseRunInput, provider: 'lmstudio', lineageId: 'branch', history: [
+      { role: 'user', content: 'old '.repeat(10000) }, summary,
+      { role: 'tool', content: 'duplicate tool result '.repeat(1000) },
+    ], contextMeterPrompts: prompts }, event => {
+      if (event.type === 'assistant_message_persisted' && reports.length === 0) {
+        expectedTokens = calculateBranchContextUsage({ providerName: 'lmstudio', messages: [summary, event.message], prompts }).totalContextTokens
+      }
+    })
+    expect(reports[0]).toMatchObject({ remainingTokens: Math.max(0, 128000 - expectedTokens),
+      remainingPercent: Math.round(Math.max(0, 128000 - expectedTokens) / 128000 * 100) })
+  })
+
+  it('uses the provider context resolver and clamps exhausted headroom to zero', async () => {
+    const providerRouter = new FakeProviderRouter()
+    ;(providerRouter as any).resolveContextLength = () => 1000
+    providerRouter.enqueue({ content: '', contextUsage: {
+      provider: 'openai', usedTokens: 1200, inputTokens: 1200, outputTokens: 0,
+      cachedInputTokens: 0, reasoningTokens: 0, totalTokens: 1200, recordedAt: '2026-10-06T00:00:00.000Z',
+    }, toolCalls: [{ id: 'status', name: 'context_status', arguments: {} }] })
+    providerRouter.enqueue({ content: 'done' })
+    let report: any
+    const executor = createContextStatusExecutor(vi.fn())
+    const service = new ToolLoopService({ sink: new FakeSink(), providerRouter: providerRouter as any, executeTool: async (call, context) => {
+      report = await executor(call, context)
+      return report
+    } })
+    await service.run({ ...baseRunInput, contextLength: 99999, autoCompactionEnabled: false }, () => {})
+    expect(report).toMatchObject({ remainingTokens: 0, remainingPercent: 0 })
+  })
+})
+
+describe('context_status estimated same-turn results', () => {
+  it('includes results from earlier top-level calls before their assistant blocks are merged', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue({ content: '', toolCalls: [
+      { id: 'read', name: 'read_file', arguments: {} },
+      { id: 'status', name: 'context_status', arguments: {} },
+    ] })
+    providerRouter.enqueue({ content: 'done' })
+    let report: any
+    const execute = createContextStatusExecutor(async () => 'large result '.repeat(4000))
+    const service = new ToolLoopService({ sink: new FakeSink(), providerRouter: providerRouter as any,
+      executeTool: async (call, context) => {
+        const result = await execute(call, context)
+        if (call.name === 'context_status') report = result
+        return result
+      },
+    })
+    await service.run({ ...baseRunInput, provider: 'lmstudio' }, () => {})
+    expect(report.remainingTokens).toBeLessThan(128000 - 4000)
+  })
+})
+
+
+describe('ToolLoopService REPL capture (in-memory sink)', () => {
+  it('keeps nested data out of model/history while retaining execution events and lazy instructions', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue({ content: '', toolCalls: [{ id: 'capture', name: 'repl', arguments: {
+      action: 'invoke', tool: 'read_file', args: { path: 'src/a.ts' }, assign: 'source',
+    } }] })
+    providerRouter.enqueue({ content: 'Stored for later processing.' })
+    const sessions = new ReplSessions()
+    const sink = new FakeSink()
+    const events: any[] = []
+    const collectLazyInjections = vi.fn(async () => [])
+    const executeTool = createReplDispatchExecutor(async () => ({ content: 'RAW_CONTENT_MUST_NOT_REACH_MODEL' }), sessions)
+    try {
+      const service = new ToolLoopService({ sink, providerRouter: providerRouter as any, executeTool })
+      await service.run({
+        ...baseRunInput, lineageId: 'repl-branch', operationMode: 'plan',
+        tools: ['repl', 'read_file'].map(name => ({ name, description: name, inputSchema: { type: 'object', properties: {} } })),
+        contextLoader: { collectLazyInjections, buildPostCompactionInjection: async () => null },
+      }, e => events.push(e))
+      expect(JSON.stringify(providerRouter.calls)).not.toContain('RAW_CONTENT_MUST_NOT_REACH_MODEL')
+      expect(JSON.stringify(sink.persisted)).not.toContain('RAW_CONTENT_MUST_NOT_REACH_MODEL')
+      expect(JSON.stringify(events)).not.toContain('RAW_CONTENT_MUST_NOT_REACH_MODEL')
+      expect(JSON.stringify(providerRouter.calls)).toContain('stored')
+      expect(events.some(e => e.type === 'tool_execution' && e.toolName === 'read_file' && e.status === 'completed')).toBe(true)
+      expect(collectLazyInjections.mock.calls.some(([call]) => (call as any).name === 'read_file')).toBe(true)
+    } finally { sessions.clear() }
+  })
+})
+
+describe('ToolLoopService REPL artifacts', () => {
+  it('keeps imported data and generated export arguments out of provider replay and persisted messages', async () => {
+    const providerRouter = new FakeProviderRouter()
+    providerRouter.enqueue({ content: '', toolCalls: [{ id: 'import', name: 'repl', arguments: {
+      action: 'import', path: 'input.json', assign: 'data',
+    } }] })
+    providerRouter.enqueue({ content: '', toolCalls: [{ id: 'export', name: 'repl', arguments: {
+      action: 'export', path: 'output.json', variable: 'data',
+    } }] })
+    providerRouter.enqueue({ content: 'Artifact saved.', contextUsage: { provider: 'openai', usedTokens: 9000 } })
+    providerRouter.enqueue({ content: 'Artifact metadata summary.' })
+    const sessions = new ReplSessions()
+    const sink = new FakeSink()
+    const events: any[] = []
+    let exported = ''
+    const executeTool = createReplDispatchExecutor(async call => {
+      if (call.name === 'read_file') return { success: true, content: '{"marker":"PRIVATE_ARTIFACT_SENTINEL"}', truncated: false }
+      exported = (call.arguments as any).content
+      return { success: true }
+    }, sessions)
+    try {
+      const compactionInputs: any[] = []
+      const service = new ToolLoopService({ sink, providerRouter: providerRouter as any, executeTool,
+        compactBranch: async input => {
+          compactionInputs.push(input)
+          return { message: { id: `summary-${compactionInputs.length}`, parent_id: input.parentMessageId, role: 'system', content: 'Artifact metadata retained', note: '__auto_compaction_summary__' } }
+        },
+      })
+      await service.run({ ...baseRunInput, lineageId: 'artifact-branch', operationMode: 'execute',
+        autoCompactionEnabled: true, contextLength: 10000,
+        tools: ['repl', 'read_file', 'create_file'].map(name => ({ name, description: name, inputSchema: { type: 'object', properties: {} } })),
+      }, event => events.push(event))
+      expect(exported).toContain('PRIVATE_ARTIFACT_SENTINEL')
+      expect(compactionInputs).toEqual([])
+      expect(sink.persisted.some(row => row.meta?.kind === 'compaction_summary')).toBe(true)
+      for (const output of [providerRouter.calls, sink.persisted, events, compactionInputs]) expect(JSON.stringify(output)).not.toContain('PRIVATE_ARTIFACT_SENTINEL')
+      expect(JSON.stringify(sink.persisted)).toContain('exported')
+    } finally { sessions.clear() }
+  })
+})
+
+describe('ChatGPT model request measurements', () => {
+  afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers() })
+
+  it('weights multiple requests and excludes tool/permission wait time', async () => {
+    let now = 0
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+    let call = 0
+    const router = { generate: async () => {
+      call += 1
+      now += call === 1 ? 1000 : 3000
+      return call === 1
+        ? { content: '', toolCalls: [{ id: 't', name: 'read_file', arguments: {} }], raw: { usage: { output_tokens: 100 } } }
+        : { content: 'done', raw: { usage: { output_tokens: 300, output_tokens_details: { reasoning_tokens: 200 } } } }
+    } }
+    const total = createModelThroughput()
+    const service = new ToolLoopService({ sink: new FakeSink(), providerRouter: router as any,
+      executeTool: async () => { now += 60000; return { success: true } } })
+    await service.run({ ...baseRunInput, provider: 'OpenAI (ChatGPT)', autoCompactionEnabled: false,
+      onModelRequest: measurement => recordModelRequest(total, measurement) }, () => {})
+    expect(total).toMatchObject({ outputTokens: 400, requestDurationMs: 4000, requests: 2, measuredRequests: 2, coverage: 'complete' })
+    expect(readModelThroughput(total)).toBe(total)
+    expect(total.outputTokens * 1000 / total.requestDurationMs).toBe(100)
+  })
+
+  it.each([undefined, -1, NaN, Infinity, '100'])('marks missing/invalid raw output usage partial: %s', async outputTokens => {
+    vi.spyOn(performance, 'now').mockReturnValueOnce(0).mockReturnValue(1000)
+    const total = createModelThroughput()
+    const router = new FakeProviderRouter()
+    router.enqueue({ content: 'done', contextUsage: { outputTokens: 0 }, raw: { usage: { output_tokens: outputTokens } } })
+    await new ToolLoopService({ sink: new FakeSink(), providerRouter: router as any }).run({ ...baseRunInput,
+      onModelRequest: measurement => recordModelRequest(total, measurement) }, () => {})
+    expect(total).toMatchObject({ requests: 1, measuredRequests: 0, coverage: 'partial' })
+    expect(readModelThroughput(total)).toBeUndefined()
+  })
+
+  it('records explicitly reported zero and leaves other providers alone', async () => {
+    vi.spyOn(performance, 'now').mockReturnValueOnce(0).mockReturnValue(1000)
+    const onModelRequest = vi.fn()
+    const router = new FakeProviderRouter()
+    router.enqueue({ content: 'done', raw: { usage: { output_tokens: 0 } } })
+    router.enqueue({ content: 'done', raw: { usage: { output_tokens: 100 } } })
+    const service = new ToolLoopService({ sink: new FakeSink(), providerRouter: router as any })
+    await service.run({ ...baseRunInput, onModelRequest }, () => {})
+    expect(onModelRequest).toHaveBeenCalledTimes(1)
+    expect(onModelRequest).toHaveBeenCalledWith({ durationMs: 1000, outputTokens: 0 })
+    await service.run({ ...baseRunInput, provider: 'openrouter', onModelRequest }, () => {})
+    expect(onModelRequest).toHaveBeenCalledTimes(1)
+  })
+
+  it('records a timed-out request once and ignores its late successful result', async () => {
+    vi.useFakeTimers()
+    let resolveLate!: (output: any) => void
+    const router = { generate: () => new Promise<any>(resolve => { resolveLate = resolve }) }
+    const onModelRequest = vi.fn()
+    const service = new ToolLoopService({ sink: new FakeSink(), providerRouter: router as any, providerTurnTimeoutMs: 5000 })
+    const result = service.run({ ...baseRunInput, onModelRequest }, () => {}).catch(error => error)
+    await vi.advanceTimersByTimeAsync(5001)
+    expect(await result).toBeInstanceOf(Error)
+    expect(onModelRequest).toHaveBeenCalledTimes(1)
+    expect(onModelRequest.mock.calls[0][0].outputTokens).toBeNull()
+    resolveLate({ content: 'late', raw: { usage: { output_tokens: 100 } } })
+    await vi.advanceTimersByTimeAsync(1)
+    expect(onModelRequest).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps failed retry attempts incomplete instead of overstating throughput', async () => {
+    let now = 0
+    vi.spyOn(performance, 'now').mockImplementation(() => now)
+    let calls = 0
+    const router = { generate: async () => {
+      now += 1000
+      if (++calls === 1) throw new Error('fetch failed')
+      return { content: 'done', raw: { usage: { output_tokens: 100 } } }
+    } }
+    const total = createModelThroughput()
+    await new ToolLoopService({ sink: new FakeSink(), providerRouter: router as any }).run({ ...baseRunInput,
+      robustness: { retryProviderError: true, maxProviderRetries: 1, providerRetryBackoffMs: 0 },
+      onModelRequest: measurement => recordModelRequest(total, measurement) }, () => {})
+    expect(total).toMatchObject({ requests: 2, measuredRequests: 1, coverage: 'partial' })
+    expect(readModelThroughput(total)).toBeUndefined()
+  })
+})

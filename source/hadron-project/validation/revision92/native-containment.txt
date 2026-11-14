@@ -1,0 +1,19 @@
+Built Windows x64 HadronWorkerHost with source/binary hashes
+Native worker containment: C:\Users\rajka\AppData\Local\Temp\hadron-worker-containment-sfJSrT
+{
+  "success": true,
+  "platform": "win32",
+  "exactArgumentsAndStdin": true,
+  "cancelJoinsDetachedDescendant": true,
+  "helperCrashKillsDescendants": true,
+  "jobCollisionPreservesOwner": true,
+  "parentCrashKillsWholeJob": true,
+  "parentCrashBeforeAdmissionStartsNothing": true,
+  "invalidInspectionRefused": true,
+  "durableEvidenceBeforeAdmission": true,
+  "freshReadOnlyInspectionAfterOwnerCrash": true,
+  "crossWindowsSessionRefused": true,
+  "canonicalEditingEnabled": false,
+  "realProviderRequests": 0,
+  "realCredentialsUsed": false
+}

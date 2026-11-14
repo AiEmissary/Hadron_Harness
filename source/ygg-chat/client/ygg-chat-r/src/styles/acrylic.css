@@ -1,0 +1,305 @@
+/* Acrylic Material Effect - Microsoft Fluent Design System
+ * Based on: https://github.com/yell0wsuit/acrylic-mica-css
+ *
+ * Similar to Mica but with a subtle noise texture overlay for a more textured appearance.
+ * Usage: Apply these classes to any element for a grainy frosted glass effect.
+ * Available strengths: ultra-light, subtle, light, medium (default), strong, extreme.
+ */
+
+/* Base Acrylic styles - shared properties */
+.acrylic-ultra-light-nolight,
+.acrylic-ultra-light-nb,
+.acrylic-ultra-light-nb-2,
+.acrylic-ultra-light-nb-3,
+.acrylic-ultra-light,
+.acrylic-subtle-2,
+.acrylic-subtle,
+.acrylic-subtle-no-hover,
+.acrylic-light,
+.acrylic-input-chat-light,
+.acrylic-light-dark,
+.acrylic-strong,
+.acrylic-extreme {
+  position: relative;
+  isolation: isolate;
+  /* Using absolute path for Web, but this might fail in Electron if base is ./ 
+     However, CSS url resolution in Vite usually rebases assets. 
+     If it fails in Electron, we might need to inline the image or use a relative path like ../../../public/img/noise.png (if public is accessible via relative) 
+     Actually, Vite handles /img/noise.png correctly for base: './' if it's in public/ 
+     Let's try removing the leading slash to let Vite resolve it relative to base */
+  background-image: url('img/noise.png');
+  background-repeat: repeat;
+
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.acrylic-subtle,
+.acrylic-subtle-no-hover,
+.acrylic-light,
+.acrylic-light-dark,
+.acrylic-ultra-light-nolight,
+.acrylic,
+.acrylic-strong,
+.acrylic-extreme {
+  box-shadow: 0 0 5.6px rgba(0, 0, 0, 0.29);
+}
+.acrylic-subtle-2,
+.acrylic-medium {
+  position: relative;
+  isolation: isolate;
+  background-image: url('img/noise.png');
+  background-repeat: repeat;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.acrylic-ultra-light,
+.acrylic-subtle,
+.acrylic-subtle-no-hover,
+.acrylic-light,
+.acrylic-input-chat-light,
+.acrylic-light-dark,
+.acrylic,
+.acrylic-medium,
+.acrylic-strong,
+.acrylic-extreme {
+  border: 1px solid #e5e5e5c4;
+}
+
+/* Dark mode base styles .dark .acrylic-ultra-light-nb, */
+.dark .acrylic-ultra-light-nb-2,
+.dark .acrylic-ultra-light,
+.dark .acrylic-subtle,
+.dark .acrylic-subtle-no-hover,
+.dark .acrylic-light,
+.dark .acrylic-input-chat-light,
+.dark .acrylic-light-dark,
+.dark .acrylic,
+.dark .acrylic-medium,
+.dark .acrylic-strong,
+.dark .acrylic-extreme {
+  border-color: rgba(26, 26, 26, 0.102);
+}
+
+.acrylic-ultra-light-nb {
+  background-color: rgba(247, 247, 247, 0.15);
+}
+
+.dark .acrylic-ultra-light-nb {
+  background-color: rgba(24, 24, 24, 0.15);
+}
+
+.acrylic-ultra-light-nb-2 {
+  background-color: rgba(247, 247, 247, 0.15);
+}
+.acrylic-ultra-light-nb-3 {
+  background-color: rgba(245, 245, 245, 0.692);
+}
+.dark .acrylic-ultra-light-nb-3 {
+  background-color: rgba(24, 24, 24, 0.15);
+}
+.dark .acrylic-ultra-light-nb-2 {
+  background-color: rgba(24, 24, 24, 0.15);
+}
+.acrylic-ultra-light-nolight {
+  background-color: rgba(24, 24, 24, 0.15);
+}
+/* Acrylic Ultra Light - Extremely transparent */
+.acrylic-ultra-light {
+  background-color: rgba(247, 247, 247, 0.15); /* 15% opacity */
+}
+
+.dark .acrylic-ultra-light {
+  background-color: rgba(24, 24, 24, 0.15);
+}
+
+/* Acrylic Subtle - Most transparent */
+.acrylic-subtle {
+  background-color: rgba(247, 247, 247, 0.438); /* 44% opacity */
+}
+
+.acrylic-subtle-no-hover {
+  background-color: rgba(252, 252, 252, 0.671);
+}
+
+.dark .acrylic-subtle {
+  background-color: rgba(24, 24, 24, 0.027);
+}
+
+.dark .acrylic-subtle-no-hover {
+  background-color: rgba(24, 24, 24, 0.215);
+}
+
+/* Acrylic Light */
+.acrylic-light {
+  background-color: rgba(247, 247, 247, 0.557); /* 56% opacity */
+  border: 1px ridge #e5e5e5cb;
+}
+
+.dark .acrylic-light {
+  background-color: rgba(24, 24, 24, 0.015);
+}
+
+.acrylic-input-chat-light {
+  background-color: rgba(247, 247, 247, 0.557); /* 56% opacity */
+  border: 1px ridge #e5e5e5cb;
+}
+
+.dark .acrylic-input-chat-light {
+  background-color: rgba(24, 24, 24, 0.015);
+}
+
+/* Acrylic Light Dark - Only dark version */
+.acrylic-light-dark {
+  background-color: transparent;
+}
+
+.dark .acrylic-light-dark {
+  background-color: rgba(24, 24, 24, 0.015);
+}
+
+/* Acrylic Medium (Default) */
+.acrylic,
+.acrylic-medium {
+  background-color: rgba(247, 247, 247, 0.8); /* 80% opacity */
+}
+
+.dark .acrylic,
+.dark .acrylic-medium {
+  background-color: rgba(24, 24, 24, 0.66); /* 66% opacity */
+}
+
+/* Acrylic Strong */
+.acrylic-strong {
+  background-color: rgba(247, 247, 247, 0.88); /* 88% opacity */
+}
+
+.dark .acrylic-strong {
+  background-color: rgba(24, 24, 24, 0.78);
+}
+
+/* Acrylic Extreme */
+.acrylic-extreme {
+  background-color: rgba(247, 247, 247, 0.95); /* 95% opacity */
+}
+
+.dark .acrylic-extreme {
+  background-color: rgba(24, 24, 24, 0.88);
+}
+
+/* Interactive states */
+.acrylic-subtle:hover,
+.acrylic-light:hover,
+.acrylic-input-chat-light:hover,
+/* .acrylic:hover, */
+.acrylic-strong:hover,
+.acrylic-extreme:hover {
+  background-color: rgba(247, 247, 247, 0.68);
+}
+
+.acrylic-light-dark:hover {
+  background-color: rgba(247, 247, 247, 0.18);
+}
+
+.acrylic-medium:hover {
+  background-color: rgba(247, 247, 247, 0.88);
+}
+
+.dark .acrylic-subtle:hover,
+/* .dark .acrylic:hover, */
+.dark .acrylic-medium:hover,
+.dark .acrylic-strong:hover,
+.dark .acrylic-extreme:hover {
+  background-color: rgba(24, 24, 24, 0.215);
+}
+
+.dark .acrylic-medium:hover {
+  background-color: rgba(24, 24, 24, 0.515);
+}
+.acrylic-ultra-light-nolight:hover {
+  background-color: rgba(19, 19, 19, 0.215);
+}
+.dark .acrylic-light:hover {
+  background-color: rgba(24, 24, 24, 0.215);
+}
+
+.dark .acrylic-input-chat-light:hover {
+  background-color: rgba(24, 24, 24, 0.215);
+}
+
+.dark .acrylic-light-dark:hover {
+  background-color: rgba(24, 24, 24, 0.215);
+}
+
+/* Ensure content stays on top of the effect */
+.acrylic-ultra-light > *,
+.acrylic-subtle > *,
+.acrylic-subtle-no-hover > *,
+.acrylic-light > *,
+.acrylic-input-chat-light > *,
+.acrylic-light-dark > *,
+.acrylic > *,
+.acrylic-subtle-2 > *,
+.acrylic-medium > *,
+.acrylic-strong > *,
+.acrylic-extreme > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Apply blur only when supported (prevents Lightning CSS from stripping) */
+@supports ((backdrop-filter: blur(0)) or (-webkit-backdrop-filter: blur(0))) {
+  .acrylic-ultra-light,
+  .acrylic-ultra-light-nb-2 {
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+  .acrylic-subtle-2 {
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+
+  .acrylic-subtle,
+  .acrylic-subtle-no-hover {
+    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(20px);
+  }
+
+  .acrylic-light {
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+  }
+  .acrylic-ultra-light-nolight {
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+  }
+
+  .acrylic-input-chat-light {
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+  }
+
+  .acrylic-light-dark {
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+  }
+
+  .acrylic,
+  .acrylic-medium {
+    -webkit-backdrop-filter: blur(40px);
+    backdrop-filter: blur(40px);
+  }
+
+  .acrylic-strong {
+    -webkit-backdrop-filter: blur(60px);
+    backdrop-filter: blur(60px);
+  }
+
+  .acrylic-extreme {
+    -webkit-backdrop-filter: blur(80px);
+    backdrop-filter: blur(80px);
+  }
+}

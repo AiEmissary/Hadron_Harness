@@ -1,0 +1,9 @@
+{
+  "success": true,
+  "agentsSignIn": true,
+  "officialOpenAiDestination": true,
+  "hadronAppName": true,
+  "upstreamPopupAbsent": true,
+  "realBrowserOpened": false,
+  "realCredentialsUsed": false
+}

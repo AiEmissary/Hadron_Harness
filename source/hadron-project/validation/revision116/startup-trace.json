@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "runId": "1218559b-8fa2-4748-bd5c-74600b4ff40b",
+  "pid": 74500,
+  "stage": "diagnostic_passed",
+  "events": [
+    {
+      "stage": "bootstrap_started",
+      "at": "2026-11-09T10:41:49.169Z"
+    },
+    {
+      "stage": "profile_ready",
+      "at": "2026-11-09T10:41:49.174Z"
+    },
+    {
+      "stage": "main_loaded",
+      "at": "2026-11-09T10:41:49.309Z"
+    },
+    {
+      "stage": "instance_lock_acquired",
+      "at": "2026-11-09T10:41:49.319Z"
+    },
+    {
+      "stage": "app_ready",
+      "at": "2026-11-09T10:41:49.372Z"
+    },
+    {
+      "stage": "server_ready",
+      "at": "2026-11-09T10:41:49.732Z"
+    },
+    {
+      "stage": "window_created",
+      "at": "2026-11-09T10:41:49.785Z"
+    },
+    {
+      "stage": "renderer_loaded",
+      "at": "2026-11-09T10:41:51.128Z"
+    },
+    {
+      "stage": "diagnostic_passed",
+      "at": "2026-11-09T10:41:57.811Z"
+    }
+  ]
+}

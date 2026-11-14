@@ -1,0 +1,32 @@
+     44|       const code = ts.transpileModule(source.slice(start, end), { comp…
+     45|       const migrations = runInNewContext(`${code}; SCHEMA_MIGRATIONS`,…
+       |                          ^
+     46|       const migration = migrations.find((entry: any) => entry.name ===…
+     47|       migration.up(db); migration.up(db)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  server/headlessServer/services/__tests__/modelImageHistory.test.ts > durable model image history > rejects symlink escapes and does not fetch stored URLs
+Error: EPERM: operation not permitted, symlink 'C:\Users\rajka\AppData\Local\Temp\model-images-S0vavv\outside.png' -> 'C:\Users\rajka\AppData\Local\Temp\model-images-S0vavv\user_images\escape.png'
+ ❯ server/headlessServer/services/__tests__/modelImageHistory.test.ts:73:5
+     71|     await writeFile(outside, bytes)
+     72|     const link = path.join(root, 'user_images/escape.png')
+     73|     await symlink(outside, link)
+       |     ^
+     74|     attachment.file_path = link
+     75|     await expect(hydrate([{ id: 'user', role: 'user' }])).rejects.toTh…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  2 failed | 91 passed | 8 skipped (101)
+      Tests  2 failed | 883 passed | 83 skipped | 24 todo (992)
+   Start at  17:15:31
+   Duration  16.09s (transform 14.97s, setup 0ms, collect 68.51s, tests 49.22s, environment 37ms, prepare 19.28s)
+
+npm error Lifecycle script `test:headless` failed with error:
+npm error code 1
+npm error path C:\Users\rajka\Desktop\Hadron-Harness\source\ygg-chat\client\ygg-chat-r
+npm error workspace graviton@0.3.20
+npm error location C:\Users\rajka\Desktop\Hadron-Harness\source\ygg-chat\client\ygg-chat-r
+npm error command failed
+npm error command C:\WINDOWS\system32\cmd.exe /d /s /c vitest run --config vitest.headless.config.ts

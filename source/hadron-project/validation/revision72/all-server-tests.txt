@@ -1,0 +1,32 @@
+ FAIL  server/__tests__/localAnalyticsDashboard.test.ts > local logging aggregation > handles deep reverse-ordered ancestry without recursive stack growth
+ FAIL  server/__tests__/localAnalyticsDashboard.test.ts > local logging aggregation > handles unknown and empty samples and clamps unsupported ranges
+ FAIL  server/__tests__/localAnalyticsDashboard.test.ts > duration and outcome semantics > retains measured zero but excludes running, invalid, negative, and absent durations
+Error: The module '\\?\C:\Users\rajka\Desktop\Hadron-Harness\source\ygg-chat\node_modules\better-sqlite3\build\Release\better_sqlite3.node'
+was compiled against a different Node.js version using
+NODE_MODULE_VERSION 139. This version of Node.js requires
+NODE_MODULE_VERSION 127. Please try re-compiling or re-installing
+the module (for instance, using `npm rebuild` or `npm install`).
+ ❯ bindings ../../node_modules/bindings/bindings.js:112:48
+ ❯ new Database ../../node_modules/better-sqlite3/lib/database.js:48:64
+ ❯ server/__tests__/localAnalyticsDashboard.test.ts:21:8
+     19|
+     20| beforeEach(() => {
+     21|   db = new Database(':memory:')
+       |        ^
+     22|   db.exec(`
+     23|     CREATE TABLE projects (id TEXT, name TEXT, created_at TEXT, storag…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/16]⎯
+
+ Test Files  4 failed | 37 passed | 1 skipped (42)
+      Tests  15 failed | 303 passed | 5 skipped (323)
+   Start at  17:18:56
+   Duration  8.02s (transform 4.26s, setup 0ms, collect 13.04s, tests 17.19s, environment 15ms, prepare 8.44s)
+
+npm error Lifecycle script `test:server` failed with error:
+npm error code 1
+npm error path C:\Users\rajka\Desktop\Hadron-Harness\source\ygg-chat\client\ygg-chat-r
+npm error workspace graviton@0.3.20
+npm error location C:\Users\rajka\Desktop\Hadron-Harness\source\ygg-chat\client\ygg-chat-r
+npm error command failed
+npm error command C:\WINDOWS\system32\cmd.exe /d /s /c vitest run --config vitest.server.config.ts

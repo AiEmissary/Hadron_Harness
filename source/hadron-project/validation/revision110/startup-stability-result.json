@@ -1,0 +1,21 @@
+{
+  "success": true,
+  "serialPackagedStarts": [
+    {
+      "attempt": 1,
+      "success": true,
+      "modelRequests": 0
+    },
+    {
+      "attempt": 2,
+      "success": true,
+      "modelRequests": 0
+    },
+    {
+      "attempt": 3,
+      "success": true,
+      "modelRequests": 0
+    }
+  ],
+  "priorUnexplainedMissingReportStillOpen": true
+}

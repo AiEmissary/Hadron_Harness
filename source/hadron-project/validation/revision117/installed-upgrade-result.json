@@ -1,0 +1,19 @@
+{
+  "success": true,
+  "installedVersion": "0.4.17.0",
+  "installerExit": 0,
+  "installedArchiveMatchesBuild": true,
+  "installedArchiveSha256": "c6344d72f27f99fe5161fb903258b11f88d26b600af7eba2524977c7b8486723",
+  "baselineLogicalRowsUnchanged": true,
+  "integrity": {
+    "hadron-continuous-chat.db": "ok",
+    "hadron-project-builds.db": "ok",
+    "local-sync.db": "ok"
+  },
+  "installerWorkPausedUntilUserReady": true,
+  "history": {
+    "projects": 3,
+    "conversations": 54,
+    "messages": 149
+  }
+}

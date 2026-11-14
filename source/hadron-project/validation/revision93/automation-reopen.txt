@@ -1,0 +1,13 @@
+Full Hadron desktop smoke: C:\Users\rajka\AppData\Local\Temp\hadron-desktop-smoke-g8ZXS2
+{
+  "success": true,
+  "savedBuildRestored": true,
+  "projectModeRestored": true,
+  "sourceGrantExpired": true,
+  "savedInspectionNoReplay": true,
+  "savedJobLogReadable": true,
+  "nativePreviousEpochConfirmed": true,
+  "noInferenceReplay": true,
+  "editingUnavailable": true
+}
+Clean Quit joined project workers, closed the idle socket and released the execution scope.

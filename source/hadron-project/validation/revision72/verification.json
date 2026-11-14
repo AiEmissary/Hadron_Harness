@@ -1,0 +1,37 @@
+{
+  "revision": 72,
+  "date": "2026-11-06",
+  "server": {
+    "passed": 324,
+    "skipped": 5
+  },
+  "headless": {
+    "passed": 885,
+    "skipped": 83,
+    "todo": 24
+  },
+  "renderer": {
+    "passed": 1165,
+    "skipped": 1
+  },
+  "buildsAndTypechecks": "passed",
+  "realNativeToolAcceptance": {
+    "success": true,
+    "model": "gpt-5.6-luna",
+    "successfulCheckRequests": 2,
+    "successfulPublicReads": 1,
+    "earlierDiagnosticRequests": 3,
+    "personalFilesInTest": false
+  },
+  "desktopSynthetic": {
+    "sharedFollowUpAndSiblingFork": true,
+    "sixLinkedSharedCards": true,
+    "explicitContextChoice": true,
+    "restartZeroInference": true,
+    "legacyIndependentAndShared": true,
+    "manualAndAgentToolLibrary": true
+  },
+  "personalWindowsUIAcceptance": "next user gate",
+  "wholeProjectCoding": "next phase after Windows MVP acceptance",
+  "GravitonChanges": false
+}

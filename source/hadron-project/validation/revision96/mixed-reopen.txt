@@ -1,0 +1,9 @@
+Full Hadron desktop smoke: C:\Users\rajka\AppData\Local\Temp\hadron-desktop-smoke-vT9LKk
+{
+  "success": true,
+  "savedConversationRestored": true,
+  "orderedTurnsRestored": true,
+  "noInferenceReplay": true,
+  "historicalResumeUnavailable": true,
+  "continuedHistoryRestored": false
+}

@@ -1,0 +1,20 @@
+
+> graviton@0.3.20 test:server
+> vitest run --config vitest.server.config.ts server/__tests__/hadronOwnedProcess.test.ts server/__tests__/hadronCodexRuntime.test.ts server/__tests__/hadronProjectBuildCoordinator.test.ts
+
+
+ RUN  v2.1.9 C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r
+
+ ✓ server/__tests__/hadronOwnedProcess.test.ts (12 tests) 149ms
+ ✓ server/__tests__/hadronCodexRuntime.test.ts (13 tests) 309ms
+(node:51692) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ server/__tests__/hadronProjectBuildCoordinator.test.ts (51 tests) 10266ms
+   ✓ yields between files so Stop retains the first receipt and leaves the second file unchanged 334ms
+   ✓ binds real Windows replacement to the coordinator application scope 2293ms
+
+ Test Files  3 passed (3)
+      Tests  76 passed (76)
+   Start at  11:23:33
+   Duration  12.76s (transform 744ms, setup 0ms, collect 2.44s, tests 10.72s, environment 1ms, prepare 647ms)
+

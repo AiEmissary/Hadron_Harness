@@ -1,0 +1,227 @@
+import express from 'express'
+import type { Server } from 'node:http'
+import type { AddressInfo } from 'node:net'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { registerChatRoutes } from '../chatRoutes.js'
+
+describe('registerChatRoutes', () => {
+  let appServer: Server
+  let baseUrl = ''
+  const seenOperations: string[] = []
+  const seenRequests: any[] = []
+  const seenCompactionRequests: any[] = []
+
+  beforeEach(() => {
+    seenOperations.length = 0
+    seenRequests.length = 0
+    seenCompactionRequests.length = 0
+
+    const app = express()
+    app.use(express.json())
+
+    registerChatRoutes(app, {
+      orchestrator: {
+        changeOperationMode(input) {
+          if (input.streamId === 'stale') throw new Error('Run is no longer active')
+          seenRequests.push(input)
+          return { status: input.streamId ? 'pending' : 'applied', mode: input.mode, revision: 1 }
+        },
+        async runMessage(request, emit, signal) {
+          if (request.modelName === 'wait-for-abort') {
+            seenCompactionRequests.push({ ...request, signal })
+            await new Promise<void>((_resolve, reject) => signal!.addEventListener('abort', () => reject(signal!.reason), { once: true }))
+          }
+          seenOperations.push(request.operation)
+          seenRequests.push(request)
+          emit({
+            type: 'started',
+            operation: request.operation,
+            conversationId: request.conversationId,
+            parentId: request.parentId,
+            provider: request.provider,
+            modelName: request.modelName,
+          })
+          emit({ type: 'chunk', part: 'text', delta: 'hello' })
+          emit({ type: 'complete', message: { id: 'assistant-1' } })
+        },
+      },
+      compactionService: {
+        async compactBranch(request) {
+          seenCompactionRequests.push(request)
+          if (request.modelName === 'wait-for-abort') {
+            await new Promise<void>((_resolve, reject) => request.signal.addEventListener('abort', () => reject(request.signal.reason), { once: true }))
+          }
+          return {
+            message: {
+              id: 'compact-1',
+              role: 'system',
+              note: '__auto_compaction_summary__',
+              parent_id: request.parentMessageId,
+              content: 'summary',
+            },
+          }
+        },
+      } as any,
+    })
+
+    appServer = app.listen(0)
+    const address = appServer.address() as AddressInfo
+    baseUrl = `http://127.0.0.1:${address.port}`
+  })
+
+  afterEach(async () => {
+    await new Promise<void>((resolve, reject) => {
+      appServer.close(error => {
+        if (error) reject(error)
+        else resolve()
+      })
+    })
+  })
+
+  it('routes live mode commands without starting inference and rejects invalid/stale commands', async () => {
+    const post = (body: any) => fetch(`${baseUrl}/api/conversations/c1/operation-mode`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+    })
+    const response = await post({ mode: 'plan', streamId: 's1', requestId: 'r1' })
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({ status: 'pending', mode: 'plan' })
+    expect(seenRequests[0]).toMatchObject({ conversationId: 'c1', streamId: 's1', requestId: 'r1' })
+    expect(seenOperations).toEqual([])
+    expect((await post({ mode: 'other', requestId: 'r2' })).status).toBe(400)
+    expect((await post({ mode: 'execute', streamId: 'stale', requestId: 'r3' })).status).toBe(409)
+  })
+
+  it('streams SSE events from orchestrator', async () => {
+    const res = await fetch(`${baseUrl}/api/conversations/c1/messages`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ content: 'test' }),
+    })
+
+    expect(res.status).toBe(200)
+
+    const raw = await res.text()
+    const dataLines = raw
+      .split('\n')
+      .filter(line => line.startsWith('data: '))
+      .map(line => JSON.parse(line.slice('data: '.length)))
+
+    expect(dataLines[0]).toMatchObject({
+      type: 'started',
+      conversationId: 'c1',
+      provider: 'openaichatgpt',
+      modelName: 'gpt-5.6-sol',
+    })
+    expect(dataLines[1]).toMatchObject({ type: 'chunk', part: 'text', delta: 'hello' })
+    expect(dataLines[2]).toMatchObject({ type: 'complete', message: { id: 'assistant-1' } })
+    expect(seenOperations).toEqual(['send'])
+  })
+
+  it('maps endpoints to continuation operations', async () => {
+    await fetch(`${baseUrl}/api/conversations/c1/messages/repeat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ messageId: 'm1' }),
+    })
+
+    await fetch(`${baseUrl}/api/conversations/c1/messages/m1/branch`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ content: 'branch text' }),
+    })
+
+    await fetch(`${baseUrl}/api/conversations/c1/messages/m1/edit-branch`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ content: 'edited branch text' }),
+    })
+
+    expect(seenOperations).toEqual(['repeat', 'branch', 'edit-branch'])
+  })
+
+  it('forwards optional content-lineage and fork-operation identities without conflating stream identity', async () => {
+    await fetch(`${baseUrl}/api/conversations/c1/messages`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        content: 'test',
+        lineage_id: 'lineage-1',
+        operationId: 'operation-1',
+        stream_id: 'stream-1',
+      }),
+    })
+
+    expect(seenRequests[0]).toMatchObject({
+      lineageId: 'lineage-1',
+      operationId: 'operation-1',
+      streamId: 'stream-1',
+    })
+  })
+
+  it('forwards operation mode prompt settings', async () => {
+    await fetch(`${baseUrl}/api/conversations/c1/messages`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        content: 'test',
+        operationMode: 'plan',
+        includeOperationModePrompt: false,
+        operationModePrompt: 'Custom Plan baseline',
+        agentModePrompt: 'Custom Agent baseline',
+        subagentModePrompt: 'Custom Subagent baseline',
+        planModeVerbosity: 'detailed',
+      }),
+    })
+
+    expect(seenRequests[0]).toMatchObject({
+      operationMode: 'plan',
+      includeOperationModePrompt: false,
+      operationModePrompt: 'Custom Plan baseline',
+      agentModePrompt: 'Custom Agent baseline',
+      subagentModePrompt: 'Custom Subagent baseline',
+      planModeVerbosity: 'detailed',
+    })
+  })
+
+  it('aborts compaction when the client cancels the request', async () => {
+    const controller = new AbortController()
+    const request = fetch(`${baseUrl}/api/conversations/c1/compact`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, signal: controller.signal,
+      body: JSON.stringify({ parentMessageId: 'a', modelName: 'wait-for-abort', messages: [{ role: 'user', content: 'Task' }, { role: 'assistant', content: 'Progress' }] }),
+    })
+    const settled = request.catch(error => error)
+    await expect.poll(() => seenCompactionRequests.length).toBe(1)
+    controller.abort()
+    await settled
+    await expect.poll(() => seenCompactionRequests[0].signal.aborted).toBe(true)
+  })
+
+  it('maps compact route to the ordinary streamed chat pipeline', async () => {
+    const res = await fetch(`${baseUrl}/api/conversations/c1/compact`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        parentMessageId: 'm2',
+        messages: [
+          { id: 'm1', role: 'user', content: 'hello' },
+          { id: 'm2', role: 'assistant', content: 'world' },
+        ],
+        provider: 'openaichatgpt',
+        modelName: 'gpt-test',
+        userId: 'u1',
+      }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(await res.text()).toContain('"type":"complete"')
+    expect(seenCompactionRequests).toEqual([])
+    expect(seenRequests[0]).toMatchObject({
+      manualCompaction: true,
+      conversationId: 'c1',
+      parentId: 'm2',
+      provider: 'openaichatgpt',
+      modelName: 'gpt-test',
+      userId: 'u1',
+    })
+  })
+})

@@ -1,0 +1,5 @@
+# Revision87 evidence
+
+Full server460 passed/5 skipped; focused native service/bridge20 passed and renderer8 passed. Renderer/server/Electron/mobile typechecks and renderer/main/mobile builds passed. Actual built desktop passes fresh saved-state inspection with original file matches and confirmed current-host worker termination. Cold reopen passes the same explicit inspection with truthful historical/unconfirmed workers, zero inference, no write/resume/unlock endpoint and expired task grants. Existing proposal/diff/two-file/retention/Stop/clean Quit flow remains passing.
+
+Actual filesystem server cases verify manual differences and changed roots without modifying files or granting recovery, and foreign ownership is refused before reads. Reports expose file state labels and relative names, not root paths, content, recovery digests or capabilities. No real provider request, personal source edit or installed Graviton change occurred. Raw logs/screenshots remain in the workspace validation directory.

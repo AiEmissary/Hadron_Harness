@@ -1,0 +1,409 @@
+import React, { useEffect, useId, useState } from 'react'
+import { ChevronDown, Plus, RefreshCw } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { fetchCustomTools, fetchTools, updateToolEnabled } from '../../features/chats/chatActions'
+import { selectTools } from '../../features/chats/chatSelectors'
+import { getAllTools } from '../../features/chats/toolDefinitions'
+import { useAppDispatch, useAppSelector } from '../../hooks/redux'
+import { localApi } from '../../utils/api'
+import { useSettingsSectionThemeColors } from './settingsSectionTheme'
+import { ToolSettingsRow } from './ToolSettingsRow'
+
+export const ToolsSettings: React.FC = () => {
+  const dispatch = useAppDispatch()
+  // Use Redux tools as trigger for re-render, but get actual tools from toolDefinitions
+  // This ensures we always see the merged list (built-in + custom + MCP).
+  useAppSelector(selectTools)
+  const tools = getAllTools()
+  const toolGroups = [
+    { title: 'Built-in Tools', tools: tools.filter(tool => !tool.isMcp && !tool.isCustom) },
+    { title: 'Custom Tools', tools: tools.filter(tool => !tool.isMcp && tool.isCustom) },
+    { title: 'MCP Tools', tools: tools.filter(tool => tool.isMcp) },
+  ]
+  const groupId = useId()
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const [updatingTools, setUpdatingTools] = useState<Set<string>>(new Set())
+  const [showDesktopModal, setShowDesktopModal] = useState(false)
+  const [showCustomToolsHelp, setShowCustomToolsHelp] = useState(false)
+  const [customToolsPath, setCustomToolsPath] = useState<string | null>(null)
+  const [reloadingTools, setReloadingTools] = useState(false)
+  const wslDistro = localStorage.getItem('ygg_wsl_distro') || ''
+  const sectionThemeColors = useSettingsSectionThemeColors()
+
+  const isWebMode = import.meta.env.VITE_ENVIRONMENT === 'web'
+
+  useEffect(() => {
+    localStorage.setItem('ygg_wsl_distro', wslDistro)
+  }, [wslDistro])
+
+  useEffect(() => {
+    // Tools are now initialized at store creation (store.ts)
+    // Only fetch the custom tools directory path for the UI
+    if (!isWebMode) {
+      localApi
+        .get<{ success?: boolean; directory?: string }>('/custom-tools/directory')
+        .then(data => {
+          if (data.success && data.directory) {
+            setCustomToolsPath(data.directory)
+          }
+        })
+        .catch(err => {
+          console.error('[ToolsSettings] Failed to fetch custom tools directory:', err)
+        })
+    }
+  }, [isWebMode])
+
+  const handleToggle = async (toolName: string, currentEnabled: boolean) => {
+    setUpdatingTools(prev => new Set(prev).add(toolName))
+
+    try {
+      await dispatch(
+        updateToolEnabled({
+          toolName,
+          enabled: !currentEnabled,
+        })
+      ).unwrap()
+    } catch (error) {
+      console.error('Failed to update tool:', error)
+    } finally {
+      setUpdatingTools(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(toolName)
+        return newSet
+      })
+    }
+  }
+
+  const handleOpenCustomToolsFolder = async () => {
+    setShowCustomToolsHelp(true)
+    // Also open the folder in the system file explorer
+    if (customToolsPath && window.electronAPI?.shell?.openPath) {
+      try {
+        await window.electronAPI.shell.openPath(customToolsPath)
+      } catch (err) {
+        console.error('[ToolsSettings] Failed to open custom tools folder:', err)
+      }
+    }
+  }
+
+  const handleReloadTools = async () => {
+    setReloadingTools(true)
+    try {
+      const data = await localApi.post<{ success?: boolean }>('/custom-tools/reload')
+
+      if (data.success) {
+        // Refresh the tools list after reload
+        await dispatch(fetchCustomTools())
+        await dispatch(fetchTools())
+      }
+    } catch (err) {
+      console.error('[ToolsSettings] Failed to reload tools:', err)
+    } finally {
+      setReloadingTools(false)
+    }
+  }
+
+  if (!tools || tools.length === 0) {
+    return (
+      <div
+        className='text-sm text-gray-500 dark:text-gray-400'
+        style={sectionThemeColors ? { color: sectionThemeColors.bodyText } : undefined}
+      >
+        Loading tools...
+      </div>
+    )
+  }
+
+
+  const innerCardStyle = sectionThemeColors
+    ? {
+        backgroundColor: sectionThemeColors.innerCardBg,
+        borderColor: sectionThemeColors.innerCardBorder,
+      }
+    : undefined
+  const titleStyle = sectionThemeColors ? { color: sectionThemeColors.titleText } : undefined
+  const bodyStyle = sectionThemeColors ? { color: sectionThemeColors.bodyText } : undefined
+  const buttonStyle = sectionThemeColors
+    ? {
+        backgroundColor: sectionThemeColors.buttonBg,
+        borderColor: sectionThemeColors.buttonBorder,
+        color: sectionThemeColors.buttonText,
+      }
+    : undefined
+  const codeStyle = sectionThemeColors
+    ? {
+        backgroundColor: sectionThemeColors.codeBg,
+        color: sectionThemeColors.codeText,
+      }
+    : undefined
+
+
+  return (
+    <div className='space-y-4 pb-6'>
+
+      {/* WSL Configuration
+      {!isWebMode && (
+        <div className='pt-2 px-1'>
+          <TextField
+            label='WSL Distribution (Optional)'
+            placeholder='e.g. Ubuntu-20.04'
+            value={wslDistro}
+            onChange={setWslDistro}
+            helperText='Specify a WSL distribution to run tools within. Leave empty for default behavior.'
+          />
+        </div>
+      )} */}
+
+      {/* Keep disabled tools visible so they can always be re-enabled. */}
+      {!isWebMode && (
+        <div>
+          <div className='space-y-3'>
+            {/* Tool List Header */}
+            <div className='flex justify-end'>
+              <div className='flex items-center gap-2'>
+                <button
+                  type='button'
+                  onClick={handleReloadTools}
+                  disabled={reloadingTools}
+                  className='inline-flex items-center gap-1.5 rounded-full bg-white/60 px-3 py-1.5 text-xs text-stone-600 transition-[background-color,transform] duration-150 hover:bg-white/80 active:scale-[0.98] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 dark:bg-white/5 dark:text-stone-300 dark:hover:bg-white/10 dark:focus-visible:ring-orange-400/60 motion-reduce:transition-none'
+                  style={buttonStyle}
+                >
+                  <RefreshCw size={14} strokeWidth={2.25} aria-hidden='true' className={reloadingTools ? 'animate-spin motion-reduce:animate-none' : undefined} />
+                  {reloadingTools ? 'Reloading' : 'Reload'}
+                </button>
+                <button
+                  type='button'
+                  onClick={handleOpenCustomToolsFolder}
+                  className='inline-flex items-center gap-1.5 rounded-full bg-white/60 px-3 py-1.5 text-xs text-stone-600 transition-[background-color,transform] duration-150 hover:bg-white/80 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 dark:bg-white/5 dark:text-stone-300 dark:hover:bg-white/10 dark:focus-visible:ring-orange-400/60 motion-reduce:transition-none'
+                  style={buttonStyle}
+                >
+                  <Plus size={14} strokeWidth={2.25} aria-hidden='true' />
+                  Custom Apps
+                </button>
+              </div>
+            </div>
+
+            {/* Custom Tools Help View */}
+            {showCustomToolsHelp && (
+              <div className='mb-1 rounded-xl p-3 sm:mb-2 sm:rounded-2xl sm:p-4 lg:p-5' style={innerCardStyle}>
+                <div className='mb-2 flex items-start justify-between sm:mb-3 lg:mb-4'>
+                  <h4
+                    className='flex items-center gap-1.5 text-xs font-medium text-amber-800 sm:gap-2 sm:text-sm lg:text-[15px] dark:text-amber-200'
+                    style={titleStyle}
+                  >
+                    <svg
+                      className='w-4 h-4 sm:w-[18px] sm:h-[18px] lg:w-5 lg:h-5'
+                      fill='none'
+                      viewBox='0 0 24 24'
+                      stroke='currentColor'
+                      strokeWidth={2}
+                    >
+                      <path d='M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' />
+                    </svg>
+                    Creating Custom Tools
+                  </h4>
+                  <button
+                    onClick={() => setShowCustomToolsHelp(false)}
+                    className='rounded-lg p-1 transition-all duration-150 hover:bg-neutral-200 active:scale-95 active:bg-neutral-300 dark:hover:bg-neutral-700 dark:active:bg-neutral-700/90'
+                    style={buttonStyle}
+                  >
+                    <svg
+                      className='w-4 h-4 sm:w-[18px] sm:h-[18px] lg:w-5 lg:h-5'
+                      fill='none'
+                      viewBox='0 0 24 24'
+                      stroke='currentColor'
+                      strokeWidth={2}
+                    >
+                      <path d='M6 18L18 6M6 6l12 12' />
+                    </svg>
+                  </button>
+                </div>
+
+                <div
+                  className='space-y-2 text-[11px] text-amber-700 sm:space-y-3 sm:text-xs lg:space-y-4 lg:text-sm dark:text-neutral-400'
+                  style={bodyStyle}
+                >
+                  <p>Custom tools let you extend the AI's capabilities with your own functionality.</p>
+
+                  <div>
+                    <p className='mb-1 font-medium text-amber-800 sm:mb-2 dark:text-neutral-300' style={titleStyle}>
+                      Directory Structure:
+                    </p>
+                    <code
+                      className='block rounded-lg px-2 py-2 font-mono text-[10px] text-amber-800 sm:rounded-xl sm:px-3 sm:py-2.5 sm:text-[11px] lg:px-4 lg:py-3 lg:text-xs dark:text-neutral-400'
+                      style={codeStyle}
+                    >
+                      {customToolsPath || 'custom-tools/'}
+                      <br />
+                      &nbsp;&nbsp;my_tool/
+                      <br />
+                      &nbsp;&nbsp;&nbsp;&nbsp;definition.json
+                      <br />
+                      &nbsp;&nbsp;&nbsp;&nbsp;index.js
+                    </code>
+                  </div>
+
+                  <div>
+                    <p className='mb-1 font-medium text-amber-800 sm:mb-2 dark:text-neutral-300' style={titleStyle}>
+                      definition.json:
+                    </p>
+                    <code
+                      className='block overflow-x-auto whitespace-pre rounded-lg px-2 py-2 font-mono text-[10px] text-amber-800 sm:rounded-xl sm:px-3 sm:py-2.5 sm:text-[11px] lg:px-4 lg:py-3 lg:text-xs dark:text-neutral-400'
+                      style={codeStyle}
+                    >
+                      {`{
+  "name": "my_tool",
+  "enabled": true,
+  "description": "What this tool does",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "param1": { "type": "string" }
+    },
+    "required": ["param1"]
+  }
+}`}
+                    </code>
+                  </div>
+
+                  <div>
+                    <p className='mb-1 font-medium text-amber-800 sm:mb-2 dark:text-neutral-300' style={titleStyle}>
+                      index.js:
+                    </p>
+                    <code
+                      className='block overflow-x-auto whitespace-pre rounded-lg px-2 py-2 font-mono text-[10px] text-amber-800 sm:rounded-xl sm:px-3 sm:py-2.5 sm:text-[11px] lg:px-4 lg:py-3 lg:text-xs dark:text-neutral-400'
+                      style={codeStyle}
+                    >
+                      {`export async function execute(args, options) {
+  // Your tool logic here
+  return { success: true, result: "..." };
+}`}
+                    </code>
+                  </div>
+
+                  <div
+                    className='flex items-center gap-2 rounded-lg px-2 py-2 sm:gap-3 sm:rounded-xl sm:px-3 sm:py-2.5 lg:px-4 lg:py-3'
+                    style={codeStyle}
+                  >
+                    <svg
+                      className='w-4 h-4 sm:w-[18px] sm:h-[18px] lg:w-5 lg:h-5 text-amber-600 dark:text-amber-500 flex-shrink-0'
+                      fill='none'
+                      viewBox='0 0 24 24'
+                      stroke='currentColor'
+                      strokeWidth={2}
+                    >
+                      <path d='M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15' />
+                    </svg>
+                    <span className='font-medium text-amber-800 dark:text-amber-400' style={titleStyle}>
+                      Restart the app after adding or modifying custom tools.
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Separate tools by source; MCP metadata takes precedence over custom metadata. */}
+            {toolGroups.filter(group => group.tools.length > 0).map(group => (
+              <section key={group.title} aria-label={group.title} className='space-y-2 pb-2'>
+                <h3>
+                  <button
+                    type='button'
+                    aria-expanded={!collapsedGroups.has(group.title)}
+                    aria-controls={`${groupId}-${group.title.replace(/\s+/g, '-').toLowerCase()}`}
+                    onClick={() => setCollapsedGroups(prev => {
+                      const next = new Set(prev)
+                      if (next.has(group.title)) next.delete(group.title)
+                      else next.add(group.title)
+                      return next
+                    })}
+                    className='flex w-full items-center justify-between gap-3 rounded-lg text-left text-sm font-medium text-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 dark:text-neutral-200 dark:focus-visible:ring-orange-400/60'
+                    style={titleStyle}
+                  >
+                    <span>{group.title} ({group.tools.length})</span>
+                    <ChevronDown
+                      size={18}
+                      aria-hidden='true'
+                      className={`shrink-0 transition-transform duration-300 ease-in-out motion-reduce:transition-none ${collapsedGroups.has(group.title) ? '-rotate-90' : ''}`}
+                    />
+                  </button>
+                </h3>
+                <div
+                  id={`${groupId}-${group.title.replace(/\s+/g, '-').toLowerCase()}`}
+                  aria-hidden={collapsedGroups.has(group.title)}
+                  inert={collapsedGroups.has(group.title)}
+                  className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out motion-reduce:transition-none ${collapsedGroups.has(group.title) ? 'grid-rows-[0fr] opacity-0' : 'grid-rows-[1fr] opacity-100'}`}
+                >
+                  <div className='min-h-0 overflow-hidden'>
+                    <div className='space-y-1.5 px-1 pt-1'>
+                      {group.tools.map(tool => (
+                        <ToolSettingsRow
+                          key={tool.name}
+                          tool={tool}
+                          updating={updatingTools.has(tool.name)}
+                          onToggle={() => handleToggle(tool.name, tool.enabled)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Desktop App Feature Modal */}
+      {showDesktopModal &&
+        createPortal(
+          <div
+            className='fixed inset-0 z-[200] flex items-center justify-center'
+            onClick={() => setShowDesktopModal(false)}
+          >
+            <div className='absolute inset-0 bg-black/50' />
+            <div
+              className='relative bg-white dark:bg-neutral-900 rounded-xl sm:rounded-2xl lg:rounded-3xl shadow-[0_20px_40px_-15px_rgba(0,0,0,0.3)] dark:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.6)] border border-neutral-200 dark:border-white/10 max-w-md w-full mx-3 sm:mx-4 p-4 sm:p-5 lg:p-6'
+              onClick={e => e.stopPropagation()}
+            >
+              <div className='flex items-center justify-between mb-3 sm:mb-4'>
+                <h3 className='text-sm sm:text-base lg:text-lg font-medium text-neutral-800 dark:text-neutral-200'>
+                  Desktop App Feature
+                </h3>
+                <button
+                  onClick={() => setShowDesktopModal(false)}
+                  className='w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-neutral-400 dark:text-neutral-500 hover:text-neutral-600 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors'
+                >
+                  <svg
+                    className='w-4 h-4 sm:w-5 sm:h-5'
+                    fill='none'
+                    viewBox='0 0 24 24'
+                    stroke='currentColor'
+                    strokeWidth={2}
+                  >
+                    <path d='M6 18L18 6M6 6l12 12' />
+                  </svg>
+                </button>
+              </div>
+              <div className='text-neutral-600 dark:text-neutral-400 text-xs sm:text-sm space-y-2 sm:space-y-3 mb-4 sm:mb-6'>
+                <p>
+                  Agent tools and AI capabilities are available exclusively in the{' '}
+                  <strong className='text-neutral-800 dark:text-neutral-200'>Yggdrasil Desktop App</strong>.
+                </p>
+                <p>
+                  Download the desktop application to unlock advanced features including agent mode and tool execution.
+                </p>
+              </div>
+              <div className='flex justify-end'>
+                <button
+                  onClick={() => setShowDesktopModal(false)}
+                  className='px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl border border-neutral-300 dark:border-white/10 text-neutral-700 dark:text-neutral-300 text-xs sm:text-sm font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors'
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+    </div>
+  )
+}

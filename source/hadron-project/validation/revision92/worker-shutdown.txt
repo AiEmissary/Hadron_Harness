@@ -1,0 +1,12 @@
+Owned worker shutdown: C:\Users\rajka\AppData\Local\Temp\hadron-desktop-smoke-66I3Hm
+{
+  "success": true,
+  "actualOwnedChildren": 1,
+  "allChildrenClosed": true,
+  "repeatedQuitJoined": true,
+  "lateStarts": 0,
+  "logoutCalls": 0,
+  "elapsedMs": 673,
+  "realProviderRequests": 0,
+  "realCredentialsUsed": false
+}

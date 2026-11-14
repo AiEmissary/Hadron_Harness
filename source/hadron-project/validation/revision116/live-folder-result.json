@@ -1,0 +1,61 @@
+{
+  "success": true,
+  "maxModelRequests": 16,
+  "personalFilesChanged": false,
+  "credentialsReadOrCopied": false,
+  "signInOrOut": false,
+  "providers": [
+    {
+      "provider": "ChatGPT",
+      "model": "gpt-6.1-sol",
+      "actualFolderSearch": true,
+      "actualFileRead": true,
+      "randomMarkerMatched": true,
+      "activity": [
+        {
+          "tool": "project_search",
+          "state": "started"
+        },
+        {
+          "tool": "project_search",
+          "state": "completed"
+        },
+        {
+          "tool": "project_read",
+          "state": "started"
+        },
+        {
+          "tool": "project_read",
+          "state": "completed"
+        }
+      ]
+    },
+    {
+      "provider": "Claude",
+      "model": "sonnet",
+      "actualFolderSearch": true,
+      "actualFileRead": true,
+      "randomMarkerMatched": true,
+      "activity": [
+        {
+          "tool": "project_search",
+          "state": "started"
+        },
+        {
+          "tool": "project_search",
+          "state": "completed"
+        },
+        {
+          "tool": "project_read",
+          "state": "started"
+        },
+        {
+          "tool": "project_read",
+          "state": "completed"
+        }
+      ]
+    }
+  ],
+  "fixtureHash": "d83140ee91415fe6733da696ec77cd98a87192305389e2a3d7d3a3d6c11a1403",
+  "chatgptRequests": 3
+}

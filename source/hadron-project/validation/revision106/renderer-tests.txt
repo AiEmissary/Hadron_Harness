@@ -1,0 +1,12 @@
+
+ RUN  v2.1.9 C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r
+
+ ✓ src/features/collaboration/hadronPalettes.test.ts (2 tests) 5ms
+ ✓ src/features/collaboration/workflowDraft.test.ts (2 tests) 8ms
+ ✓ src/features/collaboration/projectOutcome.test.ts (4 tests) 5ms
+
+ Test Files  3 passed (3)
+      Tests  8 passed (8)
+   Start at  13:27:21
+   Duration  663ms (transform 119ms, setup 0ms, collect 194ms, tests 19ms, environment 1ms, prepare 488ms)
+

@@ -1,0 +1,14 @@
+{
+  "success": true,
+  "model": "gpt-5.6-luna",
+  "nativeRequests": 2,
+  "protocolReplies": [
+    "{\"tool\":\"web_read\",\"arguments\":{\"url\":\"https://example.com\"}}",
+    "{\"answer\":\"Title: **Example Domain**\\n\\nSource URL: **https://example.com/**\"}"
+  ],
+  "evidenceAttempts": 1,
+  "successfulReads": 1,
+  "answer": "Title: **Example Domain**\n\nSource URL: **https://example.com/**",
+  "realAccountUsed": true,
+  "gravitonAccess": false
+}

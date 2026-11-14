@@ -1,0 +1,18 @@
+{
+  "readOnlyInspection": true,
+  "graviton": {
+    "projects": 63,
+    "conversations": 356,
+    "messages": 58244,
+    "projectsWithConversations": 61,
+    "localConversationsRetrievedFromOriginalListener": 325
+  },
+  "collision": {
+    "port": 3002,
+    "wildcardOwner": "installed Graviton",
+    "specificLoopbackOwner": "old Hadron"
+  },
+  "repairPerformed": false,
+  "newHadronPort": 58535,
+  "userQuitOldHadronRequired": true
+}

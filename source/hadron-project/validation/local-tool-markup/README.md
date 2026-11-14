@@ -1,0 +1,13 @@
+# Raw native tool request accepted as an answer - local fix, 9 November 2026
+
+The latest independent Claude Sonnet job was saved as completed with an XML invoke request as its final response. Plain non-JSON text was allowed as a final answer by the host protocol, so malformed native tool markup could pass that fallback after earlier file operations. The displayed invocation was not executed; its appearance was not a permissions instruction for the user.
+
+The shared host tool conversation now detects native invocation markup in plain final text or a JSON answer. It instructs the model once to use the authorized JSON host tool protocol, within the original request budget. No XML is translated into an operation. Repeated malformed output stops with a useful error. A final-only malformed request cannot execute another operation and yields an explicitly limited evidence record only when supported. JSON tool arguments that contain literal XML search text are kept separate and still validated by the actual host tool. Structured file-change objects retain their existing validation.
+
+Old affected individual responses now say Tool request not completed, explain the error and collapse the technical response. They are not offered as a valid second opinion. Original DB records are retained for audit; they are not rewritten to claim a successful answer. The task was not retried on a paid account.
+
+55 tests passed (46 protocol/project reads, nine Claude adapter checks), production builds/typechecks and a native Electron single-agent Claude fixture passed. The fixture returned XML first, received a host correction, then requested a real selected README read through JSON and returned a readable evidence-based answer. The original budget and Stop checks remain. Installed startup diagnostic and all three DB integrity checks passed; all pre-update logical rows survive.
+
+Only local installed application resources changed. Installed EXE and Desktop installer hashes remain unchanged. The installed app is reopened. User retry: Regenerate answer on the affected saved response prepares the original question without inference; add the folder again because regeneration and restart do not inherit file authority, then Send to Agent A. Further failure to find recent data is a separate evidence issue, not fixed by inventing a report.
+
+Private rollback: Local-Test-Builds/access-VejhJY in the user's local Hadron data contains baseline-app.asar and baseline-localAnalyticsWorker.mjs. Restore application resources only with Hadron idle/closed; preserve current user databases. The corresponding online backup path is recorded privately in Local-Test-Backups/tool-markup-*.

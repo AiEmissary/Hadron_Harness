@@ -1,0 +1,4 @@
+
+> graviton@0.3.20 typecheck:server
+> tsc -p server/tsconfig.json --noEmit
+

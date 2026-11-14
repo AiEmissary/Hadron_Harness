@@ -1,0 +1,9 @@
+{
+  "success": false,
+  "root": "C:\\Users\\rajka\\AppData\\Local\\Temp\\hadron-installer-check-ArZABr",
+  "cleanWindows": false,
+  "scope": "Real NSIS current-user installation, same-version repair install and uninstall on this existing Windows host; isolated installation directory and diagnostic profile.",
+  "personalProfilesUsed": false,
+  "failure": "Test process failed: Hadron-Harness-0.4.11-win-x64.exe exit 3221225477 ",
+  "originalShortcutsRestored": true
+}

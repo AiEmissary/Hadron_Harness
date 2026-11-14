@@ -1,0 +1,246 @@
+import defaultOperationModesMarkdown from '../features/chats/prompts/default_operation_modes.md?raw'
+import defaultSubagentModePromptMarkdown from '../features/chats/prompts/default_subagent_mode.md?raw'
+
+// Settings edit conditional mode sections; inference always receives the combined baseline.
+const chatStart = defaultOperationModesMarkdown.indexOf('## Chat mode (plan) — conditional')
+const agentStart = defaultOperationModesMarkdown.indexOf('## Agent mode (execute) — conditional')
+const defaultChatModePromptMarkdown = defaultOperationModesMarkdown.slice(chatStart, agentStart)
+const defaultAgentModePromptMarkdown = defaultOperationModesMarkdown.slice(agentStart)
+
+const STORAGE_KEY = 'ygg_operation_mode_prompt_settings'
+
+export const OPERATION_MODE_PROMPT_SETTINGS_CHANGE_EVENT = 'ygg-operation-mode-prompt-settings-change'
+export const DEFAULT_CHAT_MODE_PROMPT_ID = 'default-chat-mode'
+export const DEFAULT_AGENT_MODE_PROMPT_ID = 'default-agent-mode'
+export const DEFAULT_SUBAGENT_MODE_PROMPT_ID = 'default-subagent-mode'
+
+export interface OperationModePrompt {
+  id: string
+  name: string
+  prompt: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface OperationModePromptSettings {
+  selectedChatPromptId: string
+  chatPrompts: OperationModePrompt[]
+  agentModePromptOverride: string | null
+  subagentModePromptOverride: string | null
+}
+
+const defaultChatPrompt: OperationModePrompt = {
+  id: DEFAULT_CHAT_MODE_PROMPT_ID,
+  name: 'Default Chat Mode',
+  prompt: defaultChatModePromptMarkdown.trim(),
+}
+
+const defaultAgentPrompt: OperationModePrompt = {
+  id: DEFAULT_AGENT_MODE_PROMPT_ID,
+  name: 'Default Agent Mode',
+  prompt: defaultAgentModePromptMarkdown.trim(),
+}
+
+const defaultSubagentPrompt: OperationModePrompt = {
+  id: DEFAULT_SUBAGENT_MODE_PROMPT_ID,
+  name: 'Default Subagent Mode',
+  prompt: defaultSubagentModePromptMarkdown.trim(),
+}
+
+const makeId = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `chat-prompt-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+const normalizePrompt = (prompt: Partial<OperationModePrompt> | null | undefined): OperationModePrompt | null => {
+  if (!prompt || typeof prompt !== 'object') return null
+  const id = typeof prompt.id === 'string' ? prompt.id.trim() : ''
+  const name = typeof prompt.name === 'string' ? prompt.name.trim() : ''
+  const content = typeof prompt.prompt === 'string' ? prompt.prompt.trim() : ''
+  if (!id || !name || !content || id === DEFAULT_CHAT_MODE_PROMPT_ID) return null
+  return {
+    id,
+    name,
+    prompt: content,
+    createdAt: typeof prompt.createdAt === 'string' ? prompt.createdAt : undefined,
+    updatedAt: typeof prompt.updatedAt === 'string' ? prompt.updatedAt : undefined,
+  }
+}
+
+const normalizeSettings = (settings: Partial<OperationModePromptSettings> | null | undefined): OperationModePromptSettings => {
+  const seen = new Set<string>()
+  const chatPrompts = Array.isArray(settings?.chatPrompts)
+    ? settings.chatPrompts.reduce<OperationModePrompt[]>((acc, rawPrompt) => {
+        const prompt = normalizePrompt(rawPrompt)
+        if (!prompt || seen.has(prompt.id)) return acc
+        seen.add(prompt.id)
+        acc.push(prompt)
+        return acc
+      }, [])
+    : []
+
+  const selectedCandidate = typeof settings?.selectedChatPromptId === 'string' ? settings.selectedChatPromptId : ''
+  const selectedChatPromptId =
+    selectedCandidate === DEFAULT_CHAT_MODE_PROMPT_ID || chatPrompts.some(prompt => prompt.id === selectedCandidate)
+      ? selectedCandidate
+      : DEFAULT_CHAT_MODE_PROMPT_ID
+
+  return {
+    selectedChatPromptId,
+    chatPrompts,
+    agentModePromptOverride:
+      typeof settings?.agentModePromptOverride === 'string' && settings.agentModePromptOverride.trim()
+        ? settings.agentModePromptOverride.trim()
+        : null,
+    subagentModePromptOverride:
+      typeof settings?.subagentModePromptOverride === 'string' && settings.subagentModePromptOverride.trim()
+        ? settings.subagentModePromptOverride.trim()
+        : null,
+  }
+}
+
+export function getDefaultChatModePrompt(): OperationModePrompt {
+  return { ...defaultChatPrompt }
+}
+
+export function getDefaultAgentModePrompt(): OperationModePrompt {
+  return { ...defaultAgentPrompt }
+}
+
+export function getDefaultSubagentModePrompt(): OperationModePrompt {
+  return { ...defaultSubagentPrompt }
+}
+
+export function loadOperationModePromptSettings(): OperationModePromptSettings {
+  try {
+    if (typeof localStorage === 'undefined') {
+      return normalizeSettings(null)
+    }
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (!stored) return normalizeSettings(null)
+    return normalizeSettings(JSON.parse(stored) as Partial<OperationModePromptSettings>)
+  } catch {
+    return normalizeSettings(null)
+  }
+}
+
+export function saveOperationModePromptSettings(settings: Partial<OperationModePromptSettings>): OperationModePromptSettings {
+  const normalized = normalizeSettings(settings)
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized))
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(OPERATION_MODE_PROMPT_SETTINGS_CHANGE_EVENT, { detail: normalized }))
+    }
+  } catch (error) {
+    console.error('[OperationModePromptStorage] Failed to save settings:', error)
+  }
+  return normalized
+}
+
+export function getActiveChatModePrompt(): OperationModePrompt {
+  const settings = loadOperationModePromptSettings()
+  if (settings.selectedChatPromptId === DEFAULT_CHAT_MODE_PROMPT_ID) {
+    return getDefaultChatModePrompt()
+  }
+  return settings.chatPrompts.find(prompt => prompt.id === settings.selectedChatPromptId) ?? getDefaultChatModePrompt()
+}
+
+export function getAgentModePrompt(): OperationModePrompt {
+  const override = loadOperationModePromptSettings().agentModePromptOverride
+  return override ? { ...defaultAgentPrompt, prompt: override } : getDefaultAgentModePrompt()
+}
+
+export function getSubagentModePrompt(): OperationModePrompt {
+  const override = loadOperationModePromptSettings().subagentModePromptOverride
+  return override ? { ...defaultSubagentPrompt, prompt: override } : getDefaultSubagentModePrompt()
+}
+
+export function saveAgentModePromptOverride(prompt: string): OperationModePromptSettings {
+  const settings = loadOperationModePromptSettings()
+  return saveOperationModePromptSettings({ ...settings, agentModePromptOverride: prompt })
+}
+
+export function resetAgentModePromptOverride(): OperationModePromptSettings {
+  const settings = loadOperationModePromptSettings()
+  return saveOperationModePromptSettings({ ...settings, agentModePromptOverride: null })
+}
+
+export function saveSubagentModePromptOverride(prompt: string): OperationModePromptSettings {
+  const settings = loadOperationModePromptSettings()
+  return saveOperationModePromptSettings({ ...settings, subagentModePromptOverride: prompt })
+}
+
+export function resetSubagentModePromptOverride(): OperationModePromptSettings {
+  const settings = loadOperationModePromptSettings()
+  return saveOperationModePromptSettings({ ...settings, subagentModePromptOverride: null })
+}
+
+export function addChatModePrompt(name: string, prompt: string): OperationModePromptSettings {
+  const settings = loadOperationModePromptSettings()
+  const now = new Date().toISOString()
+  const nextPrompt: OperationModePrompt = {
+    id: makeId(),
+    name: name.trim() || 'Custom Chat Mode Prompt',
+    prompt: prompt.trim() || defaultChatPrompt.prompt,
+    createdAt: now,
+    updatedAt: now,
+  }
+  return saveOperationModePromptSettings({
+    ...settings,
+    selectedChatPromptId: nextPrompt.id,
+    chatPrompts: [...settings.chatPrompts, nextPrompt],
+  })
+}
+
+export function updateChatModePrompt(id: string, patch: Partial<Pick<OperationModePrompt, 'name' | 'prompt'>>): OperationModePromptSettings {
+  if (id === DEFAULT_CHAT_MODE_PROMPT_ID) return loadOperationModePromptSettings()
+  const settings = loadOperationModePromptSettings()
+  const chatPrompts = settings.chatPrompts.map(prompt =>
+    prompt.id === id
+      ? {
+          ...prompt,
+          name: typeof patch.name === 'string' && patch.name.trim() ? patch.name.trim() : prompt.name,
+          prompt: typeof patch.prompt === 'string' && patch.prompt.trim() ? patch.prompt.trim() : prompt.prompt,
+          updatedAt: new Date().toISOString(),
+        }
+      : prompt
+  )
+  return saveOperationModePromptSettings({ ...settings, chatPrompts })
+}
+
+export function deleteChatModePrompt(id: string): OperationModePromptSettings {
+  if (id === DEFAULT_CHAT_MODE_PROMPT_ID) return loadOperationModePromptSettings()
+  const settings = loadOperationModePromptSettings()
+  const chatPrompts = settings.chatPrompts.filter(prompt => prompt.id !== id)
+  const selectedChatPromptId =
+    settings.selectedChatPromptId === id ? DEFAULT_CHAT_MODE_PROMPT_ID : settings.selectedChatPromptId
+  return saveOperationModePromptSettings({ selectedChatPromptId, chatPrompts })
+}
+
+export function selectChatModePrompt(id: string): OperationModePromptSettings {
+  const settings = loadOperationModePromptSettings()
+  const selectedChatPromptId =
+    id === DEFAULT_CHAT_MODE_PROMPT_ID || settings.chatPrompts.some(prompt => prompt.id === id)
+      ? id
+      : DEFAULT_CHAT_MODE_PROMPT_ID
+  return saveOperationModePromptSettings({ ...settings, selectedChatPromptId })
+}
+
+export function resetChatModePromptSelectionToDefault(): OperationModePromptSettings {
+  const settings = loadOperationModePromptSettings()
+  return saveOperationModePromptSettings({ ...settings, selectedChatPromptId: DEFAULT_CHAT_MODE_PROMPT_ID })
+}
+
+/** Stable across mode switches; saved overrides retain their conditional scope. */
+export function getCombinedOperationModePrompt(): string {
+  const shared = defaultOperationModesMarkdown.slice(0, chatStart).trim()
+  return [
+    shared,
+    '## Chat mode (plan) — applies only while Chat mode is active\n\n' + getActiveChatModePrompt().prompt,
+    '## Agent mode (execute) — applies only while Agent mode is active\n\n' + getAgentModePrompt().prompt,
+  ].join('\n\n')
+}

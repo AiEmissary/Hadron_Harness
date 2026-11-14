@@ -1,0 +1,109 @@
+{
+  "electronVersion": "38.8.4",
+  "appId": "com.hadron.harness",
+  "icon": "public/img/hadron.ico",
+  "productName": "The Hadron Harness",
+  "directories": {
+    "output": "release"
+  },
+  "artifactName": "Hadron-Harness-${version}-${os}-${arch}.${ext}",
+  "files": [
+    "dist-electron/**/*",
+    "electron/main.mjs",
+    "electron/preload.mjs",
+    "electron/toolRuntimeUtility.mjs",
+    "electron/localAnalyticsWorker.mjs",
+    "src/features/chats/prompts/*.md",
+    "server/headlessServer/ui/mobile/**/*",
+    "server/headlessServer/routes/**/*.html"
+  ],
+  "asarUnpack": [
+    "electron/localAnalyticsWorker.mjs",
+    "**/node_modules/better-sqlite3/**/*",
+    "**/node_modules/bindings/**/*",
+    "**/node_modules/file-uri-to-path/**/*",
+    "**/node_modules/electron-updater/**/*",
+    "**/node_modules/node-pty/**/*",
+    "**/node_modules/sqlite-vec/**/*",
+    "**/node_modules/sqlite-vec-*/*",
+    "**/node_modules/@sqlite/vec/**/*",
+    "**/node_modules/@sqlite/vec-*/*",
+    "**/node_modules/keytar/**/*"
+  ],
+  "extraResources": [
+    {
+      "from": "hadron-tools",
+      "to": "hadron-tools"
+    },
+    {
+      "from": "hadron-tools/TOOL_DEVELOPMENT.md",
+      "to": "custom-tools/CUSTOM_TOOLS_GUIDE.md"
+    },
+    {
+      "from": ".ygg/custom-themes",
+      "to": ".ygg/custom-themes"
+    },
+    {
+      "from": "../../../../distribution/licences",
+      "to": "licences"
+    }
+  ],
+  "win": {
+    "extraResources": [
+      {
+        "from": "vendor/hadron-worker",
+        "to": "hadron-worker",
+        "filter": [
+          "HadronWorkerHost.exe",
+          "build.json"
+        ]
+      }
+    ],
+    "target": [
+      "nsis"
+    ],
+    "icon": "public/img/hadron.ico"
+  },
+  "mac": {
+    "target": [
+      "dmg",
+      "zip"
+    ],
+    "category": "public.app-category.productivity",
+    "icon": "public/img/graviton-dark.icns"
+  },
+  "linux": {
+    "target": [
+      {
+        "target": "deb",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "category": "Office",
+    "icon": "public/img/graviton-dark.png",
+    "maintainer": "YggChat <support@yggchat.com>"
+  },
+  "beforePack": "scripts/runtime-packaging.mjs",
+  "afterPack": "scripts/verify-packaged.mjs",
+  "npmRebuild": false,
+  "nativeRebuilder": "sequential",
+  "publish": null,
+  "nsis": {
+    "createDesktopShortcut": true,
+    "shortcutName": "The Hadron Harness",
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "deleteAppDataOnUninstall": false,
+    "include": "build/hadron-installer.nsh"
+  },
+  "extraMetadata": {
+    "name": "hadron-harness",
+    "version": "6.0.2",
+    "description": "Hadron Harness: local multi-agent workspace",
+    "author": "Hadron Harness",
+    "homepage": ""
+  }
+}

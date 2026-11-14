@@ -1,0 +1,33 @@
+{
+  "revision": 67,
+  "date": "2026-11-06",
+  "rendererTestsPassed": 69,
+  "builds": [
+    "renderer7477modules",
+    "electron-main",
+    "mobile"
+  ],
+  "newTreeViews": [
+    "Current task",
+    "All workspace chats"
+  ],
+  "newTaskDefault": "Current task",
+  "viewSwitchInferenceRequests": 0,
+  "newCollaboration": {
+    "visibleBesideSharedTask": true,
+    "clearsQuestion": true,
+    "keepsModels": true,
+    "fileChoice": [
+      "keep",
+      "remove",
+      "cancel"
+    ],
+    "preparationInferenceRequests": 0
+  },
+  "sessionActionGapPx": 16,
+  "desktop": "synthetic only;9 independent turns,5 shared requests,14 journals, both project-list chats restored",
+  "restart": "scope, selected branch and saved combined answer restored;zero inference replay",
+  "isolatedUi": "keep/remove attachments,question focus,PDF/DOCX,draft/file isolation,mobile and auth controls;zero fetches",
+  "userAcceptance": "pending normal Hadron Quit/reopen",
+  "installedGravitonChanges": false
+}

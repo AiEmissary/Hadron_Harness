@@ -1,0 +1,5 @@
+# Revision86 evidence
+
+Pinned actual profile identity and path policy tested against real temporary junctions, hard links, root replacement, path escapes and private CRUD during a held project scope. Late external theme override and linked templates are refused. An actual destination hard-link insertion at exclusive copy is rejected without modifying its external file. Parallel initialization remains usable. Final policy/startup18 and inherited themes5 passed. Full server456 passed/5 skipped before the final two new tests; those independently pass in the final focused run. No failed final checks.
+
+Server/Electron/mobile typechecks and main/mobile builds passed. Four built startup cases and the real desktop synthetic proposal fixture passed. The production writer remains denied. Ordinary unrelated external filesystem races and other private stores are not certified by this increment. No personal source files or installed Graviton were modified, and no real provider request was made by the fixtures. Raw logs remain in the workspace validation folder.

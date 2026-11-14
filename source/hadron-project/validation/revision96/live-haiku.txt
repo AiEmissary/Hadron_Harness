@@ -1,0 +1,6 @@
+Real Claude Haiku subscription acceptance: success.
+Pinned Claude Code2.1.318; Hadron's existing separate profile.
+Official safe-mode/restricted, no tools, no MCP, no Chrome or persisted CLI session.
+Exit0, one init, one result, tools0. Expected HADRON_CLAUDE_OK returned.
+Native job joined. No sign-in/out or personal project changes.
+An earlier --bare attempt failed at authentication: the vendor explicitly disables OAuth in bare mode. Corrected to --safe-mode; API keys were not requested or used.

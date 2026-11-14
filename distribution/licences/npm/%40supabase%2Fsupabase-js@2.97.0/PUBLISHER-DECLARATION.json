@@ -1,0 +1,12 @@
+{
+  "name": "@supabase/supabase-js",
+  "version": "2.97.0",
+  "license": "MIT",
+  "author": "Supabase",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/supabase/supabase-js.git",
+    "directory": "packages/core/supabase-js"
+  },
+  "source": "https://registry.npmjs.org/%40supabase%2Fsupabase-js/2.97.0"
+}

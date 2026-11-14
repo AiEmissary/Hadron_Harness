@@ -1,0 +1,148 @@
+// src/components/TextField.tsx
+import 'boxicons'
+import 'boxicons/css/boxicons.min.css'
+import React, { useState } from 'react'
+
+interface TextFieldProps {
+  label?: string
+  placeholder?: string
+  value?: string
+  onChange?: (value: string) => void
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void
+  type?: 'text' | 'email' | 'password' | 'number'
+  disabled?: boolean
+  error?: string
+  helperText?: string
+  required?: boolean
+  size?: 'small' | 'medium' | 'large'
+  className?: string
+  showSearchIcon?: boolean
+  onSearchClick?: () => void
+  autoFocus?: boolean
+  style?: React.CSSProperties
+}
+
+export const TextField: React.FC<TextFieldProps> = ({
+  label,
+  placeholder,
+  value,
+  onChange,
+  onKeyDown,
+  type = 'text',
+  disabled = false,
+  error,
+  helperText,
+  required = false,
+  size = 'medium',
+  className = '',
+  showSearchIcon = false,
+  onSearchClick,
+  autoFocus = false,
+  style,
+}) => {
+  // We'll use internal state if no value/onChange is provided (uncontrolled component)
+  const [internalValue, setInternalValue] = useState('')
+
+  // Determine if this is a controlled or uncontrolled component
+  const isControlled = value !== undefined
+  const inputValue = isControlled ? value : internalValue
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value
+
+    if (isControlled && onChange) {
+      onChange(newValue)
+    } else {
+      setInternalValue(newValue)
+    }
+  }
+
+  // Base input styles that apply to all text fields
+  const baseInputStyles =
+    'w-full px-4 md:px-3.5 lg:px-3 xl:px-2.5 py-1.75 sm:py-1.5 md:py-1.75 lg:py-2 xl:py-2.5 2xl:py-2.25 rounded-xl transition-all duration-200 overflow-hidden acrylic-ultra-light bg-gray-800 text-neutral-700 dark:text-stone-200 placeholder-black dark:placeholder-neutral-200 border-1 border-gray-300 outline-none focus:border-gray-400 dark:border-neutral-600 dark:focus:border-neutral-500 shadow-md'
+
+  // Size variants control padding and text size
+  const sizeStyles = {
+    small:
+      'px-3 md:px-2.5 lg:px-2 xl:px-1.5 py-1.5 md:py-1 lg:py-2 xl:py-0.5 text-[14px] md:text-[14px] lg:text-[14px] xl:text-[14px] 2xl:text-[16px]',
+    medium:
+      'px-4 sm:py-3 md:px-3.5 lg:px-4 xl:px-2.5 py-2 md:py-3 lg:py-1 xl:py-3 text-[14px] sm:text-[14px] md:text-[14px] lg:text-[14px] 2xl:text-[16px] 3xl:text-[18px] ',
+    large:
+      'px-5 md:px-4 lg:px-3.5 xl:px-3 py-3 md:py-2.5 lg:py-2 xl:py-1.5 text-lg md:text-base lg:text-sm xl:text-[16px] 2xl:text-[18px]',
+  }
+
+  // State-based styles change based on error state and disabled state
+  const stateStyles = error
+    ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
+    : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+
+  const disabledStyles = disabled ? 'bg-gray-100 cursor-not-allowed opacity-60' : 'bg-white'
+
+  // Combine all input styles
+  const inputClasses = `
+    ${baseInputStyles}
+    ${sizeStyles[size]}
+    ${stateStyles}
+    ${disabledStyles}
+    ${showSearchIcon ? 'pr-10' : ''}
+    ${className}
+  `.trim()
+
+  // Label styles with required indicator
+  const labelStyles =
+    'block text-base md:text-sm lg:text-xs xl:text-[11px] 2xl:text-[13px] font-medium text-gray-700 dark:text-gray-300 mb-2 md:mb-1.5 lg:mb-1 xl:mb-1'
+
+  return (
+    <div className='w-full'>
+      {/* Label section - only show if label is provided */}
+      {label && (
+        <label className={labelStyles}>
+          {label}
+          {required && <span className='text-red-500 ml-1'>*</span>}
+        </label>
+      )}
+
+      {/* Input field with optional end adornment */}
+      <div className='relative'>
+        <input
+          type={type}
+          value={inputValue}
+          onChange={handleChange}
+          onKeyDown={onKeyDown}
+          placeholder={placeholder}
+          disabled={disabled}
+          required={required}
+          autoFocus={autoFocus}
+          className={inputClasses}
+          style={style}
+        />
+        {showSearchIcon && (
+          <button
+            type='button'
+            onClick={onSearchClick}
+            disabled={disabled}
+            aria-label='Search'
+            className='absolute right-3 md:right-2.5 lg:right-2 xl:right-1.5 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-700 dark:text-neutral-300 dark:hover:text-neutral-100 focus:outline-none'
+          >
+            <i
+              className='bx bx-search text-xl md:text-lg lg:text-base xl:text-md pt-1.5 md:pt-1 lg:pt-0.5 xl:pt-2'
+              aria-hidden='true'
+            ></i>
+          </button>
+        )}
+      </div>
+
+      {/* Helper text or error message */}
+      {error && (
+        <p className='mt-1 md:mt-0.5 lg:mt-0.5 xl:mt-0 text-sm md:text-xs lg:text-xs xl:text-[10px] text-red-600'>
+          {error}
+        </p>
+      )}
+      {!error && helperText && (
+        <p className='mt-1 md:mt-0.5 lg:mt-0.5 xl:mt-0 text-sm md:text-xs lg:text-xs xl:text-[10px] text-gray-500'>
+          {helperText}
+        </p>
+      )}
+    </div>
+  )
+}

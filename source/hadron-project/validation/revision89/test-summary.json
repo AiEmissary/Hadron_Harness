@@ -1,0 +1,14 @@
+{
+  "numPassedTests": 476,
+  "numFailedTests": 0,
+  "numPendingTests": 5,
+  "numPassedTestSuites": 84,
+  "numFailedTestSuites": 0,
+  "focusedTests": 38,
+  "serverTypecheck": true,
+  "electronMobileTypecheckAndBuild": true,
+  "nativeWindowsEncryptionRestart": true,
+  "realCredentialsUsed": false,
+  "realProviderRequests": 0,
+  "projectEditingEnabled": false
+}

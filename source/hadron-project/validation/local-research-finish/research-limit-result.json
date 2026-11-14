@@ -1,0 +1,13 @@
+{
+  "success": true,
+  "modelsKeptResearchingThroughLastRequest": true,
+  "sevenOperationsThenFinalOnly": true,
+  "budgetNotIncreased": true,
+  "partialEvidencePreserved": true,
+  "bothPeerReviewsCompleted": true,
+  "combinedAnswerCompleted": true,
+  "partialWarningVisible": true,
+  "historyRefreshesAtTerminal": true,
+  "realProviderRequests": 0,
+  "signInProtocolPreserved": true
+}

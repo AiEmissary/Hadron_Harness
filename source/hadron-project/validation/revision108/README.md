@@ -1,0 +1,14 @@
+# Revision 108 evidence
+
+Windows preview 0.4.8 replaces inherited desktop Settings with five actual Hadron groups: Appearance, Connections, Agents and tools, Saved data, and Setup. Inapplicable Chat/Agent prompt modes, legacy providers/defaults, memory/LM Studio, context/timeouts, HTML cache, browser DevTools, remote access and ownership migration controls are absent. The legacy component never mounts in Hadron. Actual subscription controls, bounded helper preference, tool library, optional secure Brave Search key, 30-day Recycle Bin and local setup checks remain. No stored accounts, preferences or chats were deleted.
+
+Appearance groups palette, light/dark/system mode, automatic/high-contrast/custom workspace text colours, fonts and backgrounds. The right-pane palette dropdown is removed. Display mode now follows subsequent system changes. Uploading a video selects video mode; resetting restores actual backdrop colours; asynchronous gallery removals are awaited and failures surfaced. The inherited giant theme editor for unused widgets is not exposed. Detailed decisions: SETTINGS_REVIEW.md.
+
+Independent jobs now offer Get a second opinion beside a completed answer. A modal asks the other agent for a brief text evaluation, shows a working indicator, saves it separately and closes back to the original agent without changing its draft or branch. Opening/reopening does not dispatch inference; review recovery identities are separate from the other agent's normal job. Only a bounded, explicitly excerpted text snapshot is shared; no sibling chats, attached files or tool/folder authority. This is not independent verification or an instruction to implement changes.
+
+Passed: 14 focused renderer/controller tests; renderer/main/mobile typechecks and production builds; a native Settings audit including palette/text/display persistence, actual helper preference, library read, secure-key status/form without secret writes, 30-day bin, setup, font validation/application and backdrop reset; a separate actual modal test with two synthetic requests confirming waiting status, original draft/branch retention and no resend on reopen; packaged 0.4.8 startup/Settings/native-bridge checks. Paid provider calls, live search/credential writes, full installed-upgrade and separate clean-PC testing were not repeated. Earlier release qualifications remain.
+
+Installer, source archive, How to use Hadron and clean-PC kit are updated. Source revision: 59192e78d3d65ae74346443a3cdc0bb2e2d3fac3. Tests used private fixture profiles; the user's app was not forcibly closed. Completely quit and reopen the development shortcut, or install the new executable for an installed copy.
+
+Hadron-Harness-0.4.8-win-x64.exe: 370850170 bytes; SHA-256 f99872774da2e49515b9dc26846d22124906e18350cf5a3bb1e2665083283205
+Hadron-Harness-0.4.8-source.zip: 8059610 bytes; SHA-256 1f2748a1009ef370beb2ab5f3498d36c8e5915e562c580875d44fdabc9b2bc0a

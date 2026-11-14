@@ -1,0 +1,15 @@
+
+> graviton@0.3.20 test:renderer
+> vitest run --config vitest.renderer.config.ts src/features/collaboration/client.test.ts src/features/collaboration/setup.test.ts src/components/CollaborationPanel/CollaborationPanel.test.tsx
+
+
+ RUN  v2.1.9 C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r
+
+ ✓ src/features/collaboration/setup.test.ts (3 tests) 7ms
+ ✓ src/features/collaboration/client.test.ts (9 tests) 32ms
+ ✓ src/components/CollaborationPanel/CollaborationPanel.test.tsx (5 tests) 22ms
+
+ Test Files  3 passed (3)
+      Tests  17 passed (17)
+   Start at  16:41:34
+   Duration  1.62s (transform 448ms, setup 0ms, collect 1.05s, tests 61ms, environment 1ms, prepare 640ms)

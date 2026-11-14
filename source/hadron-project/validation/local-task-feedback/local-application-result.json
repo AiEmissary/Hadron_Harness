@@ -1,0 +1,31 @@
+{
+  "success": true,
+  "databases": [
+    {
+      "database": "local-sync.db",
+      "tablesCompared": 30,
+      "baselineLogicalRows": 1301,
+      "missingOrChangedRows": {},
+      "integrity": "ok"
+    },
+    {
+      "database": "hadron-project-builds.db",
+      "tablesCompared": 15,
+      "baselineLogicalRows": 46,
+      "missingOrChangedRows": {},
+      "integrity": "ok"
+    },
+    {
+      "database": "hadron-continuous-chat.db",
+      "tablesCompared": 6,
+      "baselineLogicalRows": 161,
+      "missingOrChangedRows": {},
+      "integrity": "ok"
+    }
+  ],
+  "installedExecutableUnchanged": true,
+  "desktopInstallerUnchanged": true,
+  "installedArchiveSha256": "2ec9993d0abaf6abe4246396fe683bfef556e485c06941600f890710fc65ffd4",
+  "installerRebuilt": false,
+  "realProviderRequestsByValidation": 0
+}

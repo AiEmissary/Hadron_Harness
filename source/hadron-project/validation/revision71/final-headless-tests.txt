@@ -1,0 +1,27 @@
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ server/headlessServer/persistence/__tests__/collaborationRepo.test.ts (16 tests) 159ms
+(node:15304) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ server/headlessServer/persistence/__tests__/collaborationMigration.test.ts (4 tests) 30ms
+(node:13544) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:71656) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:83088) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ server/headlessServer/services/__tests__/proposalSessionService.test.ts (21 tests) 1048ms
+ ✓ server/headlessServer/services/__tests__/collaborationReview.test.ts (12 tests) 3821ms
+   ✓ executes independent proposals, both canonical cross-reviews and one final using A, with durable logs and no replay 704ms
+   ✓ Stop during reviews drains owned work and never publishes a final answer 436ms
+   ✓ Stop during synthesis drains owned work and never publishes a final answer 372ms
+   ✓ preserves proposals on review failure, does not synthesize or retry, and startup interrupts without replay 352ms
+   ✓ expires during cross-review, drains the pair and retains the initial proposals 594ms
+   ✓ verifies only after both reviews, persists actual host receipts independently of model claims, and never replays 329ms
+ ✓ server/headlessServer/routes/__tests__/collaborationRoutes.test.ts (17 tests) 6846ms
+   ✓ internal collaboration HTTP routes with real proposal service/SQLite > detaches on disconnect without cancelling inference and reconnects without a new launch 4030ms
+   ✓ internal collaboration HTTP routes with real proposal service/SQLite > closes idle replay after access revocation without cancelling the owned run 1076ms
+
+ Test Files  7 passed (7)
+      Tests  76 passed (76)
+   Start at  16:39:20
+   Duration  15.27s (transform 14.16s, setup 0ms, collect 29.59s, tests 11.92s, environment 3ms, prepare 2.31s)

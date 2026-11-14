@@ -1,0 +1,18 @@
+{
+  "success": true,
+  "mixedProviders": true,
+  "independentVisibleFolderAction": true,
+  "sharedNativeFolderPicker": true,
+  "bothProposalsReadFolder": true,
+  "bothCrossReviewsReadFolder": true,
+  "verificationReadsFolder": true,
+  "hostFolderEvidence": true,
+  "folderActivityVisible": true,
+  "folderKeptForNextTask": true,
+  "sharedFolderRemoved": true,
+  "noInferenceOnSelection": true,
+  "projectWrites": 0,
+  "shellCommands": 0,
+  "realProviderRequests": 0,
+  "signInProtocolPreserved": true
+}

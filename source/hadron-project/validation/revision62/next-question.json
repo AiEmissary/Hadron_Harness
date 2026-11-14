@@ -1,0 +1,11 @@
+{
+  "success": true,
+  "independentJobs": 2,
+  "sharedSessions": 1,
+  "separateResponses": true,
+  "nextTaskEditable": true,
+  "followUpEditable": true,
+  "journalFiles": 4,
+  "realCredentialsUsed": false,
+  "syntheticInference": true
+}

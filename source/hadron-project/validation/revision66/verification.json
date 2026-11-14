@@ -1,0 +1,30 @@
+{
+  "revision": 66,
+  "date": "2026-11-06",
+  "focusedHeadlessTestsPassed": 85,
+  "rendererTestsPassed": 67,
+  "identityTestsPassed": 8,
+  "builds": [
+    "renderer",
+    "electron-main",
+    "mobile"
+  ],
+  "serverTypecheck": "passed",
+  "desktopInference": "synthetic only; no real credentials or account requests",
+  "workflow": {
+    "proposals": 2,
+    "crossReviews": 2,
+    "syntheses": 1,
+    "maximumRequests": 5,
+    "journalFiles": 14
+  },
+  "savedChatNavigation": {
+    "projectListAgentAAndB": "passed",
+    "openingInferenceRequests": 0,
+    "nestedHistoricalScopes": "unit tests passed",
+    "restartInferenceRequests": 0
+  },
+  "ownProfileChecks": "OS-assigned non-legacy port, appId/PID and own database passed",
+  "userAcceptance": "pending normal Hadron Quit/reopen, existing project chats and new ChatGPT collaboration",
+  "scope": "Hadron checkout and project documents only; user Hadron database read-only inspection; installed Graviton untouched this pass"
+}

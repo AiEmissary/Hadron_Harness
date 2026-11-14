@@ -1,0 +1,23 @@
+{
+  "dataDir": "C:\\Users\\rajka\\AppData\\Local\\Temp\\hadron-startup-oKUNvO",
+  "electron": "38.8.4",
+  "pid": 8796,
+  "health": {
+    "status": "ok",
+    "mode": "local-sync",
+    "pid": 8796
+  },
+  "port": 64114,
+  "schemaVersion": 7,
+  "tables": [
+    {
+      "name": "hadron_participants"
+    },
+    {
+      "name": "hadron_sessions"
+    }
+  ],
+  "shutdown": "closed",
+  "success": true,
+  "blockedNetwork": []
+}

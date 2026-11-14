@@ -1,0 +1,38 @@
+
+> graviton@0.3.20 test:server
+> vitest run --config vitest.server.config.ts server/__tests__/hadronExternalLaunch.test.ts server/__tests__/hadronExecutionStartup.test.ts
+
+
+ RUN  v2.1.9 C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r
+
+(node:45360) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ server/__tests__/hadronExternalLaunch.test.ts (17 tests) 147ms
+stdout | server/__tests__/hadronExecutionStartup.test.ts > holds persisted pending jobs unchanged and marks lost running work without executing any handler
+[ToolOrchestrator] Database schema initialized
+[ToolOrchestrator] Loaded 0 pending jobs from database
+[ToolOrchestrator] Initialized with config: {
+  concurrencyLimit: 5,
+  defaultTimeoutMs: 300000,
+  completedJobRetentionMs: 3600000,
+  persistJobs: true
+}
+[ToolOrchestrator] Shutdown complete
+[ToolOrchestrator] Database schema initialized
+[ToolOrchestrator] Loaded 2 pending jobs from database
+[ToolOrchestrator] Initialized with config: {
+  concurrencyLimit: 5,
+  defaultTimeoutMs: 300000,
+  completedJobRetentionMs: 3600000,
+  persistJobs: true
+}
+[ToolOrchestrator] Shutdown complete
+[ToolOrchestrator] Shutdown complete
+
+ ✓ server/__tests__/hadronExecutionStartup.test.ts (8 tests) 189ms
+
+ Test Files  2 passed (2)
+      Tests  25 passed (25)
+   Start at  11:10:50
+   Duration  995ms (transform 159ms, setup 0ms, collect 389ms, tests 336ms, environment 1ms, prepare 369ms)
+

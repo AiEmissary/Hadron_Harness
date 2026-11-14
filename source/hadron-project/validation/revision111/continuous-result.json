@@ -1,0 +1,18 @@
+{
+  "success": true,
+  "twentyBudgetedRequests": true,
+  "extendedToFortyRequests": true,
+  "compactedMemoryVisible": true,
+  "savedStatusMatchesLiveState": true,
+  "fullOriginalRepliesRetained": true,
+  "userInjectionAtBoundary": true,
+  "pauseAndStop": true,
+  "workingIndicatorAndElapsedTime": true,
+  "stoppedTurnNotWaiting": true,
+  "threePanePlacement": true,
+  "savedForColdReopen": true,
+  "sidebarSavedTaskLinks": true,
+  "sidebarSwitchesModeAndTranscript": true,
+  "sameWorkspaceTaskSwitch": true,
+  "realProviderRequests": 0
+}

@@ -1,0 +1,68 @@
+## Revision96 - Claude subscription in Automatic conversation (2026-11-07)
+
+User confirmed saved continuation works, then connected Claude via their Google-login subscription and requested Claude model selection. Read-only official status confirmed Hadron's own Claude profile connected with authMethod claude.ai. Implemented separate per-agent Provider and Model selectors in Automatic conversation: ChatGPT plus Claude subscription, with Claude Sonnet/Haiku/Opus aliases. Provider and model are frozen per role, persisted, checked at admission/run binding and displayed in the transcript. Saved continuation can explicitly switch either role's provider/model. Older sessions without providers keep their original ChatGPT meaning.
+
+Scope: Claude is enabled for Automatic conversation only. Work together, Independent jobs and Build a project keep their existing ChatGPT-only admission. Do not claim all Claude modes or project coding are finished. Next: user accepts mixed native UI, then extend the proven runtime to the other modes with provider-aware config/history/reviews and model admission, in order.
+
+Official Claude Code2.1.318 now has contained Windows text generation. Uses safe-mode (not bare, which explicitly disables subscription OAuth), restricted mode, empty tools, deny-all tool rules, strict empty MCP, disabled skills/Chrome/persistence, fixed model aliases and one CLI turn. Only completed text with no tool-bearing frames, empty tool/MCP init and no permission denials is published. Unknown/error/incomplete results do not get a host retry or ChatGPT fallback. Native Windows job containment and actual close join apply to status/login/generation; Quit cancels and joins both runtimes. Private account/profile remain separate; credentials are handled by the vendor runtime, not read/copied by Hadron. This is tool-free execution, not an OS filesystem sandbox. Alias versions and subscription quotas remain vendor-controlled; Opus was not exercised live.
+
+Validation:24 focused conversation/bridge tests,15 Claude-runtime/provider-router tests and52 existing subagent tests pass (91 total). Renderer/main/mobile builds and server typecheck pass. Built three-pane synthetic desktop fixture exchanged40 mixed turns, asserting21 actual calls through the native Claude adapter, exercised model selection, Pause/Stop and cold reopen with zero inference. Screenshot inspected. These fixture responses are synthetic.
+
+Real-account acceptance: Claude Haiku independently returned the exact connection-check reply, native exit0/tools0/joined. A separate real scheduler/native-engine run used GPT-6-Luna then Claude Sonnet for2 subscription jobs, with the first reply included in the second prompt and quoted by Claude. Both completed and joined; no personal project edits or sign-in/out. Standalone live adapter run IDs are controlled test bindings; actual durable subagent bindings are covered by the built desktop fixture. Explicit live scripts require --run-live and an idle Hadron scope. One earlier bare-mode attempt failed before usable subscription auth and was corrected, not counted as a successful test. Evidence:validation/revision96; details:CLAUDE_SUBSCRIPTION.md.
+
+User next action: fully quit/reopen, Automatic conversation -> Continue this saved conversation (or New conversation), choose Agent A ChatGPT/model and Agent B Claude subscription/model, choose a short initial turn budget and Start. Subscriptions remain signed in. Mac remains deferred. No installed Graviton or its profile was accessed/changed in this increment.
+
+---
+## Current state - revision93 (2026-11-07)
+
+The user explicitly prioritised reviewed file application, builds/tests with a repair loop, and automatic back-and-forth conversation, with Mac deferred and testing performed autonomously. These features now have native desktop implementations for the supported Windows/Node scope. This section supersedes earlier statements that all canonical application or all automatic conversation is disabled; the older entries below are historical records.
+
+Build a project: exact native-approved current-session file application; actual contained Node tests and JavaScript build scripts; separate test/build output and exit codes; stale pre-application results; a manual repair action; and an opt-in bounded build/test/fix run. One native scope approval covers the initial reviewed change plus at most two freshly reviewed repairs within the original editable paths, fixed test/build scripts, at most eight additional model calls and three applications/checks per kind. Stop, changed scripts, rejected reviews, conflicts and exhausted budgets stop progression. No token is serialized or granted to models. See BUILD_TEST_FIX.md.
+
+Automatic conversation: an additional three-pane mode with shared goal, independent A/B ChatGPT model choices, automatic alternating turns, ordered turn cards, transcript, budget extension, boundary user messages, Pause and Stop. Durable request/run binding prevents duplicate dispatch; per-agent Markdown logs checkpoint preparation, binding and completion. Cold reopen sends no requests and historical sessions cannot adopt old workers. Text only; no project/tool capabilities. See AUTOMATIC_CONVERSATION.md.
+
+Validation uses synthetic model replies and approvals in disposable profiles, but actual Windows replacements/backups, native process jobs, Node test/build execution, SQLite persistence and built main/preload/UI. The full server suite passes533 tests with5 skipped; renderer/main/mobile builds and checks pass. A manual calculator fixture failed, was actually corrected, passed its retest and produced a build output file. The automatic fixture deliberately starts with a faulty implementation and independently reviews a fresh repair. A separate conversation fixture exchanged40 turns, injected a user message, exercised Pause/Stop and reopened with zero inference replay. Final results are under validation/revision93. No real credentials or provider inference requests are used by these fixtures.
+
+Remaining: end-user native UI acceptance and real-account multi-repair/continuous sessions, Claude integration/acceptance, arbitrary package/native/Python commands, directory creation/deletes/moves, general project milestone completion, safe historical conversation branching/resumption, cross-process write-lock retirement, remaining private-store/enterprise-metadata assessment, and Windows distribution packaging. Mac remains deferred. Passing selected checks is not proof of all project requirements. No installed Graviton program/profile was changed by this increment. Continue from this state; do not redo the completed preview-only acceptance or ask the user to repeat synthetic fixture checks.
+
+Final acceptance:533 full server tests pass with5 skipped;1182 renderer tests pass with1 skipped. The final focused application/repair/approval run passes24 tests. The one-scope desktop loop includes an actual optional build script and passes after one reviewed repair. Cold reopen retains the additional test source added to the repair snapshot, preserves the original native source selection for the next task, and starts no inference. A stale renderer wording assertion and a cold-fixture assumption of exactly two sources were corrected; neither was treated as a product pass before its successful rerun.
+
+A separate explicit live acceptance used Hadron's existing ChatGPT connection for2 actual gpt-6-luna requests: a real proposal and independent exact review, followed by actual reviewed application to a disposable calculator project and passing Node tests. The tests were preserved. No personal project, sign-in setting or Graviton profile was changed, and no raw credentials were read or copied by the test harness. The normal official runtime handled authentication. Live evidence is in validation/revision93/live-project.txt and Hadron's private validation-live folder. Multi-repair and40-turn desktop tests remain synthetic generation, with actual host/storage/Windows operations.
+---
+# Owned worker lifecycle - revision91
+
+## Corrected current-host completion
+
+Hadron's official Codex command capture previously rejected immediately on a ChildProcess error event. An error can report a failure to kill or otherwise operate on an already running child, so it cannot by itself certify termination. The capture now waits for the actual owned child's close event. Exit alone, a timeout, an abort request, kill returning false or a kill exception cannot finish the join. If closure is unconfirmed, the join stays pending and cannot free the project's worker scope. No PID-only or elapsed-time rule substitutes for closure.
+
+A throwing output observer, stdin submission failure and pipe errors become sanitized failures which request termination and still wait for close. Bounded stdout/stderr capture and JSON stdout separation remain. Output failure does not trigger a retry. The helper returns no serialized execution capability and no restart-proof receipt. The model-list RPC also retains its close join when stdin submission or pipe/kill operations fail.
+
+References: Node's documented [close event](https://nodejs.org/api/child_process.html#event-close) and [error event](https://nodejs.org/api/child_process.html#event-error). Close joins the child and its stdio; it is not proof that arbitrary detached descendants terminated.
+
+## Graceful Quit
+
+HadronCodexRuntime tracks every owned command capture, including local status helpers, and exposes a single-flight shutdown. Shutdown closes new capture admission, aborts owned captures/login/probes/jobs, clears in-memory admission and joins outstanding capture/job/model-list promises. It never invokes logout, deletes credentials or starts another login.
+
+Electron before-quit awaits this runtime join before its existing server/project shutdown join. Repeated Quit cannot bypass either join. This covers normal quit in the current host; forced OS termination, earlier crashed processes and arbitrary descendants remain separate. No lock or historical recovery record is reset by shutdown.
+
+## Evidence
+
+Twelve capture tests include actual local-process cancellation and a real failed spawn, plus error-before-close, pipe/observer/stdin errors, unsuccessful kill, timeout, byte limit and JSON/stderr separation. Thirteen runtime tests include a status helper whose simulated closure is deliberately withheld and device-login shutdown without logout. Fifty-one coordinator tests retain real worker joins and existing temporary Windows metadata/replacement checks:76 focused tests pass. Full server507 passed/five skipped; server/Electron/mobile checks and main/mobile builds pass.
+
+The built desktop shutdown fixture invokes actual authenticated main/preload status, substituting a controlled real local Node child for the provider CLI. Cancellation is deliberately delayed600ms; Quit and a second Quit both await actual closure. The report verifies zero late worker starts and zero logout calls. No provider request or real credentials are used. A separate actual bundled Codex --version/login-status check uses a fresh disposable profile and confirms signed-out status without opening a browser or signing in. Proposal, four startup cases and cold-reopen checks remain recorded under validation/revision91.
+
+## Remaining crash/restart work
+
+1. Establish an OS-backed Windows containment/termination proof for the exact host epoch and all provider descendants. Child creation/admission must leave no unowned runnable gap; persist the attempt identity before dispatch. Verify native API behavior and support boundaries before implementation.
+2. A restarted host must authenticate durable ownership and distinguish active, ended and unknown epochs. A reused PID, age, missing heartbeat or merely absent main process is insufficient. An unsupported/ambiguous case remains inspection-only.
+3. Only after actual prior termination and fresh root/file/review observations can an explicit native recovery decision retire the matching execution record. Never auto-replay requests/writes or recreate an old opaque lease from serialized IDs.
+4. Complete remaining private-store and Windows metadata assessment, then exact native application consent and disposable real-account application/conflict/Stop/restart acceptance. Canonical editing and commands remain disabled.
+
+
+## Revision92 - Windows worker containment (2026-11-07)
+
+Project-only Codex launches now use creation-time Windows Job Object assignment, durable private admission evidence and whole-job termination joins. Saved inspection can confirm newly recorded prior epochs through actual process identities and job accounting. Unknown/old/denied/cross-session evidence remains unconfirmed. This does not unlock execution records, restore write leases, replay requests or enable editing. Standard sessions and Claude helpers are outside this transport.
+
+Validation:515 server tests passed/5 skipped; final server typecheck, renderer and Electron/mobile builds passed. Actual crash/descendant/cancel, production transport, repeated Quit and fresh cold-reopen checks passed. No real credentials or inference requests were used. An early closed fixture was inconclusive and the stricter rerun passed. See WINDOWS_WORKER_CONTAINMENT.md and validation/revision92.
+
+Next: exact execution-marker binding and explicit preview-recovery retirement, remaining helper/private-store/metadata assessment, then native application consent and disposable write/conflict/restart acceptance. Project editing, commands, continuous automatic A/B turns and distribution acceptance remain pending. No user action is required for this increment.

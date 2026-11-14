@@ -1,0 +1,9 @@
+{
+  "success": true,
+  "branchTreesRestored": true,
+  "selectedConversationRestored": true,
+  "selectedBranchRestored": true,
+  "inferenceRequests": 0,
+  "syntheticInference": true,
+  "realCredentialsUsed": false
+}

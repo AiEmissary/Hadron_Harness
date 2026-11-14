@@ -1,0 +1,22 @@
+{
+  "revision": 70,
+  "date": "2026-11-06",
+  "serverTests": 59,
+  "headlessTests": 70,
+  "rendererTests": 1163,
+  "rendererSkipped": 1,
+  "rendererFiles": 140,
+  "rendererBuild": "passed",
+  "electronMobileBuildAndTypechecks": "passed",
+  "serverTypecheck": "passed",
+  "desktopToolLifecycle": "passed",
+  "manualCreationAndTest": "passed",
+  "sameProfileRestart": "passed",
+  "legacyIndependentAndSharedJobs": "passed",
+  "realPublicHttpsRead": "passed",
+  "liveChatGPTToolAcceptance": "pending user test",
+  "liveBraveSearch": "not tested; requires Hadron Brave key",
+  "realProviderRequests": 0,
+  "installedGravitonChanges": false,
+  "scope": "Independent ChatGPT jobs; public web and sandboxed generator JavaScript. Shared collaboration remains text-only."
+}

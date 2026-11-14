@@ -1,0 +1,10 @@
+{
+  "success": true,
+  "oneApprovalBuildTestFix": true,
+  "actualInitialTestFailed": true,
+  "independentRepairReview": true,
+  "actualRepairedTestPassed": true,
+  "actualBuildPassed": true,
+  "repairRounds": 1,
+  "realProviderRequests": 0
+}

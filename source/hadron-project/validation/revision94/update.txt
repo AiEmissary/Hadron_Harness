@@ -1,0 +1,13 @@
+## Revision94 - live acceptance and conversation recovery (2026-11-07)
+
+User screenshots confirm a real A proposal/B exact review and native-approved README application (Replacement: applied; Files changed: yes). Their automatic conversation then completed 50 real replies; request51 failed. Read-only inspection of Hadron's last-job-diagnostic.json identified upstream_http_503, one request, incomplete response. This was a temporary provider rejection, not the context cap (the frozen prompt was24378 characters).
+
+Changes: animated working indicator, observed elapsed seconds and active-agent/stage labels for conversation/project work. Failed or historical empty turns no longer misleadingly say Waiting. Failed status polling replaces animation with a stale-status warning. No claim of token progress or actual model thinking is made.
+
+Conversation recovery: only exact host-generated classifications of explicit HTTP429/503 rejections, with one request and no output/completion, allow automatic fresh attempts. The previous actual worker must join first. Up to two fresh attempts per consecutive failure sequence and six scheduled recoveries per conversation, within the configured100-request/time limits; backoff3s then6s, Stop cancels it. Each attempt gets its own durable ordinal/run binding and error code. Failed attempts remain visible but do not enter peer reply history or advance the A/B speaker. Unknown transport failures do not auto retry. Current-host joined failed sessions offer explicit Continue after failure; historical sessions remain inspection-only.
+
+Limits remain: no guarantee of uninterrupted provider service; context cap pauses without silent truncation; exact-text repetition detection does not detect semantically repetitive paraphrases (seen in the live50-turn run). Better convergence/stagnation detection and fresh historical continuation remain TODO. Automatic conversation remains text-only. Agent A proposes project code/fixes, Agent B reviews, and Hadron applies/runs selected checks through host approval.
+
+Validation results are recorded in validation/revision94. Installed Graviton was not accessed or modified in this pass.
+
+---

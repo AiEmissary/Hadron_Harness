@@ -1,0 +1,249 @@
+---
+paths:
+  - "client/ygg-chat-r/server/headlessServer/services/subagent*.ts"
+  - "client/ygg-chat-r/server/headlessServer/services/toolLoopService.ts"
+  - "client/ygg-chat-r/server/headlessServer/persistence/subagentRunRepo.ts"
+  - "client/ygg-chat-r/server/headlessServer/routes/subagentRoutes.ts"
+  - "client/ygg-chat-r/src/components/SubagentTranscript/**"
+  - "shared/operationModeToolPolicy.ts"
+---
+
+# Agent Context: Subagents Orchestration
+
+Last reviewed: 2026-08-01
+
+## Purpose
+
+Documents the `subagent` tool and its server-side engine in the headless local
+server (`127.0.0.1:3002`). A subagent runs ONE task through `SubagentRunService`,
+which drives the shared `ToolLoopService` (per-turn timeouts, split-channel tool
+results, mid-run compaction, SSE lifecycle, `streaming_runs` mirroring).
+
+That same `ToolLoopService` now ALSO powers the main chat loop
+(`ChatOrchestrator`, after the headless thin-client migration). It is one engine
+with two callers. They diverge only in what each INJECTS, never in the loop body:
+
+- **MessageSink** — subagents use `SubagentTranscriptSink` (transcript rows); the
+  main loop uses `TreeMessageSink` / `CloudMirrorSink` (the chat tree).
+- **Tool executor** — subagents inject a `countingExecutor` whose gate is a
+  STATIC auto-approve check (`assertToolAllowedWithoutAutoApprove`); the main loop
+  injects `createChatPausingExecutor`, which PAUSES per tool call via the
+  `DecisionBroker` and asks the renderer for a permission / clarify decision. The
+  `ToolLoopService` itself has no pause/permission concept — it just awaits
+  `executeTool(...)`; both differences live entirely in the injected executor.
+- **Optional `ToolLoopRunInput` fields** — main-loop-only behavior (`hooks`,
+  `relayFreeTierEvents`, and the cloud sink) is opt-in and left UNSET for
+  subagents. Both callers enable transient provider-error retry through
+  `robustness`; subagents also enable empty-turn retry and silent-tool finalization.
+  Validate both callers when changing shared loop behavior.
+
+## When to Open This File
+
+Use this when changing:
+- the `subagent` tool dispatch or its request/response contract;
+- the server-side subagent engine, its transcript persistence, or its SSE route;
+- subagent tool-name resolution, the read-only (auto-approve) gate, or compaction;
+- the shared `ToolLoopService` — verify a change gated behind an optional field
+  does not alter the default (subagent) path (see `toolLoopService.test.ts`);
+- how Heimdall reads subagent transcripts.
+
+## Key Files
+
+- `client/ygg-chat-r/server/headlessServer/services/toolLoopService.ts`: the SHARED
+  loop engine. `MessageSink` port + `ToolExecutor` port; opt-in `ToolLoopRunInput`
+  fields (`robustness`, `hooks`, `relayFreeTierEvents`, `signal`,
+  `railwaySessionId`, `allowCommentaryFallbackText`). No permission/pause logic here.
+- `client/ygg-chat-r/server/headlessServer/services/subagentRunService.ts`: the subagent
+  caller of the engine — `run`/`runForTool`, validation, run + `streaming_runs` lifecycle, tool
+  resolution, provider auth re-sync (`refreshProviderTokens`), the `countingExecutor`
+  (static read-only/auto-approve gate + tool-call counting), the transcript
+  compactor, and terminal-state mapping. Sets `robustness:{ retryEmptyTurn,
+  finalizeOnSilentToolEnd }`; leaves `hooks`/`relayFreeTierEvents` unset.
+- `client/ygg-chat-r/server/headlessServer/services/chatOrchestrator.ts`: the OTHER
+  caller of the engine (main chat loop). `createChatPausingExecutor` is the
+  main-loop counterpart to `countingExecutor` — same `ToolExecutor` port, but it
+  pauses via the `DecisionBroker` (permission_required / clarify_required) instead
+  of the static gate. Included here for contrast; not part of the subagent path.
+- `client/ygg-chat-r/server/headlessServer/services/decisionBroker.ts`: the main-loop
+  pause/resume registry (keyed `${streamId}::${toolCallId}`). NOT used by
+  subagents — subagents never pause for an interactive decision.
+- `shared/operationModeToolPolicy.ts`: `assertToolAllowedWithoutAutoApprove` (the
+  subagent auto-approve gate — `AUTO_APPROVE_REQUIRED_TOOL_NAMES` + all MCP/custom
+  tools) and `filterToolsForOperationMode` (plan-mode tool filter, shared with the
+  main loop).
+- `client/ygg-chat-r/server/headlessServer/services/subagentToolExecutor.ts`:
+  `createSubagentDispatchExecutor`, the parent-chat composite executor that intercepts
+  `subagent` and calls `SubagentRunService.runForTool` in-process; all other tools
+  delegate to the leaf `ToolOrchestrator` executor.
+- `client/ygg-chat-r/server/headlessServer/routes/subagentRoutes.ts`:
+  `POST /api/headless/subagent/stream` (SSE + heartbeat + client-disconnect abort;
+  rejects `openrouter` before opening the stream).
+- `client/ygg-chat-r/server/headlessServer/services/subagentTranscriptSink.ts`:
+  `MessageSink` that writes subagent turns to the transcript instead of the chat tree.
+- `client/ygg-chat-r/server/headlessServer/persistence/subagentRunRepo.ts`: repo over
+  `subagent_runs` / `subagent_messages` (shared by the localServer CRUD routes and the engine).
+- `shared/headlessApi.ts`:
+  `HeadlessSubagentStreamRequest` + `HeadlessSubagentStreamEvent` (subagent
+  `started`/`complete`/`error`, plus the reused main-chat `HeadlessStreamEvent`s).
+- `client/ygg-chat-r/server/headlessServer/index.ts`: wiring — the leaf
+  `executeToolViaOrchestrator` is injected into `SubagentRunService`; the main
+  `ChatOrchestrator` receives `createSubagentDispatchExecutor({ leafExecutor,
+  subagentRunner })`. This separation prevents nested subagents while keeping
+  ordinary tools on the shared orchestrator.
+- `client/ygg-chat-r/server/localServer.ts`: subagent table DDL.
+- `client/ygg-chat-r/server/routes/runStateRoutes.ts`: transcript/run CRUD routes delegated to `SubagentRunRepo`, polled by Heimdall.
+- `client/ygg-chat-r/src/features/chats/subagentClient.ts`: renderer thin client.
+  Exports `executeSubagentCall`, `abortSubagentControllers`,
+  `resolveSubagentSystemPrompt`. NOTE: after the thin-client cutover only
+  `abortSubagentControllers` has a live caller (`chatActions.ts` `abortGeneration`);
+  `executeSubagentCall` no longer has a production caller (see Dispatch status).
+- `shared/builtinToolDefinitions.ts`: the `subagent` tool schema.
+- `client/ygg-chat-r/src/helpers/subagentToolSettings.ts`,
+  `client/ygg-chat-r/src/helpers/operationModePromptStorage.ts`,
+  `client/ygg-chat-r/src/helpers/subagentModelNames.ts`: renderer-held settings the thin
+  client reads per request.
+- `client/ygg-chat-r/src/components/Heimdall/Heimdall.tsx`: renders subagent badges from the
+  transcripts (`GET /api/conversations/:id/subagents`, polled ~3s).
+
+## Data Flow
+
+1. **Entry point** — `POST /api/headless/subagent/stream` (`subagentRoutes.ts`):
+   validates the body (`conversationId`/`parentMessageId`/`prompt`; rejects
+   `openrouter`), opens SSE + heartbeat, wires an `AbortController` to `res` close,
+   and calls `SubagentRunService.run(request, emit, signal)`.
+2. `SubagentRunService.run` refreshes provider auth, resolves the requested tool
+   names to definitions (always excluding `subagent`; plan mode additionally applies
+   `filterToolsForOperationMode`), creates a `subagent_runs` row and a child
+   `streaming_runs` row (`stream_type:'subagent'`, `parent_stream_id` = parent's
+   stream id, `metadata.subagent_run_id`), emits `started`, and persists the user
+   prompt as the first transcript row.
+3. It runs the shared `ToolLoopService` with a `SubagentTranscriptSink`, the
+   `countingExecutor` (static read-only/auto-approve gate wrapping the shared base
+   `executeToolViaOrchestrator`), a transcript-aware compactor, and opt-in
+   `robustness`. SSE `HeadlessStreamEvent`s stream to the client as the loop runs.
+4. On success the run row is marked `completed` with the stripped final text; the
+   engine emits `complete` (result + stats). Abort / provider-error / empty-response
+   map to `aborted` / `error` on both the run row and `streaming_runs`, with the
+   matching terminal SSE event.
+5. Heimdall reads the transcript via the localServer `/api/subagents/*` +
+   `/api/conversations/:id/subagents` routes.
+
+### Dispatch status (how the `subagent` tool is invoked)
+
+Both entry paths now share the server-side `SubagentRunService`:
+
+- Direct callers POST `POST /api/headless/subagent/stream`; the route projects the
+  service lifecycle onto SSE.
+- Parent chat tool calls go through `createSubagentDispatchExecutor`
+  (`services/subagentToolExecutor.ts`). It intercepts `subagent` before the ordinary
+  `ToolOrchestrator` registry, builds a child request from the parent tool context,
+  and awaits `SubagentRunService.runForTool` in-process. The returned final text is
+  the parent loop's tool result.
+- Ordinary parent tools and child leaf tools use `executeToolViaOrchestrator`.
+  Both paths also have the in-process `multi_call` composite available; each nested
+  child call re-enters the subagent approval/operation-mode policy before execution.
+  Parent-chat `multi_call` batches may invoke `subagent` through the parent dispatcher;
+  `multi_call` still rejects recursive `multi_call`, and `SubagentRunService` never
+  receives the parent subagent dispatcher, so recursive agents remain impossible.
+- `subagent_manager.wait(handle)` verifies the same branch/conversation ownership
+  as `status`, then awaits the detached attempt's in-process completion promise
+  without polling. It re-reads SQLite before returning the canonical terminal
+  status/result. Aborting the parent releases only the waiter; it does not cancel
+  the child (that remains the explicit `cancel` action).
+- `subagent_manager.send(handle, message, requestId?)` checks branch/conversation ownership and synchronously queues instructions in the running detached attempt's `MessageInputQueue`. The shared loop's `flushQueuedMessages` / `closeInputQueue` callbacks deliver FIFO only at safe boundaries, persisting user rows into the child transcript (not the chat tree). Receipts distinguish acceptance from delivery; status/list/wait expose `messageQueue`, and existing queue SSE events support live inspection. Request IDs deduplicate identical retries. Terminal/aborting/preparing/blocking runs reject sends rather than auto-restart. Pending messages fail on cancellation/error/turn limits; queues are memory-only, with at most 100 retained terminal mailboxes.
+- `subagent_manager.resume` accepts an optional `prompt`, appended to the saved transcript as a new user row before inference. The original task/tool history is preserved; omitting it retains existing resume behavior.
+- Parent operation mode, stream/message/tool-call lineage, root path, provider/model,
+  abort signal, and auto-approve policy are forwarded. `orchestratorMode:true` uses
+  the requested child tool names plus the always-required `multi_call` tool; otherwise
+  the server default child tool set is used. Direct server requests also have
+  `multi_call` added during tool resolution, so every subagent can invoke it.
+  OpenRouter parents fall back to the local ChatGPT subagent provider, matching the
+  retained renderer client's local-only rule.
+
+The old renderer dispatcher remains deleted. `subagentClient.executeSubagentCall`
+is retained for direct renderer/SSE use and tests, but the server-owned main loop
+does not round-trip through the renderer or the unfinished `tool_request` bridge.
+
+## Important Invariants
+
+- **Internal Hadron proposal admission (2026-11-02).** The trusted optional
+  `spawnDetached` admission argument binds ownership before dispatch and denies all
+  tools. These runs force one turn, disable compaction/loop retries, and forward
+  `requestPolicy: 'single_attempt'` through ToolLoopService to the ChatGPT provider.
+  The provider suppresses auth replay, HTTP pre-first-byte retries and automatic
+  WebSocket fallback. Ordinary callers omit this policy and retain retries. This
+  seam is not exposed as a request-body capability. Codex SSE parsing owns a parent
+  abort listener until completion so cancellation also stops stalled reads after
+  the opener has released its first-byte signal link. See
+  `providers/__tests__/proposalProviderPolicy.test.ts` and the collaboration README.
+  Trusted preparation also creates the stream with collaboration scope before
+  publishing `started`. Generic replay/abort/duplicate-chat routes reject that
+  scope. Registry protection survives buffer eviction and consults persisted
+  Hadron participant stream bindings after restart. Ordinary subagents retain
+  the default chat scope. Manager resume/transcript paths are a separate pending
+  Hadron ownership gate; do not expose live collaboration based on stream tests alone.
+
+- **One loop engine, injected differences.** Turn control, timeout, split-channel
+  results, compaction, retry, and finalization live only in `ToolLoopService`.
+  Subagents vs. the main loop differ ONLY in the injected `MessageSink`, the
+  injected `ToolExecutor`, and which optional `ToolLoopRunInput` fields are set —
+  never in a branch inside the loop.
+- **Static auto-approve gate, no pause.** The subagent `countingExecutor` decides
+  synchronously: with `autoApprove:false`, mutating/unknown tools (write/delete/
+  bash/powershell/MCP/custom, per `AUTO_APPROVE_REQUIRED_TOOL_NAMES`) throw a
+  structured "denied: requires auto-approve" error that the loop turns into an
+  `is_error` tool_result; read-only tools run. Subagents NEVER use the
+  `DecisionBroker` and never emit `permission_required`/`clarify_required`.
+- **Transcripts, not the chat tree.** Subagent turns go to `subagent_runs` /
+  `subagent_messages` via `SubagentTranscriptSink`; they never enter the
+  conversation message tree.
+- **No nested subagents.** The engine always excludes `subagent` and
+  `subagent_manager` from a subagent's tool set. The parent chat may use both in
+  Plan Mode; child runs still cannot spawn nested agents.
+- **Local providers only.** `openrouter` subagents fall back to the default local
+  provider client-side and are rejected server-side (`subagentRoutes.ts`).
+- **Cancellation depends on entry path.** Direct subagent SSE disconnect aborts
+  its route controller. Blocking parent dispatch inherits the parent signal.
+  Detached manager runs own their controller and survive parent cancellation;
+  manager `cancel` explicitly aborts them. Aborting a manager waiter releases only
+  that waiter. The retained direct renderer client has a 60s idle watchdog.
+- **Empty output is a typed failure**, never a fake-success "No response generated":
+  the loop retries an empty turn once, finalizes when tools ran but produced no
+  answer, and otherwise raises `ProviderEmptyResponseError`.
+- **Settings travel per request.** The renderer forwards its selected subagent baseline
+  on each parent chat request; server-owned `subagent` / `subagent_manager` calls inherit
+  it and append any per-call `systemPrompt`. Direct subagent requests still provide their
+  composed prompt explicitly. The server stores no prompt setting between runs.
+- **Wait is lifecycle-backed, not timer-backed.** Manager `wait` shares the active
+  attempt's completion promise, supports multiple waiters, and has no default
+  timeout. Persisted terminal state remains authoritative; startup reconciliation
+  turns process-lost running rows into resumable errors.
+
+## Testing and Validation
+
+```bash
+npm --prefix client/ygg-chat-r run test:headless          # engine, repo, route, tool-loop
+npm --prefix client/ygg-chat-r run test:renderer -- src/features/chats/subagentClient.test.ts # request + SSE
+npm --prefix client/ygg-chat-r run build:electron:main
+```
+
+Manual: trigger the engine (currently via a direct `POST /api/headless/subagent/stream`
+with a valid `conversationId`/`parentMessageId`, or through whatever dispatcher is
+wired) with auto-approve on and off, stop mid-run, and confirm the Heimdall badge
+shows the transcript and `subagent_runs.status` ends `completed`/`aborted`.
+
+## Related Docs
+
+- `agent_headless_server.md`
+- `agent_chat_pipeline.md`
+- `agent_heimdall.md`
+- `agent_local_tools_runtime.md`
+- `agent_context_compaction_memory.md`
+
+## Normal-turn child compaction (2026-10-14)
+
+The injected separate transcript summariser is retired. Children use the shared loop's ordinary compaction phase with their existing `subagent:${runId}` provider session and unchanged tools/policy. `SubagentTranscriptSink` persists tagged user controls and commits completed assistant summaries; nullable transcript `meta` survives resume. Parent auto-compaction enable/threshold settings are inherited. Summary completion is internal to the run, not the child's final returned task result while interrupted work remains.
+
+Hadron revision 20: SubagentRunService filters collaboration-owned runs from generic handle/lineage/tool-call lookup and denies resume before CAS. Production ownsRunId callback consults hadron_participants; trusted admissions retain process-local ownership before started events. Coordinator cancel remains internal and available. Broader CRUD/branch mutation authorization remains pending; do not enable live collaboration.
+
+Revision23: backend proposal routes now registered under false live gate; desktopHost shares trusted main-frame grant authentication. Exact local owner/project checks, EMPTY production model allowlist, trusted provider userId forwarding. Native probes all four endpoints404. Real local identity/login/model validation remains pending.

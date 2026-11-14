@@ -1,0 +1,15 @@
+{
+  "numPassedTests": 507,
+  "numFailedTests": 0,
+  "numPendingTests": 5,
+  "numPassedTestSuites": 86,
+  "numFailedTestSuites": 0,
+  "focusedWorkerRuntimeCoordinatorTests": 76,
+  "serverTypecheck": true,
+  "electronMobileChecksAndMainBuild": true,
+  "builtRepeatedQuitJoinsOwnedWorker": true,
+  "builtStartupCases": 4,
+  "realProviderRequests": 0,
+  "canonicalApplicationEnabled": false,
+  "restartUnlockEnabled": false
+}

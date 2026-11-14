@@ -1,0 +1,13 @@
+Full Hadron desktop smoke: C:\Users\rajka\AppData\Local\Temp\hadron-desktop-smoke-h5aBmM
+{
+  "success": true,
+  "savedToolSourceAndStateRestored": true,
+  "bothAgentChatsRestored": true,
+  "nextMessageDefaultsToText": true,
+  "ownToolRoot": "C:\\Users\\rajka\\AppData\\Local\\Temp\\hadron-desktop-smoke-h5aBmM\\hadron-tools",
+  "activityLogs": 2,
+  "syntheticModel": true,
+  "realCredentialsUsed": false,
+  "externalRequests": 0,
+  "noGravitonChanges": true
+}

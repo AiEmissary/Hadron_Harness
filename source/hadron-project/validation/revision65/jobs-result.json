@@ -1,0 +1,17 @@
+{
+  "success": true,
+  "independentJobs": 9,
+  "sharedProposalContinuation": true,
+  "sharedSessions": 1,
+  "separateResponses": true,
+  "centralTrees": true,
+  "branching": true,
+  "nestedBranches": true,
+  "selectedHistoryOnly": true,
+  "leftConversation": true,
+  "nextTaskEditable": true,
+  "followUpEditable": true,
+  "journalFiles": 11,
+  "realCredentialsUsed": false,
+  "syntheticInference": true
+}

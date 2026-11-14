@@ -1,0 +1,12 @@
+
+ RUN  v2.1.9 C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r
+
+(node:63776) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ server/__tests__/hadronContextCopy.test.ts (6 tests) 22ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  13:07:15
+   Duration  612ms (transform 85ms, setup 0ms, collect 112ms, tests 22ms, environment 0ms, prepare 182ms)
+

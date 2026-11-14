@@ -1,0 +1,21 @@
+{
+  "success": true,
+  "installerLauncher": "windows-native",
+  "root": "C:\\Users\\rajka\\AppData\\Local\\Temp\\hadron-installer-check-79OeK7",
+  "cleanWindows": false,
+  "scope": "Real NSIS current-user installation, same-version repair install and uninstall on this existing Windows host; isolated installation directory and diagnostic profile.",
+  "personalProfilesUsed": false,
+  "installed": true,
+  "shortcutCorrect": true,
+  "installedStartupPassed": true,
+  "savedMessagesBefore": 2,
+  "sqliteBackupRestored": true,
+  "simulatedCorruptionDetected": true,
+  "unfinishedHelperNotReplayed": true,
+  "sameVersionReinstallPassed": true,
+  "privateDataPreserved": true,
+  "savedMessagesAfter": 2,
+  "savedMessagesPreserved": true,
+  "uninstallPassed": true,
+  "originalShortcutsRestored": true
+}

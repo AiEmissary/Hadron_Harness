@@ -1,0 +1,15 @@
+{
+  "sourceRevision": "8257110e45d648b698bd865d0e89430ac46e0240",
+  "artifacts": [
+    {
+      "file": "Hadron-Harness-0.4.4-win-x64.exe",
+      "bytes": 370831551,
+      "sha256": "8e29c2bb39c0cadb7bdf05a77b9efbe9eecf46cf8efb88a367a56f14ce8ba5b0"
+    },
+    {
+      "file": "Hadron-Harness-0.4.4-source.zip",
+      "bytes": 8014680,
+      "sha256": "e95a947b70d1d7d478d3783bf4198b533b96d602f2ff9b290f7c3618eaea0a63"
+    }
+  ]
+}

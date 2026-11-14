@@ -1,0 +1,9 @@
+{
+  "readOnlyCheck": true,
+  "normalAddress": "127.0.0.1:3002",
+  "localConversationsReturned": 325,
+  "oldHadronListenerGone": true,
+  "databaseRepairPerformed": false,
+  "userUiConfirmationPending": true,
+  "correctedHadronSmokePort": 63638
+}

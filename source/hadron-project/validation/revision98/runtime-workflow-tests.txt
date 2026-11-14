@@ -1,0 +1,31 @@
+
+> graviton@0.3.20 test:headless
+> vitest run --config vitest.headless.config.ts server/headlessServer/services/__tests__/proposalSessionService.test.ts server/headlessServer/services/__tests__/independentJobService.test.ts server/headlessServer/services/__tests__/collaborationReview.test.ts server/headlessServer/providers/__tests__/claudeCodeRuntime.test.ts server/headlessServer/services/__tests__/providerRouter.test.ts
+
+
+ RUN  v2.1.9 C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r
+
+ ✓ server/headlessServer/providers/__tests__/claudeCodeRuntime.test.ts (9 tests) 130ms
+ ✓ server/headlessServer/services/__tests__/providerRouter.test.ts (7 tests) 19ms
+(node:52264) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:83636) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ server/headlessServer/services/__tests__/independentJobService.test.ts (6 tests) 334ms
+(node:19836) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ server/headlessServer/services/__tests__/proposalSessionService.test.ts (21 tests) 932ms
+ ✓ server/headlessServer/services/__tests__/collaborationReview.test.ts (16 tests) 5507ms
+   ✓ executes independent proposals, both canonical cross-reviews and one final using A, with durable logs and no replay 413ms
+   ✓ Stop during synthesis drains owned work and never publishes a final answer 400ms
+   ✓ expires during cross-review, drains the pair and retains the initial proposals 537ms
+   ✓ verifies only after both reviews, persists actual host receipts independently of model claims, and never replays 404ms
+   ✓ keeps a no-check verifier report separate from evidence and caps the saved receipt record 336ms
+   ✓ freezes shared follow-up ancestry, explicit prior-file choice true and sibling forks 724ms
+   ✓ freezes shared follow-up ancestry, explicit prior-file choice false and sibling forks 816ms
+
+ Test Files  5 passed (5)
+      Tests  59 passed (59)
+   Start at  16:52:19
+   Duration  10.65s (transform 4.14s, setup 0ms, collect 13.32s, tests 6.92s, environment 2ms, prepare 1.79s)
+

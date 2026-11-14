@@ -1,0 +1,43 @@
+{
+  "success": true,
+  "realSubscriptionRequests": 9,
+  "providers": [
+    "openaichatgpt",
+    "claudecode",
+    "openaichatgpt",
+    "claudecode",
+    "openaichatgpt",
+    "claudecode",
+    "openaichatgpt",
+    "claudecode",
+    "claudecode"
+  ],
+  "models": [
+    "gpt-6-luna",
+    "haiku"
+  ],
+  "completedReplies": 8,
+  "summaryRequests": 1,
+  "memoryThroughReply": 5,
+  "markerAndRollbackPreserved": true,
+  "lastPromptUsesMemory": true,
+  "lastPromptRecentReplies": 2,
+  "promptByteSizes": [
+    435,
+    563,
+    691,
+    821,
+    949,
+    1075,
+    1218,
+    1681,
+    3088
+  ],
+  "state": "paused",
+  "reason": "turn_budget",
+  "nativeWorkersJoined": true,
+  "signInOrOut": false,
+  "projectFilesChanged": false,
+  "evidence": "C:\\Users\\rajka\\AppData\\Roaming\\Hadron-Harness-Development\\validation-memory-c390935b-e0a7-456b-baa9-1636b257a707",
+  "adapter": "Real scheduler and official provider engines; controlled standalone run bindings. Actual desktop run-service bindings are covered by the separate Electron fixture."
+}

@@ -1,0 +1,130 @@
+import { v4 as uuidv4 } from 'uuid'
+import { FULL_ACCESS_NOTIFICATION_KIND } from '../../../../../shared/accessNotifications.js'
+import type { OpenAIContextUsage } from '../../../../../shared/contextUsage.js'
+
+interface MessageRepoDeps {
+  db: any
+  statements: any
+}
+
+export interface CreateMessageInput {
+  /**
+   * Caller-supplied id to adopt (e.g. a Railway-authoritative message id on the
+   * cloud path). Omitted on every default path, where a fresh uuid is minted.
+   * upsertMessage is INSERT ... ON CONFLICT(id) DO UPDATE, so re-adopting an
+   * existing id updates in place.
+   */
+  id?: string
+  conversationId: string
+  parentId: string | null
+  role: 'user' | 'assistant' | 'tool' | 'system' | 'ex_agent'
+  content: string
+  modelName?: string | null
+  toolCalls?: any[] | null
+  toolCallId?: string | null
+  contentBlocks?: any[] | null
+  contextUsage?: OpenAIContextUsage | null
+  thinkingBlock?: string | null
+  note?: string | null
+  noteColor?: string | null
+  exAgentSessionId?: string | null
+  exAgentType?: string | null
+  /** Generic JSON metadata; see the `meta` column note in localServer.ts. */
+  meta?: Record<string, unknown> | null
+}
+
+export class MessageRepo {
+  private readonly db: any
+  private readonly statements: any
+
+  constructor(deps: MessageRepoDeps) {
+    this.db = deps.db
+    this.statements = deps.statements
+  }
+
+  transaction<T>(operation: () => T): T {
+    return this.db.transaction(operation)()
+  }
+
+  findFullAccessNotification(conversationId: string, requestId: string): any | null {
+    return this.db.prepare(`SELECT * FROM messages WHERE conversation_id = ? AND role = 'user'
+      AND CASE WHEN json_valid(meta) THEN json_extract(meta, '$.kind') = '${FULL_ACCESS_NOTIFICATION_KIND}'
+        AND json_extract(meta, '$.requestId') = ? ELSE 0 END LIMIT 1`).get(conversationId, requestId) ?? null
+  }
+
+  createMessage(input: CreateMessageInput): any {
+    const now = new Date().toISOString()
+    const messageId = input.id ?? uuidv4()
+
+    this.statements.upsertMessage.run(
+      messageId,
+      input.conversationId,
+      input.parentId ?? null,
+      JSON.stringify([]),
+      input.role,
+      input.content ?? '',
+      input.content ?? '',
+      input.thinkingBlock ?? null,
+      JSON.stringify(input.toolCalls ?? null),
+      input.toolCallId ?? null,
+      input.modelName ?? 'unknown',
+      input.note ?? null,
+      input.noteColor ?? null,
+      input.exAgentSessionId ?? null,
+      input.exAgentType ?? null,
+      JSON.stringify(input.contentBlocks ?? null),
+      now,
+      input.meta ? JSON.stringify(input.meta) : null
+    )
+
+    if (input.parentId) {
+      const parent = this.statements.getMessageById.get(input.parentId) as any
+      if (parent) {
+        const childrenIds = JSON.parse(parent.children_ids || '[]')
+        if (!childrenIds.includes(messageId)) {
+          childrenIds.push(messageId)
+          this.db.prepare('UPDATE messages SET children_ids = ? WHERE id = ?').run(JSON.stringify(childrenIds), input.parentId)
+        }
+      }
+    }
+
+    this.db.prepare('UPDATE conversations SET updated_at = ? WHERE id = ?').run(now, input.conversationId)
+
+    const conversation = this.statements.getConversationById.get(input.conversationId) as any
+    if (conversation?.project_id) {
+      this.db.prepare('UPDATE projects SET updated_at = ? WHERE id = ?').run(now, conversation.project_id)
+    }
+
+    const createdMessage = this.statements.getMessageById.get(messageId) as any
+    return input.contextUsage ? { ...createdMessage, context_usage: input.contextUsage } : createdMessage
+  }
+
+  finaliseCompaction(messageId: string, update: { content: string; contentBlocks: any[]; meta: Record<string, unknown> }): any {
+    return this.transaction(() => {
+      const row = this.statements.getMessageById.get(messageId)
+      if (!row || row.role !== 'assistant') throw new Error('Compaction response not found')
+      const meta = typeof row.meta === 'string' ? JSON.parse(row.meta || '{}') : row.meta
+      if (meta?.kind === 'compaction_summary' && meta.state === 'committed') return row
+      this.db.prepare('UPDATE messages SET content = ?, plain_text_content = ?, content_blocks = ?, meta = ? WHERE id = ?')
+        .run(update.content, update.content, JSON.stringify(update.contentBlocks), JSON.stringify(update.meta), messageId)
+      return this.statements.getMessageById.get(messageId)
+    })
+  }
+
+  updateAssistantToolState(
+    messageId: string,
+    update: {
+      contentBlocks?: any[] | null
+      toolCalls?: any[] | null
+    }
+  ): any | null {
+    const message = this.statements.getMessageById.get(messageId)
+    if (!message) return null
+
+    this.db
+      .prepare('UPDATE messages SET content_blocks = ?, tool_calls = ? WHERE id = ?')
+      .run(JSON.stringify(update.contentBlocks ?? null), JSON.stringify(update.toolCalls ?? null), messageId)
+
+    return this.statements.getMessageById.get(messageId)
+  }
+}

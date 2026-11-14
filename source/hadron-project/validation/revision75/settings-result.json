@@ -1,0 +1,975 @@
+{
+  "success": true,
+  "temporaryProfile": true,
+  "realCredentialsUsed": false,
+  "inferenceRequests": 0,
+  "sections": [
+    "Chat Interface",
+    "Chat Mode Prompt",
+    "Agent Mode Prompt",
+    "Tool Approval Defaults",
+    "Chat Reasoning Defaults",
+    "Provider Settings",
+    "Memory",
+    "Subagent",
+    "Context files",
+    "Tools Configuration",
+    "HTML Tools Cache",
+    "API Keys",
+    "Built-in Browser",
+    "Remote Mobile Access",
+    "Local Ownership Migration",
+    "Typography",
+    "Custom Upload",
+    "Solid Color Background",
+    "Saved Wallpapers"
+  ],
+  "checks": [
+    "Opened all 19 settings sections",
+    "Native subscription settings present; unsupported LAN/QR and ownership migration controls absent",
+    "Show Token Usage Bar: toggle persisted across route remount",
+    "Show Token Usage Hover Details: toggle persisted across route remount",
+    "Show Added File Pills: toggle persisted across route remount",
+    "Auto Compaction: toggle persisted across route remount",
+    "Default Thinking: toggle persisted across route remount",
+    "Show Provider Selector: toggle persisted across route remount",
+    "Enable Orchestrator Tool Calls: toggle persisted across route remount",
+    "Guest Page DevTools: toggle persisted across route remount",
+    "Chat prompt created and selected; Agent/Subagent overrides saved",
+    "Plan verbosity, tool approval and reasoning effort selectors changed through actual dropdowns",
+    "Context directory added; traversal path rejected",
+    "Typography rejected invalid Google Fonts host",
+    "Valid local font applied; invalid replacement rejected without losing working font",
+    "Appearance light color persisted and transparent picker fallback valid",
+    "Three prompts and all three execution timeouts survived remount",
+    "Skills/MCP list failures display actionable errors instead of silent empty lists",
+    "Main chat settings modal opened with explicit Agent A/B scope; 7 section controls expanded",
+    "Main chat display/memory toggles: Disable grouping, Show step labels, Disable memory context"
+  ],
+  "inventory": [
+    {
+      "section": "Chat Interface",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Chat InterfaceControl optional chat UI elements.Optional Main chat settings; the",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "Show Token Usage Bar",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "Show Token Usage Hover Details",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "Show Added File Pills",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "Auto Compaction",
+          "disabled": false
+        }
+      ]
+    },
+    {
+      "section": "Chat Mode Prompt",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Chat Mode PromptUsed when the composer is in Chat Mode. Chat Mode is read-only/p",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Audit prompt",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Detailed",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "TEXTAREA",
+          "type": null,
+          "label": "Audit custom chat baseline",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Save as New",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Update Saved Prompt",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Delete",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Reset to Default",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Select",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Delete",
+          "disabled": false
+        }
+      ]
+    },
+    {
+      "section": "Agent Mode Prompt",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Agent Mode PromptUsed when the composer is in Agent Mode. A custom prompt change",
+          "disabled": false
+        },
+        {
+          "tag": "TEXTAREA",
+          "type": null,
+          "label": "Settings audit Agent Mode Prompt",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Save Agent Prompt",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Reset to Default",
+          "disabled": false
+        }
+      ]
+    },
+    {
+      "section": "Tool Approval Defaults",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Tool Approval DefaultsChoose the tool approval mode restored on launch. The Chat",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Allow all",
+          "disabled": false
+        }
+      ]
+    },
+    {
+      "section": "Chat Reasoning Defaults",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Chat Reasoning DefaultsThese defaults are loaded every time Chat opens, then app",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "Default Thinking",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Low (Default)",
+          "disabled": false
+        }
+      ]
+    },
+    {
+      "section": "Provider Settings",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Provider SettingsConfigure how providers appear in the chat interface.Optional M",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "Show Provider Selector",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "LM Studio",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "number",
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "number",
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "TEXTAREA",
+          "type": null,
+          "label": "You compact chat history. Return detailed markdown that preserves goals, hard re",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "url",
+          "label": "http://127.0.0.1:1234",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "number",
+          "label": "model default",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "password",
+          "label": "Enter Z.AI API key",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Save key",
+          "disabled": true
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Clear key",
+          "disabled": true
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "label": "AWS region, e.g. us-east-1",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "password",
+          "label": "AWS access key ID",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "password",
+          "label": "AWS secret access key",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "password",
+          "label": "AWS session token (optional)",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Save credentials",
+          "disabled": true
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Clear credentials",
+          "disabled": true
+        }
+      ]
+    },
+    {
+      "section": "Memory",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "MemoryBuild note embeddings for local memory search using your LM Studio embeddi",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Index Memory Notes",
+          "disabled": false
+        }
+      ]
+    },
+    {
+      "section": "Subagent",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "SubagentConfigure default subagent behavior used by the subagent tool.Optional M",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Follow current chat provider",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Use provider selected/default model",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Medium",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "number",
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "Enable Orchestrator Tool Calls",
+          "disabled": false
+        },
+        {
+          "tag": "TEXTAREA",
+          "type": null,
+          "label": "Settings audit Subagent",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Save Subagent Prompt",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Reset to Default",
+          "disabled": false
+        }
+      ]
+    },
+    {
+      "section": "Context files",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Context filesChoose which in-repo directories hold rules/, skills/, agents/ and ",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "radio",
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Up",
+          "disabled": true
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Down",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Remove",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Up",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Down",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Remove",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Up",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Down",
+          "disabled": true
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Remove",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "text",
+          "label": ".mytool",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Add directory",
+          "disabled": true
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": ".ygg",
+          "disabled": false
+        }
+      ]
+    },
+    {
+      "section": "Tools Configuration",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Tools ConfigurationEnable or disable AI tools. Changes apply to all new conversa",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "number",
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "number",
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "number",
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Reload Tools",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "",
+          "disabled": false
+        }
+      ]
+    },
+    {
+      "section": "HTML Tools Cache",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "HTML Tools CacheManage cached HTML tool outputs. Remove problematic tools withou",
+          "disabled": false
+        }
+      ]
+    },
+    {
+      "section": "API Keys",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "API KeysBrave and MCP OAuth credentials share one secure OS credential vault.Opt",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Consolidate credentials",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "password",
+          "label": "Enter Brave Search API key",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Save Brave API Key",
+          "disabled": true
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Load saved key",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Remove",
+          "disabled": true
+        }
+      ]
+    },
+    {
+      "section": "Built-in Browser",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Built-in BrowserControl optional features for the Electron right-dock browser pa",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": null,
+          "label": "Guest Page DevTools",
+          "disabled": false
+        }
+      ]
+    },
+    {
+      "section": "Remote Mobile Access",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Remote Mobile AccessConfigure a LAN URL for your phone/tablet (same Wi-Fi), then",
+          "disabled": false
+        }
+      ]
+    },
+    {
+      "section": "Local Ownership Migration",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Local Ownership MigrationManually move local project/conversation ownership from",
+          "disabled": false
+        }
+      ]
+    },
+    {
+      "section": "Typography",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "TypographySet app font from a Google Fonts URL or a local font file.Google Fonts",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "url",
+          "label": "https://fonts.googleapis.com/css2?family=Geist:ital,wght@0,100..900;1,100..900&family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&display=swap",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Apply Google Font",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Reset to Geist",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "file",
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Upload Local Font",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Use Local Font",
+          "disabled": true
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Remove Local Font",
+          "disabled": true
+        }
+      ]
+    },
+    {
+      "section": "Custom Upload",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Custom UploadDrag in an MP4 or WebM and keep it ready for motion wallpapers.MP4/",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "file",
+          "label": "",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Browse for video",
+          "disabled": false
+        }
+      ]
+    },
+    {
+      "section": "Solid Color Background",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Solid Color BackgroundPick colors for light and dark themes.Video/solid modeLigh",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Video wallpaper",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Solid colors",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "color",
+          "label": "Light mode color picker",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Transparent",
+          "disabled": false
+        },
+        {
+          "tag": "INPUT",
+          "type": "color",
+          "label": "Dark mode color picker",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Transparent",
+          "disabled": false
+        }
+      ]
+    },
+    {
+      "section": "Saved Wallpapers",
+      "controls": [
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Saved WallpapersSelect or delete any saved clip.Wallpaper selectionText color mo",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Reset to Default",
+          "disabled": false
+        },
+        {
+          "tag": "BUTTON",
+          "type": "button",
+          "label": "Clear Gallery",
+          "disabled": false
+        }
+      ]
+    }
+  ],
+  "externalServices": "Not exercised: live vendor sign-in/inference, Brave, Bedrock, LM Studio, hooks, MCP or skills installation. Source wiring reviewed; these are not end-to-end passes."
+}

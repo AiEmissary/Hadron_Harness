@@ -1,0 +1,24 @@
+{
+  "dataDir": "C:\\Users\\rajka\\AppData\\Local\\Temp\\hadron-startup-IjOnzJ",
+  "electron": "38.8.4",
+  "pid": 71320,
+  "health": {
+    "status": "ok",
+    "mode": "local-sync",
+    "pid": 71320
+  },
+  "port": 63150,
+  "genericUnownedStreamStatus": 410,
+  "schemaVersion": 8,
+  "tables": [
+    {
+      "name": "hadron_participants"
+    },
+    {
+      "name": "hadron_sessions"
+    }
+  ],
+  "shutdown": "closed",
+  "success": true,
+  "blockedNetwork": []
+}

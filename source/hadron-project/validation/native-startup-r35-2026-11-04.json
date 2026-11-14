@@ -1,0 +1,48 @@
+{
+  "dataDir": "C:\\Users\\rajka\\AppData\\Local\\Temp\\hadron-startup-T3HNoX",
+  "electron": "38.8.4",
+  "pid": 81880,
+  "health": {
+    "status": "ok",
+    "mode": "local-sync",
+    "pid": 81880
+  },
+  "port": 49498,
+  "genericUnownedStreamStatus": 410,
+  "disabledCollaborationStatuses": [
+    404,
+    404,
+    404,
+    404,
+    404,
+    404,
+    404
+  ],
+  "disabledIndependentJobStatuses": [
+    404,
+    404,
+    404,
+    404,
+    404,
+    404,
+    404,
+    404,
+    404
+  ],
+  "schemaVersion": 9,
+  "tables": [
+    {
+      "name": "hadron_independent_jobs"
+    },
+    {
+      "name": "hadron_participants"
+    },
+    {
+      "name": "hadron_sessions"
+    }
+  ],
+  "restartRecovery": true,
+  "shutdown": "closed",
+  "success": true,
+  "blockedNetwork": []
+}

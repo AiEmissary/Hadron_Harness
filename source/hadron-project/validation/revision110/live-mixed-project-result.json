@@ -1,0 +1,19 @@
+{
+  "success": true,
+  "personalProjectsChanged": false,
+  "signInOrOut": false,
+  "credentialsReadOrCopied": false,
+  "actualChatGPTProposalAndClaudeReview": true,
+  "models": {
+    "a": "gpt-6-luna",
+    "b": "haiku"
+  },
+  "scenario": "Task completion bug, three unchanged Node tests",
+  "adapter": "Real coordinator, official engines, approved writes and contained Node tests in a disposable project; controlled standalone run records. Full native consent/UI covered separately.",
+  "actualReviewedApplication": true,
+  "actualNodeTestsPassed": true,
+  "testsPreserved": true,
+  "model": "gpt-6-luna",
+  "modelAttempts": 2,
+  "realProviderRequests": 1
+}

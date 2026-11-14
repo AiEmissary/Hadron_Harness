@@ -1,0 +1,35 @@
+dist-electron/assets/sankeyDiagram-P5KCCOFB-C880hJui.js           23.33 kB │ gzip:     8.55 kB
+dist-electron/assets/mindmap-definition-YA3MSWOX-DKkF8EM0.js      23.36 kB │ gzip:     7.89 kB
+dist-electron/assets/journeyDiagram-3NMN7TZE-CtqnXTu1.js          23.55 kB │ gzip:     8.34 kB
+dist-electron/assets/wardleyDiagram-VM6X3IG4-DXjcXk__.js          26.10 kB │ gzip:     6.94 kB
+dist-electron/assets/lspLanguageFeatures-BdZcvFLr.js              28.70 kB │ gzip:     7.75 kB
+dist-electron/assets/gitGraphDiagram-WWUBYQGX-BaQjRb_T.js         29.94 kB │ gzip:     8.88 kB
+dist-electron/assets/erDiagram-RLTQ6QDP-3QSSlZZ8.js               30.93 kB │ gzip:    10.63 kB
+dist-electron/assets/requirementDiagram-BXWQKSXE-CP99a-Ii.js      31.21 kB │ gzip:     9.82 kB
+dist-electron/assets/timeline-definition-24CTP7MA-CUJHqFvv.js     31.32 kB │ gzip:    10.41 kB
+dist-electron/assets/quadrantDiagram-AXDQQJYC-CEu9AIda.js         34.40 kB │ gzip:    10.08 kB
+dist-electron/assets/layout-BMH9qxlE.js                           35.44 kB │ gzip:    12.74 kB
+dist-electron/assets/chunk-IMKFNOWR-Bas8jv4x.js                   38.58 kB │ gzip:    12.66 kB
+dist-electron/assets/vennDiagram-4TSXK5OY-CLrdKKQD.js             42.37 kB │ gzip:    15.80 kB
+dist-electron/assets/xychartDiagram-S5SC5T6Z-BQitw_Hc.js          43.13 kB │ gzip:    12.07 kB
+dist-electron/assets/blockDiagram-I7D4REHJ-DCDAma2Z.js            43.16 kB │ gzip:    13.91 kB
+dist-electron/assets/chunk-TICWLB2K-BUiwZQi7.js                   49.30 kB │ gzip:    15.78 kB
+dist-electron/assets/ganttDiagram-EL5Y4UJY-Bfkojlmc.js            52.42 kB │ gzip:    17.99 kB
+dist-electron/assets/flowDiagram-HODETNUW-BsGekgf5.js             62.61 kB │ gzip:    20.05 kB
+dist-electron/assets/c4Diagram-7LVT6UL2-D4vr6kqO.js               65.56 kB │ gzip:    18.83 kB
+dist-electron/assets/cose-bilkent-JH36ORCC-DsF7glWZ.js            81.72 kB │ gzip:    22.48 kB
+dist-electron/assets/swimlanes-42K2YHIH-BL3kWDVy.js              117.12 kB │ gzip:    42.84 kB
+dist-electron/assets/sequenceDiagram-WJ2MYXX4-1GJ9p9vZ.js        117.45 kB │ gzip:    31.27 kB
+dist-electron/assets/architectureDiagram-5GKGNRK7-5s06ML7V.js    152.02 kB │ gzip:    43.22 kB
+dist-electron/assets/cytoscape.esm-Ix0LnXOy.js                   443.83 kB │ gzip:   142.41 kB
+dist-electron/assets/mermaid.core-tmafBH1Y.js                    667.50 kB │ gzip:   163.86 kB
+dist-electron/assets/cynefin-OW5HDTMX-BcBFwSuH.js                691.10 kB │ gzip:   155.13 kB
+dist-electron/assets/index-3xxh4MHd.js                         1,921.98 kB │ gzip:   514.23 kB
+dist-electron/assets/vendor-DI2ESZDj.js                        2,864.11 kB │ gzip:   818.03 kB
+dist-electron/assets/monacoWorkspaceModules-BLH6_BQT.js        3,875.92 kB │ gzip: 1,002.03 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 49.88s

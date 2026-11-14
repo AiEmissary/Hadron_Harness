@@ -1,0 +1,27 @@
+{
+  "success": true,
+  "frozenContext": "{\"messages\":[{\"role\":\"user\",\"text\":\"Check the proposal\"},{\"role\":\"assistant\",\"text\":\"Selected branch evidence\"}]}",
+  "controls": [
+    "Agent A provider",
+    "Agent A model",
+    "Agent B provider",
+    "Agent B model"
+  ],
+  "startDisabled": true,
+  "pdfExtracted": true,
+  "docxExtracted": true,
+  "filePickerOpened": true,
+  "selectedFile": true,
+  "desktopDockBesideChat": true,
+  "focus": "Close",
+  "mainChatInteractive": true,
+  "mobileOverflow": false,
+  "mobileDockBelowChat": true,
+  "fileRemoved": true,
+  "independentFilesIsolated": true,
+  "independentTasksSeparate": true,
+  "independentStartsDisabled": true,
+  "modeSwitchPreservesDraft": true,
+  "focusRestored": true,
+  "fetches": 0
+}

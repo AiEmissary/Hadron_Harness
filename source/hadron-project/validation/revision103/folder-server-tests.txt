@@ -1,0 +1,33 @@
+
+ RUN  v2.1.9 C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r
+
+(node:26016) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ server/__tests__/hadronHelpers.test.ts (7 tests) 28ms
+(node:75728) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ server/__tests__/hadronProjectRead.test.ts (12 tests) 317ms
+(node:41120) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ server/__tests__/hadronProjectBuildCoordinator.test.ts (58 tests) 12967ms
+   ✓ runs a real failing test, applies the exact correction, invalidates the baseline and records a passing retest 699ms
+   ✓ yields between files so Stop retains the first receipt and leaves the second file unchanged 304ms
+   ✓ binds real Windows replacement to the coordinator application scope 1889ms
+   ✓ performs only one correction and fresh exact-snapshot review while retaining both histories 323ms
+   ✓ builds a complete small Node project from an empty source selection, including nested folders and executable tests 599ms
+ ✓ server/__tests__/hadronProjectDraftService.test.ts (23 tests) 16201ms
+   ✓ native approval applies the reviewed file once; decline and historical reopen cannot write 1712ms
+   ✓ repairs use fresh evidence and real saved test output, retain previous jobs and stop after two rounds 715ms
+   ✓ one bounded approval applies, tests, obtains a fresh A/B repair and retests without extra user actions 2532ms
+   ✓ bounded automation stops at two repairs and never turns persistent test failure into success 4022ms
+   ✓ Stop during an automatic repair cancels and joins its actual request without starting a successor 1615ms
+   ✓ checks uncertain admissions through read-only lookup without replaying or leaking another workspace 347ms
+   ✓ accepts tested deliverables and prepares a fresh next milestone without inference or source permission replay 1447ms
+   ✓ does not accept unapplied work or failed tests, and records an explicit documentation test waiver 782ms
+   ✓ keeps automatic repair model budgets fixed by disabling exploratory tools for the approved repair stage 502ms
+
+ Test Files  4 passed (4)
+      Tests  100 passed (100)
+   Start at  12:05:44
+   Duration  17.15s (transform 762ms, setup 0ms, collect 2.70s, tests 29.51s, environment 1ms, prepare 663ms)
+

@@ -1,0 +1,15 @@
+{
+  "numPassedTests": 493,
+  "numFailedTests": 0,
+  "numPendingTests": 5,
+  "numPassedTestSuites": 85,
+  "numFailedTestSuites": 0,
+  "focusedPolicyAndStartupTests": 25,
+  "serverTypecheck": true,
+  "electronMobileTypecheckAndMainBuild": true,
+  "builtStartupCases": 4,
+  "standardInterceptedShellCalls": 3,
+  "restrictedInterceptedShellCalls": 0,
+  "realProviderRequests": 0,
+  "canonicalEditsEnabled": false
+}

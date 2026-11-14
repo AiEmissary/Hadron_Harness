@@ -1,0 +1,12 @@
+{
+  "success": true,
+  "accessControlsAcrossFourModes": true,
+  "chatIgnoresSelectedFolder": true,
+  "largeLocalAttachmentExcerptConfirmed": true,
+  "continuousBothAgentsReadActualFolder": true,
+  "continuousActivityRecorded": true,
+  "reviewedEditHandoffNoInference": true,
+  "editRequiresNewFolderAuthority": true,
+  "realProviderRequests": 0,
+  "signInProtocolPreserved": true
+}

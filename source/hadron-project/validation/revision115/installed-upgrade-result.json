@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "version": "0.4.15",
+  "installerExit": 0,
+  "originalMessagesPreserved": true,
+  "projects": 3,
+  "conversationsIncludingBin": 54,
+  "messages": 149,
+  "integrity": "ok",
+  "providerCredentialsCopied": false,
+  "developmentSourceModified": false,
+  "desktopTaskbarStartMenuTargetInstalledApp": true,
+  "preTransferLogicalSubsetVerified": true,
+  "privateBackupsAvailable": true
+}

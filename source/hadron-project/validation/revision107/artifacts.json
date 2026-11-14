@@ -1,0 +1,25 @@
+{
+  "version": "0.4.7",
+  "sourceRevision": "56c27328f55a25db3794a69072b6a3970869dc66",
+  "artifacts": [
+    {
+      "name": "Hadron-Harness-0.4.7-win-x64.exe",
+      "bytes": 370837122,
+      "sha256": "e349b8ee540e304adb9415a56d9e4fb4c88ca6b599c2fcd0810c11e2d2005a33"
+    },
+    {
+      "name": "Hadron-Harness-0.4.7-source.zip",
+      "bytes": 8038933,
+      "sha256": "624c9d45cec36659ba824b024d14e0b11ffb688ed809650fd90aa940c0fad5c6"
+    }
+  ],
+  "personalProfileReadOnlyAudit": {
+    "opened": 48,
+    "historicalOnly": 14,
+    "failed": 0,
+    "readOnly": true
+  },
+  "desktopHistoricalChat": "passed; actual left chat answer and tree readable, Main chat selected, no model request",
+  "packagedStartup": "passed; project/recycle IPC and palette controls ready",
+  "cleanPcAndFullInstalledUpgradeRepeated": false
+}

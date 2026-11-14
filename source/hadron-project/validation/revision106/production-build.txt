@@ -1,0 +1,272 @@
+
+> graviton@0.3.20 build:electron:parallel
+> node scripts/build-electron.mjs
+
+
+> graviton@0.3.20 build:electron
+> cross-env BUILD_TARGET=electron tsc -b && cross-env BUILD_TARGET=electron vite build
+
+
+> graviton@0.3.20 build:electron:main
+> npm run typecheck:electron && npm run typecheck:mobile && node electron/esbuild.main.mjs
+
+
+> graviton@0.3.20 typecheck:electron
+> tsc -p electron/tsconfig.json --noEmit
+
+
+> graviton@0.3.20 typecheck:mobile
+> tsc -p server/headlessServer/ui/mobile/tsconfig.json --noEmit
+
+Built Windows x64 HadronWorkerHost with source/binary hashes
+✅ preload.ts compiled to preload.mjs
+✅ toolRuntimeUtility.ts bundled to toolRuntimeUtility.mjs
+✅ localAnalyticsWorker.ts bundled to localAnalyticsWorker.mjs
+
+  server\headlessServer\ui\mobile\assets\mobile-app.js      1.5mb
+  server\headlessServer\ui\mobile\assets\mobile-app.js.map  2.8mb
+
+Done in 373ms
+✅ mobile React UI bundled to server/headlessServer/ui/mobile/assets/mobile-app.js
+✅ main.ts bundled to main.mjs
+vite v6.4.1 building for production...
+transforming...
+✓ 7498 modules transformed.
+rendering chunks...
+[plugin vite:reporter] 
+(!) C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/utils/api.ts is dynamically imported by C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/hooks/useQueries.ts but also statically imported by C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/components/ChatMessage/ChatMessage.tsx, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/components/ChatMessage/HookActivityCard.tsx, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/components/ChatMessage/HtmlIframe.tsx, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/components/ChatSelection/ChatSelectionProvider.tsx, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/components/CollaborationPanel/HadronToolLibrary.tsx, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/components/Heimdall/Heimdall.tsx, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/components/HtmlIframeRegistry/HtmlIframeRegistry.tsx, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/components/McpAppIframe/McpAppIframe.tsx, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/components/PlanMdToolView/PlanMdToolView.tsx, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/components/SettingsPane/SettingsPane.tsx, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/components/SettingsPane/ToolsSettings.tsx, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/components/SubagentTranscript/SubagentTranscript.tsx, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/components/TitleBar/TitleBar.tsx, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/containers/Chat.tsx, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/containers/ConversationPage.tsx, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/containers/HomepageRedirect.tsx, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/containers/PaymentPage.tsx, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/containers/Settings.tsx, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/containers/appStore.tsx, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/containers/rightBar.tsx, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/containers/sideBar.tsx, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/contexts/AuthContext.tsx, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/features/chats/chatActions.ts, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/features/chats/conversationMessagesApi.ts, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/features/chats/imagePreparation.ts, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/features/chats/mainChatClient.ts, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/features/chats/streamUndoApi.ts, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/features/chats/subagentClient.ts, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/features/collaboration/client.ts, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/features/collaboration/independentClient.ts, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/features/conversations/conversationActions.ts, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/features/projects/projectActions.ts, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/features/search/searchActions.ts, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/features/users/usersActions.ts, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/hooks/useConversationRunStatistics.ts, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/hooks/useIdeContext.ts, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/hooks/useLoggingAnalytics.ts, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/hooks/useQueries.ts, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/hooks/useUserSystemPrompts.ts, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/lib/localMirror.ts, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/lib/lsp/lspClientPool.ts, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/lib/lsp/monacoMappings.ts, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/services/ToolJobManager.ts, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/services/appStore.ts, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/utils/executeToolAndWait.ts, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/utils/iframeBridge.ts, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/utils/readLocalMentionFile.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/features/chats/imagePreparation.ts is dynamically imported by C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/features/chats/chatActions.ts but also statically imported by C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/components/ChatMessage/ChatMessage.tsx, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/components/InputTextArea/InputTextArea.tsx, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/components/TextArea/TextArea.tsx, C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r/src/containers/Chat.tsx, dynamic import will not move module into another chunk.
+
+computing gzip size...
+dist-electron/index.html                                           2.16 kB │ gzip:     0.86 kB
+dist-electron/assets/KaTeX_Size3-Regular-CTq5MqoE.woff             4.42 kB
+dist-electron/assets/KaTeX_Size4-Regular-Dl5lxZxV.woff2            4.93 kB
+dist-electron/assets/KaTeX_Size2-Regular-Dy4dx90m.woff2            5.21 kB
+dist-electron/assets/KaTeX_Size1-Regular-mCD8mA8B.woff2            5.47 kB
+dist-electron/assets/KaTeX_Size4-Regular-BF-4gkZK.woff             5.98 kB
+dist-electron/assets/KaTeX_Size2-Regular-oD1tc_U0.woff             6.19 kB
+dist-electron/assets/KaTeX_Size1-Regular-C195tn64.woff             6.50 kB
+dist-electron/assets/KaTeX_Caligraphic-Regular-Di6jR-x-.woff2      6.91 kB
+dist-electron/assets/KaTeX_Caligraphic-Bold-Dq_IR9rO.woff2         6.91 kB
+dist-electron/assets/KaTeX_Size3-Regular-DgpXs0kz.ttf              7.59 kB
+dist-electron/assets/KaTeX_Caligraphic-Regular-CTRA-rTL.woff       7.66 kB
+dist-electron/assets/KaTeX_Caligraphic-Bold-BEiXGLvX.woff          7.72 kB
+dist-electron/assets/KaTeX_Script-Regular-D3wIWfF6.woff2           9.64 kB
+dist-electron/assets/KaTeX_SansSerif-Regular-DDBCnlJ7.woff2       10.34 kB
+dist-electron/assets/KaTeX_Size4-Regular-DWFBv043.ttf             10.36 kB
+dist-electron/assets/KaTeX_Script-Regular-D5yQViql.woff           10.59 kB
+dist-electron/assets/KaTeX_Fraktur-Regular-CTYiF6lA.woff2         11.32 kB
+dist-electron/assets/KaTeX_Fraktur-Bold-CL6g_b3V.woff2            11.35 kB
+dist-electron/assets/KaTeX_Size2-Regular-B7gKUWhC.ttf             11.51 kB
+dist-electron/assets/KaTeX_SansSerif-Italic-C3H0VqGB.woff2        12.03 kB
+dist-electron/assets/KaTeX_SansSerif-Bold-D1sUS0GD.woff2          12.22 kB
+dist-electron/assets/KaTeX_Size1-Regular-Dbsnue_I.ttf             12.23 kB
+dist-electron/assets/KaTeX_SansSerif-Regular-CS6fqUqJ.woff        12.32 kB
+dist-electron/assets/KaTeX_Caligraphic-Regular-wX97UBjC.ttf       12.34 kB
+dist-electron/assets/KaTeX_Caligraphic-Bold-ATXxdsX0.ttf          12.37 kB
+dist-electron/assets/KaTeX_Fraktur-Regular-Dxdc4cR9.woff          13.21 kB
+dist-electron/assets/KaTeX_Fraktur-Bold-BsDP51OF.woff             13.30 kB
+dist-electron/assets/KaTeX_Typewriter-Regular-CO6r4hn1.woff2      13.57 kB
+dist-electron/assets/KaTeX_SansSerif-Italic-DN2j7dab.woff         14.11 kB
+dist-electron/assets/KaTeX_SansSerif-Bold-DbIhKOiC.woff           14.41 kB
+dist-electron/assets/KaTeX_Typewriter-Regular-C0xS9mPB.woff       16.03 kB
+dist-electron/assets/KaTeX_Math-BoldItalic-CZnvNsCZ.woff2         16.40 kB
+dist-electron/assets/KaTeX_Math-Italic-t53AETM-.woff2             16.44 kB
+dist-electron/assets/KaTeX_Script-Regular-C5JkGWo-.ttf            16.65 kB
+dist-electron/assets/KaTeX_Main-BoldItalic-DxDJ3AOS.woff2         16.78 kB
+dist-electron/assets/KaTeX_Main-Italic-NWA7e6Wa.woff2             16.99 kB
+dist-electron/assets/KaTeX_Math-BoldItalic-iY-2wyZ7.woff          18.67 kB
+dist-electron/assets/KaTeX_Math-Italic-DA0__PXp.woff              18.75 kB
+dist-electron/assets/KaTeX_Main-BoldItalic-SpSLRI95.woff          19.41 kB
+dist-electron/assets/KaTeX_SansSerif-Regular-BNo7hRIc.ttf         19.44 kB
+dist-electron/assets/KaTeX_Fraktur-Regular-CB_wures.ttf           19.57 kB
+dist-electron/assets/KaTeX_Fraktur-Bold-BdnERNNW.ttf              19.58 kB
+dist-electron/assets/KaTeX_Main-Italic-BMLOBm91.woff              19.68 kB
+dist-electron/assets/KaTeX_SansSerif-Italic-YYjJ1zSn.ttf          22.36 kB
+dist-electron/assets/KaTeX_SansSerif-Bold-CFMepnvq.ttf            24.50 kB
+dist-electron/assets/KaTeX_Main-Bold-Cx986IdX.woff2               25.32 kB
+dist-electron/assets/KaTeX_Main-Regular-B22Nviop.woff2            26.27 kB
+dist-electron/assets/KaTeX_Typewriter-Regular-D3Ib7_Hf.ttf        27.56 kB
+dist-electron/assets/KaTeX_AMS-Regular-BQhdFMY1.woff2             28.08 kB
+dist-electron/assets/KaTeX_Main-Bold-Jm3AIy58.woff                29.91 kB
+dist-electron/assets/KaTeX_Main-Regular-Dr94JaBh.woff             30.77 kB
+dist-electron/assets/KaTeX_Math-BoldItalic-B3XSjfu4.ttf           31.20 kB
+dist-electron/assets/KaTeX_Math-Italic-flOr_0UB.ttf               31.31 kB
+dist-electron/assets/KaTeX_Main-BoldItalic-DzxPMmG6.ttf           32.97 kB
+dist-electron/assets/KaTeX_AMS-Regular-DMm9YOAa.woff              33.52 kB
+dist-electron/assets/KaTeX_Main-Italic-3WenGoN9.ttf               33.58 kB
+dist-electron/assets/noise-BYIOeqQL.png                           36.66 kB
+dist-electron/assets/KaTeX_Main-Bold-waoOVXN0.ttf                 51.34 kB
+dist-electron/assets/KaTeX_Main-Regular-ypZvNtVU.ttf              53.58 kB
+dist-electron/assets/KaTeX_AMS-Regular-DRggAlZN.ttf               63.63 kB
+dist-electron/assets/boxicons-CeGEncwm.woff2                     115.68 kB
+dist-electron/assets/codicon-ngg6Pgfi.ttf                        121.97 kB
+dist-electron/assets/eyehadron-DEx_zF6M.jpg                      248.14 kB
+dist-electron/assets/boxicons-EIQNrSje.ttf                       320.94 kB
+dist-electron/assets/boxicons-CTVby2V1.woff                      321.02 kB
+dist-electron/assets/json.worker-leyajbqV.js                     385.06 kB
+dist-electron/assets/boxicons-CSrLvhY_.eot                       405.67 kB
+dist-electron/assets/html.worker-DtiGdgqp.js                     694.86 kB
+dist-electron/assets/css.worker-B4z49cGk.js                    1,032.18 kB
+dist-electron/assets/pdf.worker.min-wgc6bjNh.mjs               1,078.61 kB
+dist-electron/assets/boxicons-Dp7W9qN3.svg                     1,242.12 kB │ gzip:   354.03 kB
+dist-electron/assets/ts.worker-59MjiAqk.js                     7,021.31 kB
+dist-electron/assets/vendor-BWg3jrSz.css                          98.19 kB │ gzip:    22.95 kB
+dist-electron/assets/monacoWorkspaceModules-qiF_U8vl.css         146.49 kB │ gzip:    23.02 kB
+dist-electron/assets/index-D91_KO4M.css                          749.06 kB │ gzip:   104.23 kB
+dist-electron/assets/channel-unnsHJQJ.js                           0.12 kB │ gzip:     0.13 kB
+dist-electron/assets/chunk-2Q5K7J3B-DOysgBa9.js                    0.19 kB │ gzip:     0.16 kB
+dist-electron/assets/index-BdslcQh3.js                             0.21 kB │ gzip:     0.18 kB
+dist-electron/assets/chunk-XXDRQBXY-DL7XD-wu.js                    0.23 kB │ gzip:     0.21 kB
+dist-electron/assets/chunk-JWPE2WC7-BFmfaF4G.js                    0.30 kB │ gzip:     0.21 kB
+dist-electron/assets/chunk-5VM5RSS4-C8UEtMV2.js                    0.37 kB │ gzip:     0.27 kB
+dist-electron/assets/stateDiagram-v2-MP3YSRHH-jfSJ26zO.js          0.43 kB │ gzip:     0.30 kB
+dist-electron/assets/classDiagram-ZZMXUADV-BdXxKQNN.js             0.47 kB │ gzip:     0.32 kB
+dist-electron/assets/classDiagram-v2-VYDZK3BY-BdXxKQNN.js          0.47 kB │ gzip:     0.32 kB
+dist-electron/assets/chunk-POPQ4Y6H-BvhFuQzA.js                    0.53 kB │ gzip:     0.38 kB
+dist-electron/assets/swimlanesDiagram-VR7AAH4N-CPLczfDQ.js         0.55 kB │ gzip:     0.37 kB
+dist-electron/assets/infoDiagram-27XIBGKW-DmZn-hma.js              0.59 kB │ gzip:     0.41 kB
+dist-electron/assets/none-fI8n6RC_.js                              0.64 kB │ gzip:     0.37 kB
+dist-electron/assets/azcli-Y6nb8tq_.js                             0.71 kB │ gzip:     0.28 kB
+dist-electron/assets/javascript-3fei2aK0.js                        0.88 kB │ gzip:     0.49 kB
+dist-electron/assets/ini-Kd9XrMLS.js                               0.96 kB │ gzip:     0.50 kB
+dist-electron/assets/sizeCapture-INFHLROL-Cypw78g1.js              1.00 kB │ gzip:     0.56 kB
+dist-electron/assets/csp-D-4FJmMZ.js                               1.28 kB │ gzip:     0.49 kB
+dist-electron/assets/documentText-CmYAjNAP.js                      1.45 kB │ gzip:     0.79 kB
+dist-electron/assets/index-DJa123kN.js                             1.50 kB │ gzip:     0.79 kB
+dist-electron/assets/pla-DSh2-awV.js                               1.55 kB │ gzip:     0.61 kB
+dist-electron/assets/railroadDiagram-O6MQD6OU-C4DCVWe4.js          1.61 kB │ gzip:     0.76 kB
+dist-electron/assets/scheme-BPhDTwHR.js                            1.63 kB │ gzip:     0.78 kB
+dist-electron/assets/flow9-BeJ5waoc.js                             1.67 kB │ gzip:     0.81 kB
+dist-electron/assets/sb-BBc9UKZt.js                                1.69 kB │ gzip:     0.79 kB
+dist-electron/assets/bat-BwHxbl9M.js                               1.71 kB │ gzip:     0.83 kB
+dist-electron/assets/dockerfile-BG73LgW2.js                        1.73 kB │ gzip:     0.63 kB
+dist-electron/assets/abnfDiagram-VCTEODGH-MgI8o-Dj.js              1.81 kB │ gzip:     0.89 kB
+dist-electron/assets/pascaligo-DtZ0uQbO.js                         1.86 kB │ gzip:     0.87 kB
+dist-electron/assets/chunk-F27PBJKO-Cn162DyN.js                    1.88 kB │ gzip:     0.83 kB
+dist-electron/assets/pegDiagram-XKGWAZYB-CkaBftHE.js               1.96 kB │ gzip:     0.92 kB
+dist-electron/assets/lua-Cyyb5UIc.js                               1.99 kB │ gzip:     0.89 kB
+dist-electron/assets/xml-5irKHOiI.js                               2.00 kB │ gzip:     0.79 kB
+dist-electron/assets/ebnfDiagram-PWID7BFC-DQGgBioe.js              2.01 kB │ gzip:     0.88 kB
+dist-electron/assets/cameligo-Bf6VGUru.js                          2.05 kB │ gzip:     0.92 kB
+dist-electron/assets/graphql-BxJiqAUM.js                           2.12 kB │ gzip:     0.99 kB
+dist-electron/assets/objective-c-BDtDVThU.js                       2.26 kB │ gzip:     1.02 kB
+dist-electron/assets/lexon-OrD6JF1K.js                             2.30 kB │ gzip:     0.89 kB
+dist-electron/assets/bicep-CFznDFnq.js                             2.40 kB │ gzip:     0.93 kB
+dist-electron/assets/managed-C8_VLO1F.js                           2.40 kB │ gzip:     1.09 kB
+dist-electron/assets/sparql-CJmd_6j2.js                            2.41 kB │ gzip:     1.12 kB
+dist-electron/assets/mips-CiqrrVzr.js                              2.44 kB │ gzip:     1.03 kB
+dist-electron/assets/go-acbASCJo.js                                2.52 kB │ gzip:     1.11 kB
+dist-electron/assets/sophia-CnS9iZB_.js                            2.63 kB │ gzip:     1.17 kB
+dist-electron/assets/typespec-Btyra-wh.js                          2.66 kB │ gzip:     1.05 kB
+dist-electron/assets/m3-B8OfTtLu.js                                2.68 kB │ gzip:     1.28 kB
+dist-electron/assets/fsharp-PahG7c26.js                            2.85 kB │ gzip:     1.28 kB
+dist-electron/assets/pascal-vHIfCaH5.js                            2.86 kB │ gzip:     1.36 kB
+dist-electron/assets/shell-DiJ1NA_G.js                             2.94 kB │ gzip:     1.16 kB
+dist-electron/assets/r-j7ic8hl3.js                                 2.99 kB │ gzip:     1.24 kB
+dist-electron/assets/qsharp-Bw9ernYp.js                            3.05 kB │ gzip:     1.37 kB
+dist-electron/assets/java-CXBNlu9o.js                              3.08 kB │ gzip:     1.36 kB
+dist-electron/assets/cssMode--sK3KS-e.js                           3.11 kB │ gzip:     1.18 kB
+dist-electron/assets/powershell-COWaemsV.js                        3.13 kB │ gzip:     1.34 kB
+dist-electron/assets/cypher-cTPe9QuQ.js                            3.25 kB │ gzip:     1.40 kB
+dist-electron/assets/kotlin-s7OhZKlX.js                            3.26 kB │ gzip:     1.43 kB
+dist-electron/assets/redis-Bu5POkcn.js                             3.42 kB │ gzip:     1.44 kB
+dist-electron/assets/tcl-Dm6ycUr_.js                               3.43 kB │ gzip:     1.33 kB
+dist-electron/assets/coffee-Bd8akH9Z.js                            3.45 kB │ gzip:     1.26 kB
+dist-electron/assets/hcl-DtV1sZF8.js                               3.45 kB │ gzip:     1.45 kB
+dist-electron/assets/liquid-B7d033Cn.js                            3.55 kB │ gzip:     1.48 kB
+dist-electron/assets/htmlMode-DFFEA2f6.js                          3.57 kB │ gzip:     1.29 kB
+dist-electron/assets/yaml-Bqs7dD6a.js                              3.62 kB │ gzip:     1.34 kB
+dist-electron/assets/markdown-BFxVWTOG.js                          3.65 kB │ gzip:     1.35 kB
+dist-electron/assets/restructuredtext-CqXO7rUv.js                  3.76 kB │ gzip:     1.33 kB
+dist-electron/assets/less-9HpZscsL.js                              3.76 kB │ gzip:     1.38 kB
+dist-electron/assets/python-B7ijBI-i.js                            3.79 kB │ gzip:     1.50 kB
+dist-electron/assets/apex-DNDY2TF8.js                              3.82 kB │ gzip:     1.73 kB
+dist-electron/assets/rust-BzKRNQWT.js                              4.02 kB │ gzip:     1.79 kB
+dist-electron/assets/dart-BOtBlQCF.js                              4.11 kB │ gzip:     1.61 kB
+dist-electron/assets/diagram-Z3DM3KII-BNATWm-K.js                  4.25 kB │ gzip:     1.86 kB
+dist-electron/assets/css-DdJfP1eB.js                               4.37 kB │ gzip:     1.34 kB
+dist-electron/assets/csharp-Co3qMtFm.js                            4.39 kB │ gzip:     1.69 kB
+dist-electron/assets/mdx-DNbXbHJS.js                               4.40 kB │ gzip:     1.26 kB
+dist-electron/assets/html-BXCBBsbg.js                              4.60 kB │ gzip:     1.21 kB
+dist-electron/assets/pug-8SOpv6rk.js                               4.69 kB │ gzip:     1.61 kB
+dist-electron/assets/msdax-DmeGPVcC.js                             4.77 kB │ gzip:     1.91 kB
+dist-electron/assets/typescript-DhdZg5Vr.js                        4.98 kB │ gzip:     1.99 kB
+dist-electron/assets/swift-Bqt4WxQ4.js                             5.03 kB │ gzip:     2.06 kB
+dist-electron/assets/pieDiagram-E7YTZNPT-Qw7MaE6T.js               5.11 kB │ gzip:     2.17 kB
+dist-electron/assets/cpp-BbWJElDN.js                               5.16 kB │ gzip:     2.06 kB
+dist-electron/assets/ecl-BEgZUVRK.js                               5.20 kB │ gzip:     2.19 kB
+dist-electron/assets/vb-Db0cS2oM.js                                5.65 kB │ gzip:     2.02 kB
+dist-electron/assets/twig-Csy3S7wG.js                              5.84 kB │ gzip:     1.49 kB
+dist-electron/assets/diagram-UQ7AKVKN-8VK_S_JL.js                  6.23 kB │ gzip:     2.68 kB
+dist-electron/assets/scss-CBJaRo0y.js                              6.27 kB │ gzip:     1.71 kB
+dist-electron/assets/handlebars-M3wYh9SC.js                        6.36 kB │ gzip:     1.43 kB
+dist-electron/assets/julia-cl7-CwDS.js                             7.01 kB │ gzip:     2.62 kB
+dist-electron/assets/scala-D9hQfWCl.js                             7.18 kB │ gzip:     2.06 kB
+dist-electron/assets/wgsl-BTesnYfV.js                              7.21 kB │ gzip:     2.72 kB
+dist-electron/assets/st-CHwy0fLd.js                                7.26 kB │ gzip:     2.21 kB
+dist-electron/assets/systemverilog-Bs9z6M-B.js                     7.47 kB │ gzip:     2.72 kB
+dist-electron/assets/postiats-CocnycG-.js                          7.72 kB │ gzip:     2.40 kB
+dist-electron/assets/php-BBUBE1dy.js                               7.89 kB │ gzip:     2.04 kB
+dist-electron/assets/perl-Ub6l9XKa.js                              8.12 kB │ gzip:     3.10 kB
+dist-electron/assets/diagram-S7CK7UJ4-XMt5eGEE.js                  8.35 kB │ gzip:     3.72 kB
+dist-electron/assets/ruby-zBfavPgS.js                              8.37 kB │ gzip:     2.54 kB
+dist-electron/assets/razor-D_QCMnp_.js                             8.37 kB │ gzip:     2.11 kB
+dist-electron/assets/protobuf-Brw8urJB.js                          8.91 kB │ gzip:     2.04 kB
+dist-electron/assets/clojure-Dnu-v4kV.js                           9.51 kB │ gzip:     3.57 kB
+dist-electron/assets/cynefinDiagram-5FMLGOSQ-De-StRz6.js          10.10 kB │ gzip:     3.63 kB
+dist-electron/assets/elixir-BkW5O-1t.js                           10.12 kB │ gzip:     2.50 kB
+dist-electron/assets/sql-ClhHkBeG.js                              10.16 kB │ gzip:     3.79 kB
+dist-electron/assets/stateDiagram-D77RDMKH-Dd5yiSFI.js            10.37 kB │ gzip:     3.62 kB
+dist-electron/assets/diagram-VSXAHHWV-CT0b7zy0.js                 10.82 kB │ gzip:     4.17 kB
+dist-electron/assets/dagre-GXQ25YYZ-CiLx_W43.js                   11.14 kB │ gzip:     4.18 kB
+dist-electron/assets/mysql-C_tMU-Nz.js                            11.14 kB │ gzip:     4.01 kB
+dist-electron/assets/redshift-Bs9aos_-.js                         11.66 kB │ gzip:     4.30 kB
+dist-electron/assets/jsonMode-Ca7TbPAo.js                         12.49 kB │ gzip:     4.60 kB
+dist-electron/assets/pgsql-BlNEE0v7.js                            13.33 kB │ gzip:     4.46 kB
+dist-electron/assets/abap-DLDM7-KI.js                             14.03 kB │ gzip:     5.27 kB
+dist-electron/assets/freemarker2-CizE7lAx.js                      15.67 kB │ gzip:     3.96 kB
+dist-electron/assets/chunk-SVP7TREG-nVLhAd5r.js                   15.76 kB │ gzip:     4.43 kB
+dist-electron/assets/diagram-VX7I27RA-CyhqbKTO.js                 15.97 kB │ gzip:     5.68 kB
+dist-electron/assets/powerquery-tScXyioY.js                       16.80 kB │ gzip:     4.81 kB
+dist-electron/assets/ishikawaDiagram-5VMMS53U-C2Ct5wL9.js         17.57 kB │ gzip:     6.68 kB
+dist-electron/assets/solidity-Db0IVjzk.js                         18.46 kB │ gzip:     4.41 kB
+dist-electron/assets/kanban-definition-UXKFOSKX-BHSphSP1.js       20.70 kB │ gzip:     7.29 kB
+dist-electron/assets/tsMode-DsNE53nZ.js                           22.09 kB │ gzip:     6.29 kB
+dist-electron/assets/sankeyDiagram-P5KCCOFB-BsmIKpjp.js           23.33 kB │ gzip:     8.55 kB
+dist-electron/assets/mindmap-definition-YA3MSWOX-BIwjF2Rg.js      23.36 kB │ gzip:     7.89 kB
+dist-electron/assets/journeyDiagram-3NMN7TZE-CrVa7jZX.js          23.55 kB │ gzip:     8.34 kB
+dist-electron/assets/wardleyDiagram-VM6X3IG4-b32XCAKk.js          26.10 kB │ gzip:     6.94 kB
+dist-electron/assets/lspLanguageFeatures-C-szw83e.js              28.70 kB │ gzip:     7.75 kB
+dist-electron/assets/gitGraphDiagram-WWUBYQGX-C10VbBiZ.js         29.94 kB │ gzip:     8.88 kB
+dist-electron/assets/erDiagram-RLTQ6QDP-BWUf2K7b.js               30.93 kB │ gzip:    10.63 kB
+dist-electron/assets/requirementDiagram-BXWQKSXE-BCALzbqL.js      31.21 kB │ gzip:     9.82 kB
+dist-electron/assets/timeline-definition-24CTP7MA-IkPRFM6Y.js     31.32 kB │ gzip:    10.41 kB
+dist-electron/assets/quadrantDiagram-AXDQQJYC-BzZZVUkI.js         34.40 kB │ gzip:    10.08 kB
+dist-electron/assets/layout-eX52y0B7.js                           35.44 kB │ gzip:    12.75 kB
+dist-electron/assets/chunk-IMKFNOWR-DgofbG8d.js                   38.58 kB │ gzip:    12.66 kB
+dist-electron/assets/vennDiagram-4TSXK5OY-b4PGpX39.js             42.37 kB │ gzip:    15.80 kB
+dist-electron/assets/xychartDiagram-S5SC5T6Z-CIJIrswn.js          43.13 kB │ gzip:    12.07 kB
+dist-electron/assets/blockDiagram-I7D4REHJ-DGKga1n5.js            43.16 kB │ gzip:    13.91 kB
+dist-electron/assets/chunk-TICWLB2K-5oDple9D.js                   49.30 kB │ gzip:    15.78 kB
+dist-electron/assets/ganttDiagram-EL5Y4UJY-BgQuyXuR.js            52.42 kB │ gzip:    17.99 kB
+dist-electron/assets/flowDiagram-HODETNUW-DunePMe3.js             62.61 kB │ gzip:    20.05 kB
+dist-electron/assets/c4Diagram-7LVT6UL2-8XWww0RG.js               65.56 kB │ gzip:    18.83 kB
+dist-electron/assets/cose-bilkent-JH36ORCC-me3CEEff.js            81.72 kB │ gzip:    22.48 kB
+dist-electron/assets/swimlanes-42K2YHIH-B3uALq_K.js              117.12 kB │ gzip:    42.84 kB
+dist-electron/assets/sequenceDiagram-WJ2MYXX4-DYs1Vtd7.js        117.45 kB │ gzip:    31.27 kB
+dist-electron/assets/architectureDiagram-5GKGNRK7-B8X8lcuP.js    152.02 kB │ gzip:    43.22 kB
+dist-electron/assets/cytoscape.esm-Ix0LnXOy.js                   443.83 kB │ gzip:   142.41 kB
+dist-electron/assets/mermaid.core-DCnGzqZ8.js                    667.50 kB │ gzip:   163.86 kB
+dist-electron/assets/cynefin-OW5HDTMX-DstQXabp.js                691.10 kB │ gzip:   155.13 kB
+dist-electron/assets/index-DTSXTwHO.js                         1,920.93 kB │ gzip:   514.20 kB
+dist-electron/assets/vendor-r9rWvw1-.js                        2,864.10 kB │ gzip:   818.02 kB
+dist-electron/assets/monacoWorkspaceModules-BUY9n986.js        3,875.92 kB │ gzip: 1,002.02 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 57.60s

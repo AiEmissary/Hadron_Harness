@@ -1,0 +1,17 @@
+
+> graviton@0.3.20 test:server
+> vitest run --config vitest.server.config.ts server/__tests__/hadronChatgptStore.test.ts server/__tests__/hadronPrivateProfilePaths.test.ts server/__tests__/hadronChatgptSignIn.test.ts server/__tests__/hadronAuthLease.test.ts
+
+
+ RUN  v2.1.9 C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r
+
+ ✓ server/__tests__/hadronAuthLease.test.ts (5 tests) 146ms
+ ✓ server/__tests__/hadronChatgptSignIn.test.ts (12 tests) 263ms
+ ✓ server/__tests__/hadronPrivateProfilePaths.test.ts (10 tests) 390ms
+ ✓ server/__tests__/hadronChatgptStore.test.ts (11 tests) 592ms
+
+ Test Files  4 passed (4)
+      Tests  38 passed (38)
+   Start at  11:02:46
+   Duration  1.36s (transform 339ms, setup 0ms, collect 953ms, tests 1.39s, environment 1ms, prepare 861ms)
+

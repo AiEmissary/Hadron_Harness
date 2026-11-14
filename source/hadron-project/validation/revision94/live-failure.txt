@@ -1,0 +1,3 @@
+Live user acceptance: 50 completed replies followed by request51 failing.
+Read-only Hadron diagnostic: 2026-11-07T13:57:28.565Z; upstream_http_503; requests1; completed false; exitCode null.
+This is an explicit temporary upstream rejection. No provider payloads or credentials retained here.

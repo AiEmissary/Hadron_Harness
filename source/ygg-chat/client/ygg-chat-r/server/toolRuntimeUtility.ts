@@ -1,0 +1,658 @@
+import './hadronTools/utilityExecutionBootstrap.js'
+import path from 'path'
+import { hasFullToolAccess, withToolAccess } from './toolAccessContext.js'
+import { SHELL_CLEANUP_GRACE_MS } from './tools/shellExecutionPolicy.js'
+import { runBashCommand } from './tools/bash.js'
+import { runPowerShellCommand } from './tools/powershell.js'
+import { createTextFile } from './tools/createFile.js'
+import { deleteFile, safeDeleteFile } from './tools/deleteFile.js'
+import { extractDirectoryStructure } from './tools/directory.js'
+import { editFile, multiEdit } from './tools/editFile.js'
+import { globSearch } from './tools/glob.js'
+import htmlRenderer from './tools/htmlRenderer.js'
+import { readFileContinuation, readTextFile } from './tools/readFile.js'
+import { formatReadFilesResult, readMultipleTextFiles } from './tools/readFiles.js'
+import { ripgrepSearch } from './tools/ripgrep.js'
+import { viewImage } from './tools/viewImage.js'
+import { recordPreEditBackup, recordToolEditSuccess } from './tools/streamUndoManager.js'
+import { customToolRegistry } from './tools/customToolLoader.js'
+import type { ToolExecutionOptions, UtilityRuntimeRequest, UtilityRuntimeResponse } from './tools/runtime/protocol.js'
+import { isManagedToolPath } from './utils/managedToolPaths.js'
+
+type BuiltInToolHandler = (args: any, options: ToolExecutionOptions) => Promise<any>
+
+const builtInTools: Map<string, BuiltInToolHandler> = new Map()
+let customToolsInitialized = false
+let customToolsInitPromise: Promise<void> | null = null
+
+function isUtilityRuntimeDebugLoggingEnabled(): boolean {
+  return /^(1|true|yes|on)$/i.test(process.env.YGG_UTILITY_TOOL_RUNTIME_DEBUG_LOGS || '')
+}
+
+function logLifecycle(event: string, details: Record<string, unknown>): void {
+  if (!isUtilityRuntimeDebugLoggingEnabled()) return
+  const detailText = Object.entries(details)
+    .filter(([, value]) => value !== undefined && value !== null)
+    .map(([key, value]) => `${key}=${typeof value === 'string' ? value : JSON.stringify(value)}`)
+    .join(' ')
+
+  const line = detailText ? `[UtilityToolRuntime] ${event} ${detailText}` : `[UtilityToolRuntime] ${event}`
+  console.log(line)
+}
+
+function validateAndResolvePath(
+  inputPath: string | undefined,
+  rootPath: string | undefined,
+  fallbackToRoot = true
+): string {
+  const normalizedInput = typeof inputPath === 'string' ? inputPath.trim() : ''
+
+  if (!normalizedInput) {
+    if (fallbackToRoot && rootPath) return rootPath
+    return '.'
+  }
+
+  const usePosix =
+    process.platform === 'win32' &&
+    ((typeof inputPath === 'string' && inputPath.startsWith('/')) ||
+      (typeof rootPath === 'string' && rootPath.startsWith('/')))
+
+  const pathModule = usePosix ? path.posix : path
+
+  if (!rootPath) {
+    return pathModule.resolve(normalizedInput)
+  }
+
+  const normalizedRoot = pathModule.resolve(rootPath)
+  const resolvedPath = pathModule.isAbsolute(normalizedInput)
+    ? pathModule.resolve(normalizedInput)
+    : pathModule.resolve(normalizedRoot, normalizedInput)
+
+  const relativeToRoot = pathModule.relative(normalizedRoot, resolvedPath)
+  const outsideWorkspace =
+    relativeToRoot === '..' || relativeToRoot.startsWith(`..${pathModule.sep}`) || pathModule.isAbsolute(relativeToRoot)
+
+  if (outsideWorkspace && !hasFullToolAccess()) {
+    const rootIsManagedPath = isManagedToolPath(normalizedRoot, usePosix)
+    const targetIsManagedPath = isManagedToolPath(resolvedPath, usePosix)
+    if (!rootIsManagedPath && targetIsManagedPath) {
+      return resolvedPath
+    }
+    throw new Error(`Path must be within workspace: ${rootPath}`)
+  }
+
+  return resolvedPath
+}
+
+function resolveToolWorkspaceCwd(requestedCwd: unknown, rootPath: string | undefined): string | undefined {
+  const normalizedRequested = typeof requestedCwd === 'string' ? requestedCwd.trim() : ''
+  if (!normalizedRequested) {
+    return rootPath || undefined
+  }
+  return validateAndResolvePath(normalizedRequested, rootPath)
+}
+
+async function ensureCustomToolsInitialized(): Promise<void> {
+  if (customToolsInitialized) return
+  if (customToolsInitPromise) {
+    await customToolsInitPromise
+    return
+  }
+
+  customToolsInitPromise = (async () => {
+    await customToolRegistry.initialize()
+    customToolsInitialized = true
+  })()
+
+  try {
+    await customToolsInitPromise
+  } finally {
+    customToolsInitPromise = null
+  }
+}
+
+function initializeBuiltInToolRegistry(): void {
+  builtInTools.set('html_renderer', async (args, { rootPath }) => {
+    const { html, path: filePath, cwd, allowUnsafe } = args
+    return await htmlRenderer.run({ html, path: filePath, cwd: cwd ?? rootPath, allowUnsafe })
+  })
+
+  builtInTools.set('read_file', async (args, { rootPath, signal, deadlineMs }) => {
+    const { path: filePath, maxBytes, startLine, endLine, ranges, includeHash, cwd } = args
+    if (!filePath) throw new Error('path is required')
+    const effectiveCwd = resolveToolWorkspaceCwd(cwd, rootPath)
+    const fileRes = await readTextFile(filePath, {
+      maxBytes,
+      startLine,
+      endLine,
+      ranges,
+      includeHash,
+      cwd: effectiveCwd, workspaceRoot: rootPath, signal, deadlineMs,
+    })
+    return { success: true, ...fileRes }
+  })
+
+  builtInTools.set('read_file_continuation', async (args, { rootPath, signal, deadlineMs }) => {
+    const { path: filePath, afterLine, numLines, maxBytes, includeHash, cwd } = args
+    if (!filePath) throw new Error('path is required')
+    if (afterLine === undefined) throw new Error('afterLine is required')
+    if (!numLines) throw new Error('numLines is required')
+    const effectiveCwd = resolveToolWorkspaceCwd(cwd, rootPath)
+    const fileRes = await readFileContinuation(filePath, afterLine, numLines, {
+      maxBytes,
+      includeHash,
+      cwd: effectiveCwd, workspaceRoot: rootPath, signal, deadlineMs,
+    })
+    return { success: true, ...fileRes }
+  })
+
+  builtInTools.set('read_files', async (args, { rootPath, signal, deadlineMs }) => {
+    const { paths, baseDir, maxBytes, startLine, endLine, ranges, cwd } = args
+    if (!paths) throw new Error('paths are required')
+    const effectiveCwd = resolveToolWorkspaceCwd(cwd, rootPath)
+    const filesRes = await readMultipleTextFiles(paths, { baseDir, maxBytes, startLine, endLine, ranges, cwd: effectiveCwd, workspaceRoot: rootPath, signal, deadlineMs })
+    return formatReadFilesResult(filesRes, paths.length)
+  })
+
+  builtInTools.set('create_file', async (args, { rootPath, operationMode }) => {
+    const { path: filePath, content, createParentDirs, overwrite, executable, cwd } = args
+    if (!filePath) throw new Error('path is required')
+    const effectiveCwd = resolveToolWorkspaceCwd(cwd, rootPath)
+    return await createTextFile(filePath, content, {
+      createParentDirs,
+      overwrite,
+      executable,
+      operationMode,
+      cwd: effectiveCwd,
+    })
+  })
+
+  builtInTools.set('edit_file', async (args, options) => {
+    const { rootPath, operationMode } = options
+    const {
+      path: filePath,
+      operation,
+      searchPattern,
+      replacement,
+      content,
+      createBackup,
+      encoding,
+      enableFuzzyMatching,
+      fuzzyThreshold,
+      preserveIndentation,
+      validateContent,
+      expectedHash,
+      expectedMetadata,
+      approxStartLine,
+      approxEndLine,
+    } = args
+    if (!filePath) throw new Error('path is required')
+    let absolutePath = ''
+    const beforeWrite = async (resolvedPath: string) => {
+      absolutePath = resolvedPath
+      if (operationMode !== 'execute' || !options.streamId) return
+      await recordPreEditBackup({
+        streamId: options.streamId,
+        conversationId: options.conversationId ?? null,
+        messageId: options.messageId ?? null,
+        parentMessageId: options.parentMessageId ?? null,
+        rootPath: rootPath ?? null,
+        cwd: rootPath ?? null,
+        toolCallId: options.toolCallId ?? null,
+        originalPath: filePath,
+        absolutePath,
+      })
+    }
+    const result = await editFile(filePath, operation, {
+      beforeWrite,
+      searchPattern,
+      replacement,
+      content,
+      createBackup,
+      encoding,
+      enableFuzzyMatching,
+      fuzzyThreshold,
+      preserveIndentation,
+      interpretSearchEscapes: true,
+      interpretReplacementEscapes: false,
+      validateContent,
+      expectedHash,
+      expectedMetadata,
+      approxStartLine,
+      approxEndLine,
+      operationMode,
+      cwd: rootPath,
+    })
+    if (operationMode === 'execute' && options.streamId && result?.success && (result.replacements ?? 0) > 0) {
+      await recordToolEditSuccess({
+        streamId: options.streamId,
+        conversationId: options.conversationId ?? null,
+        messageId: options.messageId ?? null,
+        parentMessageId: options.parentMessageId ?? null,
+        rootPath: rootPath ?? null,
+        cwd: rootPath ?? null,
+        toolCallId: options.toolCallId ?? null,
+        originalPath: filePath,
+        absolutePath,
+        toolName: 'edit_file',
+        operation,
+      })
+      return { ...result, undo: { tracked: true, streamId: options.streamId } }
+    }
+    return result
+  })
+
+  builtInTools.set('multi_edit', async (args, options) => {
+    const { rootPath, operationMode } = options
+    const {
+      edits,
+      stopOnError,
+      createBackup,
+      encoding,
+      enableFuzzyMatching,
+      fuzzyThreshold,
+      preserveIndentation,
+      validateContent,
+    } = args
+    if (!Array.isArray(edits) || edits.length === 0) throw new Error('edits are required')
+    const editedPaths = new Map<string, string>()
+    const beforeWrite = async (absolutePath: string, originalPath: string) => {
+      editedPaths.set(originalPath, absolutePath)
+      if (operationMode !== 'execute' || !options.streamId) return
+      await recordPreEditBackup({
+        streamId: options.streamId,
+        conversationId: options.conversationId ?? null,
+        messageId: options.messageId ?? null,
+        parentMessageId: options.parentMessageId ?? null,
+        rootPath: rootPath ?? null,
+        cwd: rootPath ?? null,
+        toolCallId: options.toolCallId ?? null,
+        originalPath,
+        absolutePath,
+      })
+    }
+    const result = await multiEdit(edits, {
+      beforeWrite,
+      stopOnError,
+      createBackup,
+      encoding,
+      enableFuzzyMatching,
+      fuzzyThreshold,
+      preserveIndentation,
+      interpretSearchEscapes: true,
+      interpretReplacementEscapes: false,
+      validateContent,
+      operationMode,
+      cwd: rootPath,
+    })
+    if (operationMode === 'execute' && options.streamId && result?.results) {
+      let tracked = 0
+      for (const item of result.results) {
+        if (!item?.success || (item.replacements ?? 0) <= 0) continue
+        const sourceEdit = edits[item.index]
+        const originalPath = item.path || sourceEdit?.path
+        if (typeof originalPath !== 'string') continue
+        const absolutePath = editedPaths.get(originalPath)!
+        await recordToolEditSuccess({
+          streamId: options.streamId,
+          conversationId: options.conversationId ?? null,
+          messageId: options.messageId ?? null,
+          parentMessageId: options.parentMessageId ?? null,
+          rootPath: rootPath ?? null,
+          cwd: rootPath ?? null,
+          toolCallId: options.toolCallId ?? null,
+          originalPath,
+          absolutePath,
+          toolName: 'multi_edit',
+          operation: item.operation ?? sourceEdit?.operation ?? null,
+          index: item.index,
+        })
+        tracked += 1
+      }
+      if (tracked > 0) return { ...result, undo: { tracked: true, streamId: options.streamId, edits: tracked } }
+    }
+    return result
+  })
+
+  builtInTools.set('delete_file', async (args, { rootPath, operationMode }) => {
+    const { path: filePath, allowedExtensions } = args
+    if (!filePath) throw new Error('path is required')
+    if (allowedExtensions) {
+      await safeDeleteFile(filePath, allowedExtensions, operationMode, rootPath)
+    } else {
+      await deleteFile(filePath, operationMode, rootPath)
+    }
+    return { success: true, path: filePath }
+  })
+
+  builtInTools.set('directory', async (args, { rootPath }) => {
+    const { path: dirPath, maxDepth, includeHidden, includeSizes } = args
+    const finalDirPath = validateAndResolvePath(dirPath, rootPath)
+    const structure = await extractDirectoryStructure(finalDirPath, {
+      maxDepth,
+      includeHidden,
+      includeSizes,
+    })
+    return { success: true, structure, path: dirPath }
+  })
+
+  builtInTools.set('view_image', async (args, { rootPath }) => {
+    const { path: imagePath, cwd, detail, maxBytes } = args
+    if (!imagePath) throw new Error('path is required')
+    const effectiveCwd = resolveToolWorkspaceCwd(cwd, rootPath)
+    return await viewImage(imagePath, { cwd: effectiveCwd, detail, maxBytes })
+  })
+
+  builtInTools.set('glob', async (args, { rootPath, signal, deadlineMs }) => {
+    const { pattern, cwd, ignore, dot, absolute, mark, nosort, nocase, nodir,
+      follow, realpath, stat, withFileTypes, timeoutMs, maxMatches } = args
+    if (!pattern) throw new Error('pattern is required')
+    const actualCwd = validateAndResolvePath(cwd, rootPath)
+    return await globSearch(pattern, {
+      cwd: actualCwd, ignore, dot, absolute, mark, nosort, nocase, nodir,
+      follow, realpath, stat, withFileTypes, timeoutMs, maxMatches, signal, deadlineMs,
+    })
+  })
+
+  builtInTools.set('ripgrep', async (args, { rootPath, signal, deadlineMs }) => {
+    const {
+      regex,
+      pattern,
+      path: dirPath,
+      searchPath: altSearchPath,
+      glob: globPattern,
+      case_insensitive,
+      lineNumbers,
+      count,
+      filesWithMatches,
+      maxCount,
+      hidden,
+      noIgnore,
+      contextLines,
+    } = args
+    const query = regex || pattern
+    if (!query) throw new Error('pattern or regex is required')
+    const finalSearchPath = validateAndResolvePath(dirPath || altSearchPath, rootPath)
+    return await ripgrepSearch(query, finalSearchPath, {
+      signal,
+      deadlineMs,
+      timeoutMs: args.timeoutMs,
+      maxOutputChars: args.maxOutputChars,
+      caseSensitive: args.caseSensitive ?? !case_insensitive,
+      glob: globPattern,
+      lineNumbers,
+      count,
+      filesWithMatches,
+      maxCount,
+      hidden,
+      noIgnore,
+      contextLines,
+    })
+  })
+
+  builtInTools.set('bash', async (args, { rootPath, signal, deadlineMs }) => {
+    const { command, description, cwd, env, timeoutMs, maxOutputChars } = args
+    if (!command) throw new Error('command is required')
+    if (typeof description !== 'string' || !description.trim()) {
+      throw new Error('description is required')
+    }
+    const finalCwd = validateAndResolvePath(cwd, rootPath)
+    return await runBashCommand(command, {
+      description: description.trim(),
+      cwd: finalCwd,
+      env,
+      timeoutMs,
+      signal,
+      deadlineMs,
+      maxOutputChars,
+    })
+  })
+
+  builtInTools.set('powershell', async (args, { rootPath, signal, deadlineMs }) => {
+    const { command, description, cwd, env, timeoutMs, maxOutputChars } = args
+    if (!command) throw new Error('command is required')
+    if (typeof description !== 'string' || !description.trim()) {
+      throw new Error('description is required')
+    }
+    const finalCwd = validateAndResolvePath(cwd, rootPath)
+    return await runPowerShellCommand(command, {
+      description: description.trim(),
+      cwd: finalCwd,
+      env,
+      timeoutMs,
+      signal,
+      deadlineMs,
+      maxOutputChars,
+    })
+  })
+}
+
+// Parent transport. Under Electron utilityProcess the parent speaks over
+// process.parentPort; under a plain Node child_process fork it speaks over the
+// standard IPC channel (process.send / process.on('message')). The message
+// protocol is identical on both transports.
+interface ParentTransport {
+  post(message: UtilityRuntimeResponse): void
+  onMessage(listener: (raw: unknown) => void): void
+}
+
+function resolveParentTransport(): ParentTransport {
+  const parentPort = (process as any).parentPort
+  if (parentPort && typeof parentPort.on === 'function') {
+    return {
+      post: message => parentPort.postMessage(message),
+      onMessage: listener => parentPort.on('message', listener),
+    }
+  }
+  if (typeof process.send === 'function') {
+    return {
+      post: message => process.send!(message),
+      onMessage: listener => process.on('message', listener),
+    }
+  }
+  throw new Error('Utility runtime parent transport is unavailable (no parentPort and no IPC channel)')
+}
+
+let parentTransport: ParentTransport | null = null
+
+function postMessage(message: UtilityRuntimeResponse): void {
+  parentTransport?.post(message)
+}
+
+function normalizeIncomingMessage(raw: unknown): UtilityRuntimeRequest | null {
+  if (!raw || typeof raw !== 'object') return null
+  const candidate = raw as any
+  if (candidate.type) return candidate as UtilityRuntimeRequest
+  if (candidate.data && typeof candidate.data === 'object' && candidate.data.type) {
+    return candidate.data as UtilityRuntimeRequest
+  }
+  return null
+}
+
+async function reloadCustomTools(requestId: string, reason: string | undefined): Promise<void> {
+  const startedAtMs = Date.now()
+  try {
+    await ensureCustomToolsInitialized()
+    await customToolRegistry.reload(`utility_host:${reason || 'manual'}`)
+    const durationMs = Date.now() - startedAtMs
+    postMessage({
+      type: 'custom_tools_reloaded',
+      requestId,
+      success: true,
+      totalCount: customToolRegistry.getToolCount(),
+      durationMs,
+    })
+    logLifecycle('custom_tools_reloaded', { requestId, durationMs, reason, totalCount: customToolRegistry.getToolCount() })
+  } catch (error) {
+    const durationMs = Date.now() - startedAtMs
+    const msg = error instanceof Error ? error.message : String(error)
+    postMessage({
+      type: 'custom_tools_reloaded',
+      requestId,
+      success: false,
+      error: msg,
+      durationMs,
+    })
+    logLifecycle('custom_tools_reload_failed', { requestId, durationMs, reason, error: msg })
+  }
+}
+
+const activeRequests = new Map<string, { controller: AbortController; done: Promise<void> }>()
+let shuttingDown = false
+
+async function handleRequest(message: UtilityRuntimeRequest): Promise<void> {
+  if (message.type === 'cancel_tool') {
+    activeRequests.get(message.requestId)?.controller.abort()
+    return
+  }
+  if (message.type === 'shutdown') {
+    shuttingDown = true
+    const active = [...activeRequests.values()]
+    for (const request of active) request.controller.abort()
+    let timer: NodeJS.Timeout | undefined
+    await Promise.race([
+      Promise.allSettled(active.map(request => request.done)),
+      new Promise<void>(resolve => { timer = setTimeout(resolve, SHELL_CLEANUP_GRACE_MS + 100) }),
+    ])
+    if (timer) clearTimeout(timer)
+    postMessage({ type: 'shutdown_ack', requestId: message.requestId })
+    process.exit(0)
+    return
+  }
+  if (shuttingDown) return
+
+  if (message.type === 'reload_custom_tools') {
+    await reloadCustomTools(message.requestId, message.reason)
+    return
+  }
+
+  if (message.type !== 'execute_tool') {
+    return
+  }
+
+  const startedAtMs = Date.now()
+  const handler = builtInTools.get(message.toolName)
+  const controller = new AbortController()
+  let finish!: () => void
+  const done = new Promise<void>(resolve => { finish = resolve })
+  activeRequests.set(message.requestId, { controller, done })
+
+  logLifecycle('request_start', {
+    requestId: message.requestId,
+    toolName: message.toolName,
+  })
+
+  try {
+    if (handler) {
+      const result = await withToolAccess(message.options?.fullAccess, () => handler(message.args, { ...message.options, signal: controller.signal }))
+      const durationMs = Date.now() - startedAtMs
+      postMessage({
+        type: 'tool_result',
+        requestId: message.requestId,
+        success: true,
+        result,
+        telemetry: { durationMs, handledBy: 'built_in' },
+      })
+      logLifecycle('request_success', {
+        requestId: message.requestId,
+        toolName: message.toolName,
+        durationMs,
+        handledBy: 'built_in',
+      })
+      return
+    }
+
+    await ensureCustomToolsInitialized()
+
+    controller.signal.throwIfAborted()
+    if (customToolRegistry.hasCustomTool(message.toolName)) {
+      const result = await withToolAccess(message.options?.fullAccess, () => customToolRegistry.executeTool(message.toolName, message.args, {
+        rootPath: message.options?.rootPath,
+        operationMode: message.options?.operationMode,
+        conversationId: message.options?.conversationId,
+        messageId: message.options?.messageId,
+        streamId: message.options?.streamId,
+        cwd: message.options?.rootPath,
+      }))
+      const durationMs = Date.now() - startedAtMs
+      postMessage({
+        type: 'tool_result',
+        requestId: message.requestId,
+        success: true,
+        result,
+        telemetry: { durationMs, handledBy: 'custom' },
+      })
+      logLifecycle('request_success', {
+        requestId: message.requestId,
+        toolName: message.toolName,
+        durationMs,
+        handledBy: 'custom',
+      })
+      return
+    }
+
+    const durationMs = Date.now() - startedAtMs
+    postMessage({
+      type: 'tool_result',
+      requestId: message.requestId,
+      success: false,
+      error: `Unsupported tool in utility runtime: ${message.toolName}`,
+      errorCode: 'unsupported_tool',
+      telemetry: { durationMs },
+    })
+    logLifecycle('request_unsupported_tool', {
+      requestId: message.requestId,
+      toolName: message.toolName,
+      durationMs,
+    })
+  } catch (error) {
+    const durationMs = Date.now() - startedAtMs
+    const msg = error instanceof Error ? error.message : String(error)
+    postMessage({
+      type: 'tool_result',
+      requestId: message.requestId,
+      success: false,
+      error: msg,
+      errorCode: 'execution_error',
+      telemetry: { durationMs, handledBy: handler ? 'built_in' : 'custom' },
+    })
+    logLifecycle('request_error', {
+      requestId: message.requestId,
+      toolName: message.toolName,
+      durationMs,
+      error: msg,
+    })
+  } finally {
+    activeRequests.delete(message.requestId)
+    finish()
+  }
+}
+
+async function bootstrap(): Promise<void> {
+  initializeBuiltInToolRegistry()
+
+  parentTransport = resolveParentTransport()
+
+  parentTransport.onMessage((rawMessage: unknown) => {
+    const message = normalizeIncomingMessage(rawMessage)
+    if (!message) {
+      return
+    }
+    void handleRequest(message)
+  })
+
+  try {
+    await ensureCustomToolsInitialized()
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('[UtilityToolRuntime] Failed to initialize custom tools at startup:', msg)
+  }
+
+  postMessage({ type: 'ready' })
+}
+
+void bootstrap().catch(error => {
+  const msg = error instanceof Error ? error.stack || error.message : String(error)
+  console.error('[UtilityToolRuntime] Fatal bootstrap error:', msg)
+  process.exit(1)
+})

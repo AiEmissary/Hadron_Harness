@@ -1,0 +1,522 @@
+import { createSelector } from '@reduxjs/toolkit'
+import { resolveBranchModelSelection } from './branchModelSelection'
+import { ConversationId, MessageId } from '../../../../../shared/types'
+import { RootState } from '../../store/store'
+import type { ChatErrorRecord } from './chatTypes'
+import { parseMessageMeta } from '../../../../../shared/contextInjection'
+
+// Base selector
+const selectChatState = (state: RootState) => state.chat
+
+// Top-level selectors
+export const conversationContext = createSelector([selectChatState], chat => chat.conversation.context)
+export const selectBranchModelSelection = createSelector([selectChatState], chat => resolveBranchModelSelection(chat))
+export const selectProviderState = createSelector([selectChatState, selectBranchModelSelection], (chat, selection) =>
+  selection ? { ...chat.providerState, currentProvider: selection.provider } : chat.providerState
+)
+export const selectMultiReplyCount = createSelector([selectChatState], chat => chat.composition.multiReplyCount)
+export const getSelectedNodes = createSelector([selectChatState], chat => chat.selectedNodes)
+export const selectOperationMode = createSelector([selectChatState], chat => {
+  const pending = chat.operationModeChanges?.[String(chat.conversation.currentConversationId)]
+  const tip = chat.conversation.currentPath.at(-1) ?? null
+  const draft = chat.operationModeDrafts?.[JSON.stringify([String(chat.conversation.currentConversationId), tip == null ? null : String(tip)])]
+  if (draft) return draft
+  if (pending?.status === 'pending' && pending.streamId &&
+    selectCurrentViewStreamFor(chat.streaming, {
+      conversationId: chat.conversation.currentConversationId,
+      lineageId: chat.conversation.currentLineageId,
+      path: chat.conversation.currentPath,
+    })?.id === pending.streamId) return pending.mode
+  for (let index = chat.conversation.currentPath.length - 1; index >= 0; index--) {
+    const row = chat.conversation.messages.find(message => message.id === chat.conversation.currentPath[index])
+    const meta = parseMessageMeta(row?.meta)
+    if (meta?.kind === 'operation_mode_change' && (meta.mode === 'plan' || meta.mode === 'execute')) return meta.mode
+  }
+  return chat.operationMode
+})
+
+// Deprecated model availability selector (kept for backward compatibility)
+export const selectIsModelAvailable = () => false
+
+// Composition selectors
+export const selectMessageInput = createSelector([selectChatState], chat => chat.composition.input)
+export const selectInputContent = createSelector([selectMessageInput], input => input.content)
+export const selectInputValid = createSelector(
+  [selectChatState],
+  chat => !chat.composition.validationError && chat.composition.input.content.trim().length > 0
+)
+export const selectValidationError = createSelector([selectChatState], chat => chat.composition.validationError)
+
+// ============================================================================
+// Multi-Stream Selectors
+// ============================================================================
+
+// Base streaming root state selector
+export const selectStreamingRoot = createSelector([selectChatState], chat => chat.streaming)
+
+// All active stream IDs
+export const selectActiveStreamIds = createSelector([selectStreamingRoot], streaming => streaming.activeIds)
+
+// Check if any stream is active
+export const selectIsAnyStreaming = createSelector([selectActiveStreamIds], activeIds => activeIds.length > 0)
+
+// Get the primary stream ID
+export const selectPrimaryStreamId = createSelector([selectStreamingRoot], streaming => streaming.primaryStreamId)
+
+// Get stream state by ID (returns null if not found)
+export const selectStreamStateById = (state: RootState, streamId: string) => state.chat.streaming.byId[streamId] ?? null
+
+// Get primary stream state
+export const selectPrimaryStreamState = createSelector(
+  [selectStreamingRoot, selectPrimaryStreamId],
+  (streaming, primaryId) => (primaryId ? streaming.byId[primaryId] : null)
+)
+
+// ============================================================================
+// Per-Stream Selector Factories (for use with specific streamIds)
+// ============================================================================
+
+// Factory for creating per-stream buffer selector
+export const makeSelectStreamBuffer = (streamId: string) =>
+  createSelector([selectStreamingRoot], streaming => streaming.byId[streamId]?.buffer ?? '')
+
+// Factory for creating per-stream thinking buffer selector
+export const makeSelectThinkingBuffer = (streamId: string) =>
+  createSelector([selectStreamingRoot], streaming => streaming.byId[streamId]?.thinkingBuffer ?? '')
+
+// Factory for creating per-stream events selector
+export const makeSelectStreamEvents = (streamId: string) =>
+  createSelector([selectStreamingRoot], streaming => streaming.byId[streamId]?.events ?? [])
+
+// Factory for creating per-stream active status selector
+export const makeSelectIsStreaming = (streamId: string) =>
+  createSelector([selectStreamingRoot], streaming => streaming.byId[streamId]?.active ?? false)
+
+// Factory for creating per-stream tool calls selector
+export const makeSelectStreamToolCalls = (streamId: string) =>
+  createSelector([selectStreamingRoot], streaming => streaming.byId[streamId]?.toolCalls ?? [])
+
+// Factory for creating per-stream message ID selector
+export const makeSelectStreamMessageId = (streamId: string) =>
+  createSelector([selectStreamingRoot], streaming => streaming.byId[streamId]?.messageId ?? null)
+
+// ============================================================================
+// Legacy Selectors (backward compatibility - look at primary stream)
+// ============================================================================
+
+// Legacy: selectStreamState now returns the root streaming state
+export const selectStreamState = selectStreamingRoot
+
+// Legacy: buffer from primary stream
+export const selectStreamBuffer = createSelector([selectPrimaryStreamState], stream => stream?.buffer ?? '')
+
+// Legacy: thinking buffer from primary stream
+export const selectThinkingBuffer = createSelector([selectPrimaryStreamState], stream => stream?.thinkingBuffer ?? '')
+
+// Legacy: events from primary stream
+export const selectStreamEvents = createSelector([selectPrimaryStreamState], stream => stream?.events ?? [])
+
+// Legacy: active status from primary stream
+export const selectIsStreaming = createSelector([selectPrimaryStreamState], stream => stream?.active ?? false)
+
+// Legacy: sending state - now checks if ANY stream is active
+export const selectSendingState = createSelector([selectChatState, selectActiveStreamIds], (chat, activeIds) => ({
+  sending: chat.composition.sending,
+  compacting: chat.composition.compacting,
+  streaming: activeIds.length > 0,
+  // Errors are no longer surfaced here. A live stream failure is an `error` event on the
+  // stream's own event log; a failure with no message to live on is a ChatErrorRecord —
+  // see selectChatErrorsForConversation.
+  error: null,
+}))
+
+// ============================================================================
+// Subagent/Hierarchy Selectors
+// ============================================================================
+
+// Get all streams that are children of a parent stream
+export const selectChildStreams = (parentStreamId: string) =>
+  createSelector([selectStreamingRoot], streaming =>
+    Object.entries(streaming.byId)
+      .filter(([, state]) => state.lineage.parentStreamId === parentStreamId)
+      .map(([id, state]) => ({ id, ...state }))
+  )
+
+// Get all streams originating from a specific message
+export const selectStreamsByOriginMessage = (messageId: MessageId) =>
+  createSelector([selectStreamingRoot], streaming =>
+    Object.entries(streaming.byId)
+      .filter(([, state]) => state.lineage.originMessageId === messageId)
+      .map(([id, state]) => ({ id, ...state }))
+  )
+
+// Get all streams belonging to a specific branch root
+export const selectStreamsByBranchRoot = (rootMessageId: MessageId) =>
+  createSelector([selectStreamingRoot], streaming =>
+    Object.entries(streaming.byId)
+      .filter(([, state]) => state.lineage.rootMessageId === rootMessageId)
+      .map(([id, state]) => ({ id, ...state }))
+  )
+
+// Get all active subagent streams
+export const selectActiveSubagentStreams = createSelector([selectStreamingRoot], streaming =>
+  Object.entries(streaming.byId)
+    .filter(([, state]) => state.active && state.streamType === 'subagent')
+    .map(([id, state]) => ({ id, ...state }))
+)
+
+// Get stream count by type
+export const selectStreamCountByType = createSelector([selectStreamingRoot], streaming => {
+  const counts = { primary: 0, subagent: 0, tool: 0, branch: 0 }
+  for (const stream of Object.values(streaming.byId)) {
+    if (stream.active) {
+      counts[stream.streamType]++
+    }
+  }
+  return counts
+})
+
+// Pure pane-parameterized helper. Branch selection should win over global active streams.
+export const selectCurrentViewStreamFor = (
+  streaming: ReturnType<typeof selectStreamingRoot>,
+  {
+    conversationId: currentConversationId,
+    lineageId: currentLineageId,
+    path: currentPath,
+  }: {
+    conversationId: string | null | undefined
+    lineageId: string | null | undefined
+    path: readonly MessageId[]
+  }
+) => {
+    const activeStreams = Object.entries(streaming.byId).filter(([, stream]) => {
+      if (!stream.active) return false
+      if (currentLineageId != null && stream.lineage.lineageIdConfirmed && stream.lineage.lineageId != null &&
+          String(stream.lineage.lineageId) !== String(currentLineageId)) return false
+      if (currentConversationId == null) return true
+      return stream.conversationId != null && String(stream.conversationId) === String(currentConversationId)
+    })
+
+    if (activeStreams.length === 0) {
+      return null
+    }
+
+    // Exact renderer lineage identity takes precedence over mutable message anchors.
+    // Streams without lineageId continue through the legacy branch-anchor ranking below.
+    if (currentLineageId != null) {
+      const exactLineageStreams = activeStreams.filter(
+        ([, stream]) => stream.lineage.lineageId != null && String(stream.lineage.lineageId) === String(currentLineageId)
+      )
+      if (exactLineageStreams.length > 0) {
+        const [id, stream] = exactLineageStreams.sort((a, b) => {
+          if (a[0] === streaming.primaryStreamId) return -1
+          if (b[0] === streaming.primaryStreamId) return 1
+          return b[1].createdAt.localeCompare(a[1].createdAt)
+        })[0]
+        return { id, ...stream }
+      }
+    }
+
+    // If no path is selected yet, fall back to conversation-scoped primary/first active stream.
+    if (currentPath.length === 0) {
+      if (streaming.primaryStreamId) {
+        const primary = streaming.byId[streaming.primaryStreamId]
+        if (
+          primary?.active &&
+          (currentConversationId == null || String(primary.conversationId) === String(currentConversationId))
+        ) {
+          return { id: streaming.primaryStreamId, ...primary }
+        }
+      }
+
+      const [id, stream] = activeStreams[0]
+      return { id, ...stream }
+    }
+
+    const pathIndexById = new Map<string, number>()
+    currentPath.forEach((pathId, index) => {
+      pathIndexById.set(String(pathId), index)
+    })
+
+    const tipId = String(currentPath[currentPath.length - 1])
+    // Require match near the tail of the selected path to avoid ancestor-only false matches.
+    const minRelevantIndex = Math.max(0, currentPath.length - 2)
+
+    const ranked = activeStreams
+      .map(([id, stream]) => {
+        let bestPathIndex = -1
+        let score = 0
+
+        const candidateIds = [
+          stream.liveMessageId ?? stream.streamingMessageId,
+          stream.currentBranchAnchorMessageId,
+          stream.branchAnchorMessageId,
+          stream.lastCompletedMessageId,
+          stream.finalMessageId,
+          stream.messageId,
+          stream.triggerUserMessageId,
+          stream.lineage.originMessageId,
+          stream.lineage.rootMessageId,
+        ]
+
+        for (const candidate of candidateIds) {
+          if (candidate == null) continue
+          const key = String(candidate)
+          const pathIndex = pathIndexById.get(key)
+          if (pathIndex == null) continue
+
+          bestPathIndex = Math.max(bestPathIndex, pathIndex)
+          score += (pathIndex + 1) * 10
+
+          if (key === tipId) {
+            score += 250
+          }
+        }
+
+        if (stream.lineage.rootMessageId != null) {
+          const rootKey = String(stream.lineage.rootMessageId)
+          if (rootKey === tipId) {
+            score += 150
+          }
+        }
+
+        if (streaming.primaryStreamId === id) {
+          score += 1
+        }
+
+        return { id, stream, bestPathIndex, score }
+      })
+      .filter(entry => entry.bestPathIndex >= minRelevantIndex)
+      .sort((a, b) => {
+        if (b.bestPathIndex !== a.bestPathIndex) return b.bestPathIndex - a.bestPathIndex
+        if (b.score !== a.score) return b.score - a.score
+        return b.stream.createdAt.localeCompare(a.stream.createdAt)
+      })
+
+    if (ranked.length > 0) {
+      const winner = ranked[0]
+      return { id: winner.id, ...winner.stream }
+    }
+
+  // Path exists but no stream matches that branch closely enough.
+  return null
+}
+
+// Legacy selector wrapper uses the renderer-owned current pane parameters.
+export const selectCurrentViewStream = createSelector(
+  [
+    selectStreamingRoot,
+    (state: RootState) => state.chat.conversation.currentPath,
+    (state: RootState) => state.chat.conversation.currentConversationId,
+    (state: RootState) => state.chat.conversation.currentLineageId,
+  ],
+  (streaming, path, conversationId, lineageId) =>
+    selectCurrentViewStreamFor(streaming, { conversationId, lineageId, path })
+)
+
+// Get all active streams with their IDs (for multi-stream UI)
+export const selectAllActiveStreams = createSelector([selectStreamingRoot], streaming =>
+  Object.entries(streaming.byId)
+    .filter(([, state]) => state.active)
+    .map(([id, state]) => ({ id, ...state }))
+)
+
+// Heimdall selectors
+export const selectHeimdallState = createSelector([selectChatState], chat => chat.heimdall)
+export const selectHeimdallData = createSelector([selectHeimdallState], h => h.treeData)
+export const selectHeimdallSubagentMap = createSelector([selectHeimdallState], h => h.subagentMap)
+export const selectHeimdallLoading = createSelector([selectHeimdallState], h => h.loading)
+export const selectHeimdallError = createSelector([selectHeimdallState], h => h.error)
+export const selectHeimdallCompactMode = createSelector([selectHeimdallState], h => h.compactMode)
+
+// Initialization selectors
+export const selectInitializationState = createSelector([selectChatState], chat => chat.initialization)
+export const selectInitializationLoading = createSelector([selectInitializationState], i => i.loading)
+export const selectInitializationError = createSelector([selectInitializationState], i => i.error)
+
+// UI selectors
+export const selectModelSelectorOpen = createSelector([selectChatState], chat => chat.ui.modelSelectorOpen)
+export const HeimdallDataReset = createSelector([selectHeimdallState], h => {
+  h.treeData = null
+  h.subagentMap = {}
+  h.loading = false
+  h.error = null
+})
+
+// Conversation selectors
+export const selectConversationState = createSelector([selectChatState], chat => chat.conversation)
+export const selectCurrentConversationId = createSelector(
+  [selectConversationState],
+  conversation => conversation.currentConversationId
+)
+export const selectConversationMessages = createSelector(
+  [selectConversationState],
+  conversation => conversation.messages
+)
+export const selectCurrentPath = createSelector([selectConversationState], conversation => conversation.currentPath)
+export const selectCurrentLineageId = createSelector(
+  [selectConversationState],
+  conversation => conversation.currentLineageId
+)
+export const selectCcCwd = createSelector([selectConversationState], conversation => conversation.ccCwd)
+export const selectBookmarkedMessages = createSelector(
+  [selectConversationState],
+  conversation => conversation.bookmarked
+)
+export const selectExcludedMessages = createSelector(
+  [selectConversationState],
+  conversation => conversation.excludedMessages
+)
+
+export const selectFilteredMessages = createSelector(
+  [selectConversationMessages, selectCurrentPath],
+  (messages, currentPath) => {
+    if (!currentPath || currentPath.length === 0) return messages
+    const pathSet = new Set(currentPath)
+    return messages.filter(message => pathSet.has(message.id))
+  }
+)
+
+export const selectFocusedChatMessageId = createSelector(
+  [selectConversationState],
+  conversation => conversation.focusedChatMessageId
+)
+
+// Pure pane-parameterized helper for rendering messages on an explicit branch path.
+export const selectDisplayMessagesFor = (
+  messages: ReturnType<typeof selectConversationMessages>,
+  currentPath: readonly MessageId[]
+) => {
+    const isPersistentGlobalAgentType = (value: string | null | undefined): boolean =>
+      value === 'persistent_agent' || value === 'persistent_agent_summary'
+
+    // Keep legacy behavior (hide ex_agent) for normal chats, but show ex_agent in
+    // persistent global-agent conversations so system-project chats render correctly.
+    const shouldShowExAgent = messages.some(
+      message => message.role === 'ex_agent' && isPersistentGlobalAgentType(message.ex_agent_type)
+    )
+
+    const displayableMessages = shouldShowExAgent ? messages : messages.filter(message => message.role !== 'ex_agent')
+
+    const appendLinearHiddenSystemDescendants = (selected: typeof displayableMessages): typeof displayableMessages => {
+      if (selected.length === 0) return selected
+      const selectedIds = new Set(selected.map(message => String(message.id)))
+      const byParent = new Map<string, typeof displayableMessages>()
+      for (const message of displayableMessages) {
+        if (message.parent_id == null || message.role !== 'system') continue
+        const key = String(message.parent_id)
+        const existing = byParent.get(key)
+        if (existing) existing.push(message)
+        else byParent.set(key, [message])
+      }
+
+      const expanded = [...selected]
+      for (const message of selected) {
+        const children = (byParent.get(String(message.id)) || [])
+          .filter(child => !selectedIds.has(String(child.id)))
+          .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+        for (const child of children) {
+          expanded.push(child)
+          selectedIds.add(String(child.id))
+        }
+      }
+      return expanded
+    }
+
+    if (Array.isArray(currentPath) && currentPath.length > 0) {
+      const byId = new Map(displayableMessages.map(m => [m.id, m]))
+      const selected = currentPath
+        .map(id => byId.get(id))
+        .filter((m): m is (typeof displayableMessages)[number] => Boolean(m))
+      if (selected.length > 0) return appendLinearHiddenSystemDescendants(selected)
+
+      const pathSet = new Set(currentPath)
+      const filtered = displayableMessages.filter(m => pathSet.has(m.id))
+      if (filtered.length > 0) {
+        return filtered.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+      }
+    }
+
+  const unique = new Map<MessageId, (typeof displayableMessages)[number]>()
+  for (const m of displayableMessages) if (!unique.has(m.id)) unique.set(m.id, m)
+  return [...unique.values()].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+}
+
+// Legacy selector wrapper uses the renderer-owned current path.
+export const selectDisplayMessages = createSelector(
+  [selectConversationMessages, selectCurrentPath],
+  (messages, path) => selectDisplayMessagesFor(messages, path)
+)
+
+// Tools selectors
+export const selectTools = createSelector([selectChatState], chat => chat.tools)
+export const selectEnabledTools = createSelector([selectTools], tools => tools.filter(tool => tool.enabled))
+export const selectToolByName = createSelector(
+  [selectTools, (_state: RootState, toolName: string) => toolName],
+  (tools, toolName) => tools.find(tool => tool.name === toolName)
+)
+
+export const selectStreamUndoRoot = createSelector([selectChatState], chat => chat.streamUndo)
+
+export const selectStreamUndoSummariesForParentMessage = (parentMessageId: MessageId | string) =>
+  createSelector([selectStreamUndoRoot], undo => {
+    const streamIds = undo.streamIdsByParentMessageId[String(parentMessageId)] || []
+    return streamIds.map(id => undo.byStreamId[id]).filter(Boolean)
+  })
+
+export const selectStreamUndoRestoringByStreamId = (streamId: string) =>
+  createSelector([selectStreamUndoRoot], undo => undo.restoringByStreamId[streamId] ?? false)
+
+export const selectStreamUndoErrorByStreamId = (streamId: string) =>
+  createSelector([selectStreamUndoRoot], undo => undo.errorByStreamId[streamId] ?? null)
+
+// ============================================================================
+// Chat error notices
+// ============================================================================
+//
+// These read `chat.errorNotices`, NOT `chat.streaming.byId`. A stream slot is pruned
+// 30s after its run ends and `selectCurrentViewStreamFor` filters on `active` first, so
+// anything read off a stream is gone (or unreachable) exactly when an error needs to be
+// visible. Error notices outlive both.
+
+// Stable identity so a conversation with no errors never produces a new array and
+// forces a re-render.
+const EMPTY_CHAT_ERRORS: readonly ChatErrorRecord[] = []
+
+export const selectChatErrorNotices = createSelector([selectChatState], chat => chat.errorNotices)
+
+/** Undismissed errors for a conversation, oldest first (insertion order). */
+export const selectChatErrorsForConversation = createSelector(
+  [selectChatErrorNotices, (_state: RootState, conversationId: ConversationId | null | undefined) => conversationId],
+  (notices, conversationId): readonly ChatErrorRecord[] => {
+    if (conversationId == null) return EMPTY_CHAT_ERRORS
+    const bucket = notices.byConversationId[String(conversationId)]
+    if (!bucket || bucket.length === 0) return EMPTY_CHAT_ERRORS
+    const undismissed = bucket.filter(record => !record.dismissed)
+    return undismissed.length === 0 ? EMPTY_CHAT_ERRORS : undismissed
+  }
+)
+
+/**
+ * Undismissed errors anchored to one parent message, for the message-list row that
+ * renders under it. Records with a null parent predate any lineage and are therefore
+ * never anchored to a row — they belong to the conversation-level surface.
+ */
+export const selectChatErrorsForParentMessage = createSelector(
+  [
+    selectChatErrorsForConversation,
+    (
+      _state: RootState,
+      _conversationId: ConversationId | null | undefined,
+      parentMessageId: MessageId | null | undefined
+    ) => parentMessageId,
+  ],
+  (errors, parentMessageId): readonly ChatErrorRecord[] => {
+    if (parentMessageId == null) return EMPTY_CHAT_ERRORS
+    const parentKey = String(parentMessageId)
+    const anchored = errors.filter(
+      record => record.parentMessageId != null && String(record.parentMessageId) === parentKey
+    )
+    return anchored.length === 0 ? EMPTY_CHAT_ERRORS : anchored
+  }
+)

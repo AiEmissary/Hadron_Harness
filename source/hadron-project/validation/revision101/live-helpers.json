@@ -1,0 +1,73 @@
+{
+  "success": true,
+  "evidence": "C:\\Users\\rajka\\AppData\\Roaming\\Hadron-Harness-Development\\validation-live-helpers-b4f19dde-6d2f-4126-b104-315a8dac274a",
+  "realRequests": [
+    {
+      "provider": "openaichatgpt",
+      "model": "gpt-6.1-sol"
+    },
+    {
+      "provider": "openaichatgpt",
+      "model": "gpt-6-luna"
+    },
+    {
+      "provider": "openaichatgpt",
+      "model": "gpt-6.1-sol"
+    },
+    {
+      "provider": "claudecode",
+      "model": "sonnet"
+    },
+    {
+      "provider": "claudecode",
+      "model": "haiku"
+    },
+    {
+      "provider": "claudecode",
+      "model": "sonnet"
+    }
+  ],
+  "results": [
+    {
+      "provider": "openaichatgpt",
+      "parentModel": "gpt-6.1-sol",
+      "helperModel": "gpt-6-luna",
+      "helperCompleted": true,
+      "parentUsedResult": true,
+      "parentAnswer": "HADRON_HELPER_OK: Cedar, Maple, Pine."
+    },
+    {
+      "provider": "claudecode",
+      "parentModel": "sonnet",
+      "helperModel": "haiku",
+      "helperCompleted": true,
+      "parentUsedResult": true,
+      "parentAnswer": "HADRON_HELPER_OK: Cedar, Maple, Pine"
+    }
+  ],
+  "signInOrOut": false,
+  "personalProjectEdits": false,
+  "adapter": "Real provider engines and durable helper/run records; full run-service UI bindings are separately covered by desktop fixtures.",
+  "lastAttempt": {
+    "provider": "claudecode",
+    "parentModel": "sonnet",
+    "helperModel": "haiku",
+    "answer": "HADRON_HELPER_OK: Cedar, Maple, Pine",
+    "helpers": [
+      {
+        "id": "ce705fac-bb84-406b-8974-4c78e9df4841",
+        "job": "1505c8f5-e1ab-4f64-8b69-530b99b211f5",
+        "role": "b",
+        "parentRun": "1505c8f5-e1ab-4f64-8b69-530b99b211f5",
+        "provider": "claudecode",
+        "model": "haiku",
+        "task": "Extract the three deployment target names and sort alphabetically",
+        "state": "completed",
+        "runId": "8f2a32e8-a492-4684-9b48-26b2a9d06dab",
+        "result": "**Deployment targets, sorted alphabetically:**\n\n1. Cedar\n2. Maple\n3. Pine\n\n**Source:** The supplied evidence (inline in the task payload, not a file) reads: \"The deployment targets are Maple, Cedar and Pine.\"\n\n**Limitations:** The evidence is a single sentence with no file or line references, so I could not verify these names against any source file or configuration.",
+        "createdAt": "2026-11-07 23:54:29"
+      }
+    ]
+  },
+  "nativeWorkersJoined": true
+}

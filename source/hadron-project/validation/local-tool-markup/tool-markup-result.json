@@ -1,0 +1,11 @@
+{
+  "success": true,
+  "claudeFixture": true,
+  "rawMarkupNotExecuted": true,
+  "hostProtocolCorrection": true,
+  "actualSelectedFileRead": true,
+  "finalAnswerReadable": true,
+  "originalBudgetUnchanged": true,
+  "realProviderRequests": 0,
+  "signInProtocolPreserved": true
+}

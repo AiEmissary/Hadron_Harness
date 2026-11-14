@@ -1,0 +1,9 @@
+{
+  "status": "active-in-installed-app",
+  "userApprovedReopen": true,
+  "installedResourcesChanged": true,
+  "archiveSha256": "2ec9993d0abaf6abe4246396fe683bfef556e485c06941600f890710fc65ffd4",
+  "savedRecordsPreserved": true,
+  "startupPassed": true,
+  "installerRebuilt": false
+}

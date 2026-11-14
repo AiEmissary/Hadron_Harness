@@ -1,0 +1,24 @@
+{
+  "success": true,
+  "sections": [
+    "Appearance",
+    "Connections",
+    "Agents and tools",
+    "Saved data",
+    "Setup"
+  ],
+  "legacyControlsAbsent": true,
+  "legacySettingsComponentNotMounted": true,
+  "helperNativePreferenceRoundTrip": true,
+  "toolLibraryRead": true,
+  "searchCredentialFormDoesNotRevealSavedKey": true,
+  "noCredentialWrites": true,
+  "recycleBinThirtyDays": true,
+  "setupCheck": true,
+  "invalidFontUrlRejected": true,
+  "validLocalFontApplied": true,
+  "invalidReplacementRetainedFont": true,
+  "backdropReset": true,
+  "realProviderRequests": 0,
+  "externalServices": "No live provider sign-in, inference, search or credential writes were performed."
+}

@@ -1,0 +1,245 @@
+import { getAuthManager, disconnectAuth } from '../../auth/runtime.js'
+import type { Express } from 'express'
+const JWT_CLAIM_PATH = 'https://api.openai.com/auth'
+import type { ProviderTokenStore } from '../providers/tokenStore.js'
+
+interface RegisterProviderAuthRoutesDeps {
+  tokenStore: ProviderTokenStore
+}
+
+const DEFAULT_REMOTE_API_BASE = 'https://webdrasil-production.up.railway.app/api'
+const DEFAULT_OPENROUTER_MODELS = [
+  'openai/gpt-4o-mini',
+  'openai/gpt-4.1-mini',
+  'anthropic/claude-3.7-sonnet',
+  'google/gemini-2.5-flash',
+]
+const DEFAULT_ZAI_MODELS = ['glm-5.1', 'glm-4.6']
+const DEFAULT_BEDROCK_MODELS = [
+  'anthropic.claude-3-5-sonnet-20241022-v2:0',
+  'anthropic.claude-3-5-haiku-20241022-v1:0',
+  'anthropic.claude-3-sonnet-20240229-v1:0',
+  'anthropic.claude-3-haiku-20240307-v1:0',
+]
+
+function getRemoteApiBase(): string {
+  const raw = process.env.YGG_API_URL || process.env.VITE_API_URL || DEFAULT_REMOTE_API_BASE
+  return String(raw).replace(/\/+$/, '')
+}
+
+function normalizeAuthorizationToken(token: string | null | undefined): string {
+  return String(token || '').replace(/^Bearer\s+/i, '').trim()
+}
+
+function extractModelNames(payload: any): string[] {
+  const models = Array.isArray(payload?.models) ? payload.models : []
+  const names = models
+    .map((model: any) => {
+      if (typeof model === 'string') return model.trim()
+      if (model && typeof model.name === 'string') return model.name.trim()
+      if (model && typeof model.id === 'string') return model.id.trim()
+      return ''
+    })
+    .filter((modelName: string): modelName is string => Boolean(modelName))
+
+  return Array.from(new Set(names))
+}
+
+async function fetchOpenRouterModelsFromRemote(accessToken: string): Promise<string[]> {
+  const normalizedToken = normalizeAuthorizationToken(accessToken)
+  if (!normalizedToken) return []
+
+  const response = await fetch(`${getRemoteApiBase()}/models/openrouter`, {
+    headers: {
+      Authorization: `Bearer ${normalizedToken}`,
+      'Content-Type': 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error(`Remote OpenRouter models fetch failed: HTTP ${response.status}`)
+  }
+
+  const payload = await response.json().catch(() => ({}))
+  return extractModelNames(payload)
+}
+
+function decodeJwtPayload(token: string): any | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+
+    const payload = parts[1]
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4)
+    const decoded = Buffer.from(padded, 'base64').toString('utf8')
+    return JSON.parse(decoded)
+  } catch {
+    return null
+  }
+}
+
+function extractAccountId(accessToken: string): string | null {
+  const decoded = decodeJwtPayload(accessToken)
+  if (!decoded) return null
+  const authClaim = decoded[JWT_CLAIM_PATH]
+  return authClaim?.chatgpt_account_id || null
+}
+
+export function registerProviderAuthRoutes(app: Express, deps: RegisterProviderAuthRoutesDeps): void {
+  const { tokenStore } = deps
+
+  const normalizePayload = (body: any) => {
+    const {
+      userId,
+      user_id,
+      accessToken,
+      access_token,
+      refreshToken,
+      refresh_token,
+      expiresAt,
+      expires_at,
+      accountId,
+      account_id,
+    } = body ?? {}
+
+    const effectiveUserId = userId ?? user_id
+    const effectiveAccessToken = accessToken ?? access_token
+    const rawExpiresAt = expiresAt ?? expires_at ?? null
+    const normalizedExpiresAt =
+      typeof rawExpiresAt === 'number'
+        ? new Date(rawExpiresAt).toISOString()
+        : typeof rawExpiresAt === 'string' && rawExpiresAt.trim()
+          ? Number.isFinite(Number(rawExpiresAt))
+            ? new Date(Number(rawExpiresAt)).toISOString()
+            : rawExpiresAt
+          : null
+
+    return {
+      userId: effectiveUserId,
+      accessToken: effectiveAccessToken,
+      refreshToken: (refreshToken ?? refresh_token ?? null) as string | null,
+      expiresAt: normalizedExpiresAt,
+      accountId: accountId ?? account_id ?? null,
+    }
+  }
+
+  const registerTokenRoutes = (providerSlug: 'openai' | 'openrouter' | 'zai' | 'bedrock', providerKey: string, opts?: { deriveAccountId?: boolean }) => {
+    app.post(`/api/provider-auth/${providerSlug}/token`, (req, res) => {
+      if (providerSlug === 'openai' || providerSlug === 'openrouter') { res.status(410).json({ error: 'OAuth tokens are server-owned. Use the login flow.' }); return }
+      const payload = normalizePayload(req.body)
+
+      if (!payload.userId || !payload.accessToken) {
+        res.status(400).json({
+          success: false,
+          error: 'userId (or user_id) and accessToken (or access_token) are required',
+        })
+        return
+      }
+
+      const accountId = opts?.deriveAccountId ? payload.accountId ?? extractAccountId(String(payload.accessToken)) : payload.accountId
+      if (opts?.deriveAccountId && !accountId) {
+        res.status(400).json({
+          success: false,
+          error: 'accountId is required (or must be derivable from access token JWT claim).',
+        })
+        return
+      }
+
+      tokenStore.upsert({
+        provider: providerKey,
+        userId: String(payload.userId),
+        accessToken: String(payload.accessToken),
+        refreshToken: payload.refreshToken,
+        expiresAt: payload.expiresAt,
+        accountId: accountId ? String(accountId) : null,
+      })
+
+      res.json({ success: true })
+    })
+
+    app.get(`/api/provider-auth/${providerSlug}/token`, (req, res) => {
+      if (providerSlug === 'openai' || providerSlug === 'openrouter') { const snapshot = getAuthManager().snapshot(providerSlug === 'openai' ? 'codex' : 'app'); res.json({ success: true, hasToken: snapshot.status === 'ready' || snapshot.status === 'refreshing', snapshot }); return }
+      const userId = String(req.query.userId ?? req.query.user_id ?? '')
+      if (!userId) {
+        res.status(400).json({ success: false, error: 'userId query param is required' })
+        return
+      }
+
+      const tokenRecord = tokenStore.get(providerKey, userId)
+      res.json({ success: true, hasToken: Boolean(tokenRecord) })
+    })
+
+    app.delete(`/api/provider-auth/${providerSlug}/token`, (req, res) => {
+      if (providerSlug === 'openai' || providerSlug === 'openrouter') { disconnectAuth(providerSlug === 'openai' ? 'codex' : 'app'); res.json({ success: true }); return }
+      const userId = String(req.query.userId ?? req.query.user_id ?? '')
+      if (!userId) {
+        res.status(400).json({ success: false, error: 'userId query param is required' })
+        return
+      }
+
+      tokenStore.delete(providerKey, userId)
+      res.json({ success: true })
+    })
+  }
+
+  registerTokenRoutes('openai', 'openaichatgpt', { deriveAccountId: true })
+  registerTokenRoutes('openrouter', 'openrouter')
+  registerTokenRoutes('zai', 'zai')
+  registerTokenRoutes('bedrock', 'bedrock')
+
+  app.get('/api/provider-auth/models', async (req, res) => {
+    const userId = String(req.query.userId ?? req.query.user_id ?? '').trim()
+    let openRouterModels = [...DEFAULT_OPENROUTER_MODELS]
+
+    if (userId) {
+      const storedAccessToken = await getAuthManager().resolve('app').then(record => record.accessToken).catch(() => null)
+
+      if (storedAccessToken) {
+        try {
+          const remoteModels = await fetchOpenRouterModelsFromRemote(storedAccessToken)
+          if (remoteModels.length > 0) {
+            openRouterModels = remoteModels
+          }
+        } catch (error) {
+          console.warn('[providerAuthRoutes] Falling back to default OpenRouter models:', error)
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      providers: [
+        {
+          name: 'openaichatgpt',
+          models: [
+            'gpt-6-sol',
+            'gpt-6.1-sol',
+            'gpt-6-luna',
+            'gpt-6-astra',
+            'gpt-5.6-terra',
+            'gpt-5.5',
+          ],
+        },
+        {
+          name: 'openrouter',
+          models: openRouterModels,
+        },
+        {
+          name: 'lmstudio',
+          models: [
+            'local-model',
+          ],
+        },
+        {
+          name: 'zai',
+          models: DEFAULT_ZAI_MODELS,
+        },
+        {
+          name: 'bedrock',
+          models: DEFAULT_BEDROCK_MODELS,
+        },
+      ],
+    })
+  })
+}

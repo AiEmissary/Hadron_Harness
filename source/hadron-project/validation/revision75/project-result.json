@@ -1,0 +1,13 @@
+{
+  "success": true,
+  "projectFolderPicker": true,
+  "pickerIsFixture": true,
+  "selectedAgentOnly": true,
+  "actualBoundedRead": true,
+  "accessRevoked": true,
+  "sendBlockedWithoutGrant": true,
+  "nativeToolsEnabled": false,
+  "projectWrites": 0,
+  "shellCommands": 0,
+  "realProviderRequests": 0
+}

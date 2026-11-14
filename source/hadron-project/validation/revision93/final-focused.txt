@@ -1,0 +1,17 @@
+
+ RUN  v2.1.9 C:/Users/rajka/Desktop/Hadron-Harness/source/ygg-chat/client/ygg-chat-r
+
+ ✓ server/__tests__/hadronProjectApplicationAuthority.test.ts (4 tests) 8ms
+(node:55592) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ server/__tests__/hadronProjectDraftService.test.ts (20 tests) 11154ms
+   ✓ native approval applies the reviewed file once; decline and historical reopen cannot write 1437ms
+   ✓ repairs use fresh evidence and real saved test output, retain previous jobs and stop after two rounds 645ms
+   ✓ one bounded approval applies, tests, obtains a fresh A/B repair and retests without extra user actions 2346ms
+   ✓ bounded automation stops at two repairs and never turns persistent test failure into success 3428ms
+   ✓ Stop during an automatic repair cancels and joins its actual request without starting a successor 1310ms
+
+ Test Files  2 passed (2)
+      Tests  24 passed (24)
+   Start at  13:25:43
+   Duration  12.01s (transform 233ms, setup 0ms, collect 511ms, tests 11.16s, environment 0ms, prepare 256ms)

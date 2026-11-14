@@ -1,0 +1,19 @@
+{
+  "version": "0.4.5",
+  "sourceRevision": "c61f03d36eff924fa06091c06c7ec4816b579e9f",
+  "artifacts": [
+    {
+      "name": "Hadron-Harness-0.4.5-win-x64.exe",
+      "bytes": 370843419,
+      "sha256": "dc20ffb76b6fc0ebca162fdb78fc3a0f7cd9b2ae232612e89953b253b3ac5493"
+    },
+    {
+      "name": "Hadron-Harness-0.4.5-source.zip",
+      "bytes": 8022722,
+      "sha256": "ccbdf850c4d051546aae7db9638e1a46a24a9701cf68666c890329269b1b4213"
+    }
+  ],
+  "desktopResult": "passed; four editable draft destinations; synthetic transport; no paid requests",
+  "packagedStartup": "passed; projectBridgeReady true",
+  "freshInstallAndUpgradeRepeated": false
+}

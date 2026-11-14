@@ -1,0 +1,9 @@
+{
+  "success": true,
+  "independentJobs": 2,
+  "sharedSessions": 1,
+  "separateResponses": true,
+  "journalFiles": 4,
+  "realCredentialsUsed": false,
+  "syntheticInference": true
+}

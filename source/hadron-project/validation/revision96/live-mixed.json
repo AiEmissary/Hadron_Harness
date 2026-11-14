@@ -1,0 +1,17 @@
+{
+  "success": true,
+  "realSubscriptionJobs": 2,
+  "providers": [
+    "openaichatgpt",
+    "claudecode"
+  ],
+  "models": [
+    "gpt-6-luna",
+    "sonnet"
+  ],
+  "peerTokenReceived": true,
+  "nativeWorkersJoined": true,
+  "signInOrOut": false,
+  "projectFilesChanged": false,
+  "evidence": "C:\\Users\\rajka\\AppData\\Roaming\\Hadron-Harness-Development\\validation-mixed-c8c9121a-6a3c-423e-918a-6b2c0faaa989"
+}

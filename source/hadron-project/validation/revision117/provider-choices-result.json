@@ -1,0 +1,10 @@
+{
+  "success": true,
+  "staleDisconnectedChoicesRecovered": true,
+  "connectionChecksRefreshChoices": true,
+  "modesTested": 4,
+  "bothProvidersAndModelsSelectable": true,
+  "refreshPreservesUnsentTaskAndSelections": true,
+  "realProviderRequests": 0,
+  "signInProtocolPreserved": true
+}
