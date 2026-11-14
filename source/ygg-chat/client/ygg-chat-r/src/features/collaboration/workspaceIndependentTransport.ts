@@ -43,7 +43,7 @@ export function individualWorkspaceTransport(deps:{client:Client;workspaceId:str
      agentId=(await deps.agentAccess!(request)).id
      if(stoppedBeforeLaunch){void deps.releaseAgent?.(agentId);return}
     }
-    launch=controller.submit({task:request.question.text,context,...model,
+    launch=controller.submit({task:request.question.text,context,...model,...(request.images?.length?{images:request.images}:{}),
      ...(request.folder?{toolMode:request.permission==='agent'?'agent':'project',projectGrantId:agentId??request.folder.id}:{}),
     },nativeParent)
     const accepted=await launch

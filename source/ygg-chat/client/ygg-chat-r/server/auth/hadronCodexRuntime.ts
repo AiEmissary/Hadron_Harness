@@ -348,7 +348,7 @@ export class HadronCodexRuntime {
     let captureCategory:string|undefined,lastProgress=0
     try {
       if (!(await this.status()).connected || epoch !== this.epoch) throw new Error('ChatGPT connection changed')
-      guard = await startCodexRequestGuard({ model: input.modelName, instructions: input.systemPrompt ?? '', messages,
+      guard = await startCodexRequestGuard({ model: input.modelName, instructions: input.systemPrompt ?? '', messages, images:input.images,
         signal, onViolation: () => controller.abort(), fetch: this.options.fetch,
         onProgress:()=>{if(Date.now()-lastProgress>=1000){lastProgress=Date.now();emit?.({type:'chunk',part:'reasoning',delta:''})}},
         onText: delta => { signal.throwIfAborted(); if (epoch !== this.epoch) throw new Error('Account changed'); emit?.({ type: 'chunk', part: 'text', delta }) } })

@@ -2,6 +2,18 @@ import {admitHadronToolSession} from '../../../hadronTools/types.js'
 import { expect, it, vi } from 'vitest'
 import path from 'node:path'
 import os from 'node:os'
+import {fixtureImage} from '../../../../../../shared/__fixtures__/hadronImage.js'
+it('uses print streaming input to send JPEG bytes through the existing Claude account with native tools disabled',async()=>{
+ const runtime=new ClaudeCodeRuntime({runtimeDirectory:os.tmpdir(),profileDirectory:path.join(os.tmpdir(),'hadron-image-fixture'),platform:'win32',nativeHostDirectory:os.tmpdir()})
+ vi.spyOn(runtime,'status').mockResolvedValue({installed:true,version:'2.1.318',connected:true,reason:'ready'})
+ await runtime.models()
+ const capture=vi.spyOn(runtime as any,'capture').mockResolvedValue({code:0,stdout:frames()})
+ await runtime.generate({modelName:'sonnet',requestPolicy:'single_attempt',history:[],userContent:'Describe the attached picture.',images:[fixtureImage]})
+ const [args,options]=capture.mock.calls[0] as any[]
+ expect(args).toContain('--print');expect(args.slice(0,2)).toEqual(['--input-format','stream-json'])
+ expect(args).toContain('--safe-mode');expect(args).toContain('--disallowedTools')
+ expect(JSON.parse(options.input).message.content[1].source.data).toBe(fixtureImage.dataUrl.slice(23))
+})
 import {readFileSync,existsSync} from 'node:fs'
 import { ClaudeCodeRuntime, claudeConversationText, claudeNativePackage, claudeRuntimeEnvironment,claudeTextResult,claudeStructuredResult,claudeNeedsSignIn,CLAUDE_SIGN_IN_REQUIRED,claudeFailureDetails,claudeFailureCategory } from '../claudeCodeRuntime.js'
 

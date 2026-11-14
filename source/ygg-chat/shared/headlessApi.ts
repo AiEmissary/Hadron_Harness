@@ -114,6 +114,7 @@ export interface HeadlessMessageRequest {
 }
 
 export interface HeadlessSubagentStreamRequest {
+  images?:import('./hadronImages.js').HadronImage[]
   /** Internal server-inherited session reference; not an OAuth credential. */
   authSessionId?: string
   conversationId: string

@@ -63,7 +63,7 @@ export function sharedWorkspaceTransport(deps:{client:Client;workspaceId:string;
     if(disposed||stoppedBeforeLaunch){releaseAgent();return}
     const source=await deps.client.prepareTask(request.id,deps.workspaceId,request.question.text)
     const input:ProposalSessionInput={schemaVersion:1,sessionId:request.id,conversationId:deps.workspaceId,
-     sourceLineageId:source.sourceLineageId,anchorMessageId:source.anchorMessageId,task:request.question.text,context,participants,
+     sourceLineageId:source.sourceLineageId,anchorMessageId:source.anchorMessageId,task:request.question.text,context,participants,...(request.images?.length?{images:request.images}:{}),
      workflow:'review_and_synthesis',...(request.folder?{projectGrantId:agentId??request.folder.id}:{}),...(request.permission==='agent'?{projectMode:'agent'}:{}),
      ...(parentSessionId?{parentSessionId,includeParentContext:true}:{}),
     }

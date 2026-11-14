@@ -890,6 +890,7 @@ export class SubagentRunService {
           assistantParentId,
           history,
           userContent: loopUserContent,
+          images:request.images,
           systemPrompt: request.systemPrompt ?? null,
           temperature: request.temperature,
           reasoningConfig: request.reasoningEffort ? { effort: request.reasoningEffort } : undefined,

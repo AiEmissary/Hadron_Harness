@@ -4,6 +4,32 @@ import {WorkspaceRunner,type WorkspaceRunEvent,type WorkspaceRunRequest} from '.
 import {individualWorkspaceTransport} from './workspaceIndependentTransport'
 import {blankWorkspaceChat,initialUnifiedWorkspace,unifiedWorkspaceReducer as reduce} from './unifiedWorkspace'
 import type {JobReference} from './independentJobController'
+import {fixtureImage} from '../../../../../shared/__fixtures__/hadronImage'
+it('does not include a picture from a sibling branch, and preserves the draft when the selected branch has too many pictures',async()=>{
+ const f=fixture();await f.runner.send();f.emit({text:'Starting point.',state:'completed'})
+ const branchPoint=f.state().chats.a.selectedId!
+ f.deps.dispatch({type:'attachments',chatId:'a',files:Array.from({length:5},(_,index)=>{const image={...fixtureImage,id:`picture-${index}`};return {id:image.id,name:image.name,text:'',image}})})
+ f.deps.dispatch({type:'draft',chatId:'a',text:'Describe these pictures.'});await f.runner.send();f.emit({text:'Five pictures.',state:'completed'})
+ f.deps.dispatch({type:'attachments',chatId:'a',files:[{id:fixtureImage.id,name:fixtureImage.name,text:'',image:fixtureImage}]})
+ f.deps.dispatch({type:'draft',chatId:'a',text:'A sixth picture.'});await expect(f.runner.send()).rejects.toThrow('five')
+ expect(f.state().chats.a.draft).toBe('A sixth picture.');expect(f.state().chats.a.attachments).toHaveLength(1)
+ f.deps.dispatch({type:'attachments',chatId:'a',files:[]})
+ f.deps.dispatch({type:'select-message',chatId:'a',id:branchPoint});f.deps.dispatch({type:'draft',chatId:'a',text:'Another branch without pictures.'})
+ await f.runner.send();expect(f.request().images).toBeUndefined()
+})
+it('keeps images on their message and selected branch, retains them for follow-ups and never shares them with a new chat',async()=>{
+ const f=fixture()
+ f.deps.dispatch({type:'attachments',chatId:'a',files:[{id:fixtureImage.id,name:fixtureImage.name,text:'',image:fixtureImage}]})
+ await f.runner.send();f.emit({text:'Red square and blue circle.',state:'completed'})
+ const original=f.state().chats.a.messages[0]
+ expect(original.images).toEqual([fixtureImage]);expect(original.context).not.toContain(fixtureImage.dataUrl)
+ f.deps.dispatch({type:'draft',chatId:'a',text:'Which shape is blue?'})
+ await f.runner.send();expect(f.request().images).toEqual([fixtureImage]);f.emit({text:'The circle.',state:'completed'})
+ f.deps.dispatch({type:'open',chat:blankWorkspaceChat('project','fresh')})
+ f.deps.dispatch({type:'configure',chatId:'fresh',models:{a:{provider:'openaichatgpt',modelName:'model'}}})
+ f.deps.dispatch({type:'draft',chatId:'fresh',text:'Hello'})
+ await f.runner.send();expect(f.request().images).toBeUndefined();expect(JSON.stringify(f.request())).not.toContain(fixtureImage.dataUrl)
+})
 
 const runners:WorkspaceRunner[]=[]
 it('does not carry another chat’s private instructions, picture or folder into a new chat in the same project',async()=>{

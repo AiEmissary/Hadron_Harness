@@ -1,3 +1,4 @@
+import {fixtureImage} from '../../../../shared/__fixtures__/hadronImage.js'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -16,7 +17,7 @@ function make(authorizeRead?:()=>void){return new ContinuousChatService(db,{auth
  admitModel:(provider,model)=>provider==='claudecode'?claudeAdmitted&&model==='haiku':['model-a','model-b'].includes(model),
  generate:async(_owner,config,role,prompt,signal,onPrepared,packet)=>{
   const ordinal=calls.length+1,binding={runId:'run-'+ordinal,handle:'handle-'+ordinal,streamId:'stream-'+ordinal}
-  calls.push({role,packet,prompt,model:config.models[role],provider:config.providers?.[role]??'openaichatgpt'});onPrepared(binding)
+  calls.push({images:config.images,role,packet,prompt,model:config.models[role],provider:config.providers?.[role]??'openaichatgpt'});onPrepared(binding)
   if(rejections-->0)throw Error(failureMessage)
   if(hold||(holdMemory&&packet.kind==='continuous_memory'))await new Promise<void>(resolve=>{release=resolve;signal.addEventListener('abort',resolve,{once:true})})
   signal.throwIfAborted();return {text:consensusResponse?consensusResponse(packet):packet.kind==='continuous_memory'?`Memory through ${packet.transcript.at(-1).turn}: retain decisions, uncertainty and accessibility.`:`Agent ${role} turn ${ordinal}: evidence considered.`,binding}
@@ -357,4 +358,12 @@ it('sends readable attributed history, role-specific guidance, and persists the 
  expect(()=>JSON.parse(calls[1].prompt)).toThrow()
  const logged=db.prepare('SELECT prompt FROM hadron_continuous_turns ORDER BY ordinal').all()
  expect(logged.map((row:any)=>row.prompt)).toEqual(calls.map(call=>call.prompt))
+})
+
+it('sends pictures to both continuous agents and retains them after reopening and continuing the saved conversation',async()=>{
+ service.start('owner',{...input(),images:[fixtureImage],maxTurns:2});await wait(()=>service.status('owner','conversation').workersEnded)
+ expect(calls).toHaveLength(2);expect(calls.every(call=>call.images?.[0]?.dataUrl===fixtureImage.dataUrl)).toBe(true)
+ const reopened=make();expect(reopened.status('owner','conversation').input.images).toEqual([fixtureImage])
+ reopened.continueSaved('owner','conversation',{id:'continued',models:input().models,maxTurns:2,maxSeconds:60,instruction:'Check that picture again.'});await wait(()=>reopened.status('owner','continued').workersEnded)
+ expect(calls.slice(2).every(call=>call.images?.[0]?.dataUrl===fixtureImage.dataUrl)).toBe(true);service=reopened
 })

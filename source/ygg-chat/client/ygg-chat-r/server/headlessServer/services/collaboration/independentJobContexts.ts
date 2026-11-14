@@ -76,7 +76,7 @@ export class IndependentJobContexts {
     const key = createHash('sha256').update(JSON.stringify([ownerId, id])).digest('hex')
     const conversationId = `hadron-proposal-${key}`, anchorMessageId = `hadron-anchor-${key}`
     const prepared: IndependentJobContextInput = { schemaVersion: 1, id, sourceConversationId: session.conversation_id, slot: match[2] as 'a' | 'b' }
-    const config: IndependentJobInput = { schemaVersion: 1, id, conversationId, anchorMessageId, task: packet.task, context: packet.continuationSnapshot?.context ?? packet.context, provider: selection.provider, modelName: selection.modelName }
+    const config: IndependentJobInput = { schemaVersion: 1, id, conversationId, anchorMessageId, task: packet.task, ...(packet.images?.length?{images:packet.images}:{}), context: packet.continuationSnapshot?.context ?? packet.context, provider: selection.provider, modelName: selection.modelName }
     const meta = JSON.stringify({ hadronSharedProposal: { ownerId, sessionId: session.id, participant: match[2], sourceRunId: run.id } })
     this.db.transaction(() => {
       const existing = this.db.prepare('SELECT * FROM conversations WHERE id=?').get(conversationId)

@@ -1,3 +1,4 @@
+import {parseHadronImages,claudeImageInput} from '../../../../../shared/hadronImages.js'
 import {claudeAllowance,type ProviderAllowance} from '../../hadronTools/providerAllowance.js'
 import {isHadronToolSession,runHadronToolConversation} from '../../hadronTools/types.js'
 import { spawn,type ChildProcessWithoutNullStreams } from 'node:child_process'
@@ -247,6 +248,7 @@ export class ClaudeCodeRuntime {
     const epoch=this.epoch
     if(!(await this.status()).connected||epoch!==this.epoch)throw Error('Claude subscription is not connected')
     if(!Array.isArray(input.history)||input.history.some(item=>!['user','assistant'].includes(item?.role)||typeof item.content!=='string'))throw Error('Unsupported Claude context')
+    const images=parseHadronImages(input.images)
     const content=claudeConversationText(input.history,input.userContent)
     if(Buffer.byteLength(content)+Buffer.byteLength(input.systemPrompt??'')>131072)throw Error('Claude job context exceeded limit')
     // Safe mode preserves official subscription auth; --bare explicitly disables OAuth.
@@ -255,10 +257,10 @@ export class ClaudeCodeRuntime {
     mkdirSync(this.workingDirectory,{recursive:true})
     const promptFile=path.join(this.workingDirectory,`system-prompt-${randomUUID()}.txt`)
     writeFileSync(promptFile,(input.systemPrompt??'Respond only to the supplied task. You have no tools.')+(structured?FORMATTER_CONTRACT:''),{flag:'wx',mode:0o600})
-    const args=['--safe-mode','--restricted','--disable-slash-commands','--strict-mcp-config','--mcp-config','{"mcpServers":{}}','--tools','',...(structured?['--allowedTools','StructuredOutput']:['--disallowedTools','*']),'--no-chrome','--no-session-persistence','--setting-sources','','--permission-mode','dontAsk','--max-turns',structured?'6':'1','--output-format','stream-json','--verbose','--model',input.modelName,'--system-prompt-file',promptFile,...(structured?['--json-schema',JSON.stringify({type:'object',properties:{tool:{type:'string'},arguments:{type:'object',additionalProperties:true},answer:{type:'string'}},additionalProperties:true})]:[]),'--print']
+    const args=[...(images.length?['--input-format','stream-json']:[]),'--safe-mode','--restricted','--disable-slash-commands','--strict-mcp-config','--mcp-config','{"mcpServers":{}}','--tools','',...(structured?['--allowedTools','StructuredOutput']:['--disallowedTools','*']),'--no-chrome','--no-session-persistence','--setting-sources','','--permission-mode','dontAsk','--max-turns',structured?'6':'1','--output-format','stream-json','--verbose','--model',input.modelName,'--system-prompt-file',promptFile,...(structured?['--json-schema',JSON.stringify({type:'object',properties:{tool:{type:'string'},arguments:{type:'object',additionalProperties:true},answer:{type:'string'}},additionalProperties:true})]:[]),'--print']
     let raw='',exitCode:number|null=null,stage='process';const started=Date.now()
     try{
-      const result=await this.capture(args,{timeoutMs:120000,signal:input.signal,input:content,maxOutputBytes:2097152})
+      const result=await this.capture(args,{timeoutMs:120000,signal:input.signal,input:images.length?claudeImageInput(content,images):content,maxOutputBytes:2097152})
       raw=result.stdout;exitCode=result.code
       if(epoch===this.epoch)this.lastAllowance=claudeAllowance(result.stdout)??this.lastAllowance
       input.signal?.throwIfAborted()

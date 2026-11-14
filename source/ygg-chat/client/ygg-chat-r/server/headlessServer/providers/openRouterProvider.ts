@@ -47,6 +47,7 @@ export interface ProviderRailwayTurnInput {
 }
 
 export interface ProviderGenerateInput {
+  images?:import('../../../../../shared/hadronImages.js').HadronImage[]
   hadronToolSession?: import('../../hadronTools/types.js').HadronToolSession
   /** Trusted server policy; suppress auth/transport replay for bounded proposals. */
   requestPolicy?: 'single_attempt'

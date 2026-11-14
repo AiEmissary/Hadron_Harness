@@ -116,7 +116,7 @@ function IndependentJob({ conversationId, slot, options, enabled }: {
     if (view.phase !== 'ready') controller.current.prepareNext()
     const question = task.trim() || 'Work on the attached files.'
     setSubmittedTask(question); select?.(slot, null)
-    const accepted = await controller.current.submit({ task: question, context, provider: option!.provider, modelName, ...(toolMode ? { toolMode } : {}), ...(toolMode==='project'&&projectAccess?{projectGrantId:projectAccess.id}:{}) }, editOrigin ? editOrigin.parent??undefined : parentNode ? { jobId: parentNode.jobId, kind: parentNode.kind } : undefined)
+    const accepted = await controller.current.submit({ task: question, context, ...(files.some(file=>file.image)?{images:files.flatMap(file=>file.image?[file.image]:[])}:{}), provider: option!.provider, modelName, ...(toolMode ? { toolMode } : {}), ...(toolMode==='project'&&projectAccess?{projectGrantId:projectAccess.id}:{}) }, editOrigin ? editOrigin.parent??undefined : parentNode ? { jobId: parentNode.jobId, kind: parentNode.kind } : undefined)
     if (accepted) { setTask(''); setFiles([]); setNewRoot(false);setEditOrigin(null) }
     refreshTrees?.()
   }

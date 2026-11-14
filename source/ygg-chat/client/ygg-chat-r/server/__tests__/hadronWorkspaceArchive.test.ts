@@ -4,6 +4,7 @@ import {WorkspaceArchive} from '../hadronTools/workspaceArchive.js'
 import {blankWorkspaceChat,workspaceMessagePath,type WorkspaceChat} from '../../src/features/collaboration/unifiedWorkspace.js'
 import {RETENTION_MS} from '../hadronTools/recycleBin.js'
 import {activeConversationSql,ensureRecycleBin} from '../hadronTools/recycleBin.js'
+import {fixtureImage} from '../../../../shared/__fixtures__/hadronImage.js'
 const {DatabaseSync}=createRequire(import.meta.url)('node:sqlite')
 let db:any,archive:WorkspaceArchive,now:number
 beforeEach(()=>{
@@ -17,6 +18,18 @@ function chat(id:string,project='project'):WorkspaceChat{
   {id:id+'-a',parentId:id+'-q',role:'assistant',agent:'a',text:'Answer '+id,state:'completed',origin:{kind:'independent',id:'native-job',nodeId:'native-answer'}}]
  chat.selectedId=id+'-a';return chat
 }
+it('round-trips pictures on messages and pending attachments and copies them into a new chat without altering the source',()=>{
+ const value=chat('source');value.messages[0].images=[fixtureImage]
+ value.attachments=[{id:fixtureImage.id,name:fixtureImage.name,text:'',image:fixtureImage}]
+ const source=archive.save('owner',value,0),target=archive.save('owner',chat('target'),0)
+ expect(archive.load('owner','source')?.chat.messages[0].images).toEqual([fixtureImage])
+ expect(archive.load('owner','source')?.chat.attachments?.[0].image).toEqual(fixtureImage)
+ const copied=archive.copy('owner',{id:'picture-copy',source:'source',destination:'target',ids:['source-q'],parentId:target.chat.selectedId,sourceRevision:source.revision,destinationRevision:target.revision})
+ expect(copied.destination.chat.messages.at(-1)?.images).toEqual([fixtureImage])
+ expect(archive.load('owner','source')?.chat.messages[0].images).toEqual([fixtureImage])
+ value.messages[0].images=[{...fixtureImage,dataUrl:'file:///private.jpg'}]
+ expect(()=>archive.save('owner',value,source.revision)).toThrow('JPEG')
+})
 it('treats binned companion archives as absent and makes them readable again only after restore',()=>{
  ensureRecycleBin(db)
  db.exec('CREATE TABLE conversations(id TEXT,project_id TEXT,user_id TEXT,storage_mode TEXT)')

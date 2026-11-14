@@ -1,6 +1,16 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { startCodexRequestGuard } from '../auth/hadronCodexRequestGuard.js'
+import {fixtureImage} from '../../../../shared/__fixtures__/hadronImage.js'
 const cleanups: Array<() => void> = []
+it('delivers actual image content through the host guard without granting native tools',async()=>{
+ const forward=vi.fn(async()=>new Response(frame(completed),{headers:{'content-type':'text/event-stream'}}))
+ const guard=await startCodexRequestGuard({model:'fixture-model',instructions:'Describe',messages:[{role:'user',content:'What is shown?'}],images:[fixtureImage],signal:new AbortController().signal,onViolation:()=>{},fetch:forward as typeof fetch})
+ cleanups.push(guard.close)
+ await (await fetch(guard.baseUrl+'/backend-api/codex/responses',{method:'POST',headers:{Authorization:'Bearer fixture-private-token','Content-Type':'application/json'},body:JSON.stringify({model:'fixture-model',input:[],tools:[{name:'shell'}]})})).text()
+ const body=JSON.parse(String((forward.mock.calls[0] as unknown as [string,RequestInit])[1].body))
+ expect(body.input[0].content).toEqual([{type:'input_text',text:'What is shown?'},{type:'input_image',image_url:fixtureImage.dataUrl}])
+ expect(body.tools).toEqual([])
+})
 afterEach(() => { for (const close of cleanups.splice(0)) close() })
 const frame = (event: unknown) => 'data: ' + JSON.stringify(event) + '\n\n'
 const delta = { type: 'response.output_text.delta', delta: '12' }

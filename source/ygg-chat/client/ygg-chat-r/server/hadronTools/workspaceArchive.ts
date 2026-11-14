@@ -1,3 +1,4 @@
+import {parseHadronImages} from '../../../../shared/hadronImages.js'
 import {createHash,randomUUID} from 'node:crypto'
 import type {WorkspaceChat,WorkspaceMessage} from '../../src/features/collaboration/unifiedWorkspace.js'
 import {isHadronProvider} from '../../../../shared/hadronProviders.js'
@@ -35,7 +36,8 @@ export class WorkspaceArchive {
     !['user','assistant'].includes(message.role)||typeof message.text!=='string'||message.text.length>1000000||!['running','completed','failed','stopped'].includes(message.state)||
     message.note!==undefined&&(typeof message.note!=='string'||message.note.length>8000)||message.context!==undefined&&(typeof message.context!=='string'||message.context.length>16000))throw Error('Invalid saved message')
    if(message.activity!==undefined&&(!Array.isArray(message.activity)||message.activity.length>100||message.activity.some(item=>!item||typeof item.label!=='string'||item.label.length>200||typeof item.state!=='string'||item.state.length>40||item.time!==undefined&&(typeof item.time!=='string'||item.time.length>64))))throw Error('Invalid saved activity')
-   return structuredClone(message)
+   const clean=structuredClone(message);if(message.images!==undefined)clean.images=parseHadronImages(message.images)
+   return clean
   })
   const seen=new Map(messages.map(message=>[message.id,message]))
   if(seen.size!==messages.length)throw Error('Duplicate saved message')
@@ -52,7 +54,7 @@ export class WorkspaceArchive {
   if(!Array.isArray(attachments)||attachments.length>5||attachments.some(file=>!file||typeof file.id!=='string'||typeof file.name!=='string'||file.name.length>1000||typeof file.text!=='string'||file.text.length>16000)||attachments.reduce((total,file)=>total+file.text.length,0)>16000)throw Error('Invalid saved attachments')
   const chat:WorkspaceChat={id:value.id,projectId:value.projectId,title:value.title,sharedContinuation:value.sharedContinuation===true||undefined,peerChats:value.peerChats?{...value.peerChats}:undefined,nativeWorkspaceId:value.nativeWorkspaceId,instructions:value.instructions,workType:value.workType,permission:value.workType==='continuous'?'chat':value.permission,agent:value.agent,models,maxTurns:value.maxTurns,
    draft:value.draft,selectedId:value.selectedId,messages,scrollTop:Number.isFinite(value.scrollTop)?Math.max(0,value.scrollTop):0,followLatest:value.followLatest!==false,followBranch:value.followBranch!==false,
-   attachments:attachments.map(file=>({id:file.id,name:file.name,text:file.text})),nativeJob:value.nativeJob&&['independent','shared','continuous','project'].includes(value.nativeJob.kind)&&typeof value.nativeJob.id==='string'&&value.nativeJob.id.length<=160?{kind:value.nativeJob.kind,id:value.nativeJob.id}:undefined,
+   attachments:attachments.map(file=>({id:file.id,name:file.name,text:file.text,...(file.image?{image:parseHadronImages([file.image])[0]}:{})})),nativeJob:value.nativeJob&&['independent','shared','continuous','project'].includes(value.nativeJob.kind)&&typeof value.nativeJob.id==='string'&&value.nativeJob.id.length<=160?{kind:value.nativeJob.kind,id:value.nativeJob.id}:undefined,
    jobId:typeof value.jobId==='string'&&value.jobId.length<=160?value.jobId:null,jobState:value.jobState==='idle'?'idle':'unknown'}
   if(Buffer.byteLength(JSON.stringify(chat))>32*1024*1024)throw Error('Conversation exceeds the local archive size limit')
   return chat
@@ -100,7 +102,7 @@ export class WorkspaceArchive {
    return {...message,text:range.text,note:undefined}
   })
   if(messages.length!==ids.length)throw Error('A selected message is unavailable')
-  if(Buffer.byteLength(JSON.stringify(messages))>131072)throw Error('Choose a smaller selection (128 KiB maximum)')
+  if(Buffer.byteLength(JSON.stringify(messages.map(({images,...message})=>message)))>131072||Buffer.byteLength(JSON.stringify(messages))>8*1024*1024)throw Error('Choose a smaller selection (128 KiB text or 8 MiB including pictures maximum)')
   return messages
  }
  private remove(chat:WorkspaceChat,ids:Set<string>,excerpts?:MessageExcerpts):Removed{
@@ -159,7 +161,7 @@ export class WorkspaceArchive {
    for(const message of messages){
     const id=randomUUID();ids.push(id)
     // Text snapshots carry no original job/permission identity into a new mode.
-    const copy:WorkspaceMessage={id,parentId,role:message.role,agent:message.agent,text:message.text,state:'completed',provider:message.provider,modelName:message.modelName,note:message.note,
+    const copy:WorkspaceMessage={id,parentId,role:message.role,agent:message.agent,text:message.text,...(message.images?.length?{images:structuredClone(message.images)}:{}),state:'completed',provider:message.provider,modelName:message.modelName,note:message.note,
      reference:{chatId:source.chat.id,messageId:message.id,capturedAt:this.now(),state:message.state}}
     destination.chat.messages.push(copy);parentId=id
    }

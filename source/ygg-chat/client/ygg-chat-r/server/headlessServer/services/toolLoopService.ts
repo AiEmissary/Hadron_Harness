@@ -182,6 +182,7 @@ export type ContextInjectionPersister = (input: { parentId: string; text: string
 export type HookContextPlacement = 'transcript' | 'system_prompt'
 
 export interface ToolLoopRunInput {
+  images?:import('../../../../../shared/hadronImages.js').HadronImage[]
   provider: string
   /** Main-run accounting only; excludes tools, hooks, and compaction calls. */
   onModelRequest?: (measurement: ModelRequestMeasurement) => void
@@ -920,6 +921,7 @@ export class ToolLoopService {
         : input.contextLength
 
     const providerInput: ProviderGenerateInput = {
+      images:input.images,
       hadronToolSession: input.hadronToolSession,
       requestPolicy: input.requestPolicy,
       modelName: input.modelName,

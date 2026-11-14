@@ -1,3 +1,4 @@
+import {fixtureImage} from '../../../../../../shared/__fixtures__/hadronImage.js'
 import { expect, it, vi } from 'vitest'
 import { proposalSqlite } from './fixtures/proposalSqlite.js'
 import { createIndependentJobsSchema } from '../../persistence/independentJobsSchema.js'
@@ -24,16 +25,17 @@ function fixture(deadlineMs = 10000) {
   const deps = { jobs, agents: f.agents, runs: f.runs, allowedModels: new Set(['model']), deadlineMs, authorize }
   const service = new IndependentJobService(deps)
   const second = f.messages.createMessage({ conversationId: 'other', parentId: null, role: 'user', content: 'Other anchor' })
-  const a = { schemaVersion: 1 as const, id: 'a', conversationId: 'c1', anchorMessageId: f.anchor.id, task: 'Task A', context: 'File A', provider: 'openaichatgpt' as const, modelName: 'model' }
-  const b = { ...a, id: 'b', conversationId: 'other', anchorMessageId: second.id, task: 'Task B', context: 'File B' }
+  const a = { schemaVersion: 1 as const, id: 'a', conversationId: 'c1', anchorMessageId: f.anchor.id, images:undefined as import('../../../../../../shared/hadronImages.js').HadronImage[]|undefined, task: 'Task A', context: 'File A', provider: 'openaichatgpt' as const, modelName: 'model' }
+  const b = { ...a, images:undefined, id: 'b', conversationId: 'other', anchorMessageId: second.id, task: 'Task B', context: 'File B' }
   return { ...f, jobs, service, deps, generate, pending, authorize, a, b }
 }
 it('binds two isolated durable jobs, deduplicates and stops only the selected job', async () => {
-  const f = fixture(), a = f.service.start('owner', f.a), b = f.service.start('owner', f.b)
+  const f = fixture();f.a.images=[fixtureImage];const a = f.service.start('owner', f.a), b = f.service.start('owner', f.b)
   try {
     expect(f.service.start('owner', f.a)).toBe(a)
     await vi.waitFor(() => expect(f.pending).toHaveLength(2))
     const ra = f.jobs.get('a', 'owner')!, rb = f.jobs.get('b', 'owner')!
+    expect(f.pending[0].input.images).toEqual([fixtureImage]);expect(f.pending[1].input.images).toBeUndefined()
     expect(ra.run_id).not.toBe(rb.run_id); expect(ra.stream_id).not.toBe(rb.stream_id)
     expect(f.jobs.ownsRunId(ra.run_id!)).toBe(true)
     const treeA = f.service.tree('owner', 'a')!, treeB = f.service.tree('owner', 'b')!

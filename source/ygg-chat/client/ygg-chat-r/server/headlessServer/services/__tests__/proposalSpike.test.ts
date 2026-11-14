@@ -1,3 +1,4 @@
+import {fixtureImage} from '../../../../../../shared/__fixtures__/hadronImage.js'
 import { describe, expect, it, vi } from 'vitest'
 import type { ProviderRouter } from '../providerRouter.js'
 import { ProposalSpike } from '../collaboration/proposalSpike.js'
@@ -19,7 +20,7 @@ function fixture(implementerId?:string) {
   }))
   const store = proposalSqlite({ generate } as unknown as ProviderRouter)
   const input = { sessionId: 'p0-session', conversationId: 'c1', sourceLineageId: store.source.id,
-    anchorMessageId: store.anchor.id, task: 'Solve the shared task', context: 'Frozen evidence',
+    anchorMessageId: store.anchor.id, images:[fixtureImage], task: 'Solve the shared task', context: 'Frozen evidence',
     participants: [{ id: 'a', modelName: 'model-a' }, { id: 'b', modelName: 'model-b' }] }
   const publish = vi.fn((snapshot, proposals) => publishProposalCheckpoints(store, snapshot, proposals))
   const spike = new ProposalSpike({ agents: store.agents, publish,implementerId,
@@ -52,6 +53,8 @@ describe('Hadron P0 proposal checkpoints', () => {
       await vi.waitFor(() => expect(f.pending.size).toBe(2))
       const a = f.pending.get('model-a')!.input
       const b = f.pending.get('model-b')!.input
+      expect(a.images).toEqual([fixtureImage]);expect(b.images).toEqual([fixtureImage])
+      expect(a.userContent).not.toContain(fixtureImage.dataUrl)
       expect(a.userContent).toBe(b.userContent)
       expect(JSON.parse(a.userContent).context).toBe('Frozen evidence')
       expect(a.railwayTurn.conversationId).not.toBe(b.railwayTurn.conversationId)

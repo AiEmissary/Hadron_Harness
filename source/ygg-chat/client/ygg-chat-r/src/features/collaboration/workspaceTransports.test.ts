@@ -11,14 +11,14 @@ const request=(workType:WorkspaceRunRequest['workType']):WorkspaceRunRequest=>({
 const wait=async(condition:()=>boolean)=>{for(let i=0;i<100;i++){if(condition())return;await new Promise(resolve=>setImmediate(resolve))}throw Error('Task did not settle')}
 const sharedStatus=(status='completed'):ProposalSessionStatus=>({schemaVersion:1,sessionId:'request',conversationId:'workspace',phase:'independent_proposals',status:status as ProposalSessionStatus['status'],revision:1,limits:{deadlineMs:120000,maxRequestsPerParticipant:1},participants:[{id:'a',provider:'openaichatgpt',modelName:'model-a',status:'completed',runId:'run-a',streamId:null},{id:'b',provider:'claudecode',modelName:'model-b',status:'completed',runId:'run-b',streamId:null}],artifacts:[],error:null,collaboration:{phase:'finished',maxRequests:5,stages:[{id:'final',participantId:'a',modelName:'model-a',status:'completed',text:'Here is the combined answer.',verified:false}]}})
 it('can send a drawing-heavy GPT conversation to Claude without a manual excerpt',async()=>{
- const input=request('individual');input.agent='b';input.question.text='Give me an outline of a cow with long horns'
+ const input=request('individual');input.images=[fixtureImage];input.agent='b';input.question.text='Give me an outline of a cow with long horns'
  input.path=[{id:'drawing',parentId:null,role:'assistant',agent:'a',provider:'openaichatgpt',text:'```svg\n<svg>'+'.'.repeat(30000)+'</svg>\n```',state:'completed'}]
  let saved:any=null
  const client={prepare:vi.fn(async(value:any)=>({...value,conversationId:'native',anchorMessageId:'anchor'})),start:vi.fn(async(value:any)=>({schemaVersion:1 as const,id:value.id,conversationId:'native',status:'running',revision:1,provider:'claudecode' as const,modelName:'model-b',runId:'run',streamId:'stream'})),status:vi.fn(),stop:vi.fn(),transcript:vi.fn(),stream:vi.fn(async()=>({cursor:0,terminal:true as const}))}
  const handle=individualWorkspaceTransport({client,workspaceId:'workspace',store:()=>({read:()=>saved,write:value=>{saved=value},clear:()=>{saved=null}}),pollMs:100000}).create(input,()=>{});handles.push(handle)
  await handle.start()
  expect(client.start).toHaveBeenCalledTimes(1)
- expect(client.start.mock.calls[0][0]).toMatchObject({provider:'claudecode',task:input.question.text})
+ expect(client.start.mock.calls[0][0]).toMatchObject({provider:'claudecode',task:input.question.text,images:[fixtureImage]})
  expect(client.start.mock.calls[0][0].context.length).toBeLessThanOrEqual(16000)
  expect(input.path[0].text.length).toBeGreaterThan(30000)
 })
@@ -30,12 +30,12 @@ function sharedFixture(){
  return {client,store,events,saved:()=>saved,make:(input=request('together'))=>{const handle=sharedWorkspaceTransport({client,workspaceId:'workspace',store:()=>store,pollMs:100000}).create(input,event=>events.push(event));handles.push(handle);return handle}}
 }
 it('sends a shared follow-up directly from the selected combined answer with both selected models',async()=>{
- const f=sharedFixture(),input=request('together')
+ const f=sharedFixture(),input=request('together');input.images=[fixtureImage]
  input.folder={id:'read-grant',label:'Folder'}
  input.path=[{id:'previous',parentId:null,role:'assistant',text:'Previous answer',state:'completed',origin:{kind:'shared',id:'shared:previous-session',nodeId:'final'}}]
  await f.make(input).start();await wait(()=>f.events.some(event=>event.state==='completed'))
  expect(f.client.start).toHaveBeenCalledTimes(1)
- expect(f.client.start.mock.calls[0][0]).toMatchObject({parentSessionId:'previous-session',includeParentContext:true,projectGrantId:'read-grant',participants:[{id:'a',provider:'openaichatgpt'},{id:'b',provider:'claudecode'}]})
+ expect(f.client.start.mock.calls[0][0]).toMatchObject({images:[fixtureImage],parentSessionId:'previous-session',includeParentContext:true,projectGrantId:'read-grant',participants:[{id:'a',provider:'openaichatgpt'},{id:'b',provider:'claudecode'}]})
  expect(f.events.at(-1)?.text).toBe('Here is the combined answer.');expect(f.saved()).toBeNull()
 })
 it('keeps available replies visible when a shared task fails before synthesis',async()=>{
@@ -68,7 +68,7 @@ it('Stop during individual preparation prevents its inference launch',async()=>{
  expect(client.start).not.toHaveBeenCalled();expect(events.at(-1)?.state).toBe('stopped');expect(saved).toBeNull()
 })
 it('uses a distinct native Agent capability for shared coding while retaining the selected models and conversation',async()=>{
- const f=sharedFixture(),input=request('together'),access=vi.fn(async()=>({id:'agent-capability'})),release=vi.fn()
+ const f=sharedFixture(),input=request('together');input.images=[fixtureImage];const access=vi.fn(async()=>({id:'agent-capability'})),release=vi.fn()
  input.permission='agent';input.folder={id:'read-only-capability',label:'Project'}
  const handle=sharedWorkspaceTransport({client:f.client,workspaceId:'workspace',store:()=>f.store,agentAccess:access,releaseAgent:release}).create(input,event=>f.events.push(event));handles.push(handle)
  await handle.start();await wait(()=>f.events.some(event=>event.state==='completed'))
@@ -90,12 +90,12 @@ it('does not confuse an individual read grant with permission to edit',async()=>
  expect(input.folder.id).toBe('read-only-capability')
 })
 it('projects continuous replies as separate chronological messages and pauses at the saved native limit',async()=>{
- const input=request('continuous'),view:ContinuousChatView={id:input.id,input:{id:input.id,workspaceId:'workspace',anchorMessageId:'anchor',goal:input.question.text,models:{a:'model-a',b:'model-b'},maxTurns:100,maxSeconds:3600},state:'paused',reason:'turn_budget',revision:3,workersEnded:true,canResume:true,
+ const input=request('continuous');input.images=[fixtureImage];const view:ContinuousChatView={id:input.id,input:{id:input.id,workspaceId:'workspace',anchorMessageId:'anchor',goal:input.question.text,models:{a:'model-a',b:'model-b'},maxTurns:100,maxSeconds:3600},state:'paused',reason:'turn_budget',revision:3,workersEnded:true,canResume:true,
   turns:[{ordinal:1,role:'a',state:'completed',text:'A reply',runId:'run-a'},{ordinal:2,role:'b',state:'completed',text:'B reply',runId:'run-b'}],messages:[]}
  const api={start:vi.fn(async()=>view),status:vi.fn(async()=>view),stop:vi.fn(async()=>view),continueSaved:vi.fn(async()=>view)} as unknown as ContinuousChatApi
  const events:WorkspaceRunEvent[]=[],remember=vi.fn(),handle=continuousWorkspaceTransport({api,workspaceId:'workspace',anchor:async()=>'anchor',remember}).create(input,event=>events.push(event));handles.push(handle)
  await handle.start()
- expect(api.start).toHaveBeenCalledTimes(1);expect(api.start).toHaveBeenCalledWith(expect.objectContaining({maxTurns:100,providers:{a:'openaichatgpt',b:'claudecode'}}))
+ expect(api.start).toHaveBeenCalledTimes(1);expect(api.start).toHaveBeenCalledWith(expect.objectContaining({images:[fixtureImage],maxTurns:100,providers:{a:'openaichatgpt',b:'claudecode'}}))
  expect(events.at(-1)?.replies?.map(reply=>[reply.agent,reply.text])).toEqual([['a','A reply'],['b','B reply']])
  expect(events.at(-1)?.state).toBe('completed');expect(remember).toHaveBeenLastCalledWith(null)
 })
@@ -111,3 +111,4 @@ it('shows the failed stage and completed peer review alongside saved work when s
  expect(f.events.at(-1)?.text).toContain('B reviewed the calculator')
  expect(f.client.start).toHaveBeenCalledTimes(1)
 })
+import {fixtureImage} from '../../../../../shared/__fixtures__/hadronImage'

@@ -10,6 +10,7 @@ const bounded=(value:unknown,max:number)=>{if(typeof value!=='string'||!value.tr
 /** Durable conversation scheduler. One reply or memory run per reserved ordinal; only
  * explicit 429/503 rejections receive bounded fresh-attempt recovery. No
  * auto-resume on restart, shell, edits or model delegation. Explicit read grants may supply bounded host file tools. */
+import {parseHadronImages} from '../../../../shared/hadronImages.js'
 export class ContinuousChatService {
  private readonly instance=randomUUID()
  private readonly controls=new Map<string,Control>()
@@ -45,7 +46,7 @@ export class ContinuousChatService {
  private input(value:ContinuousChatInput){
   if(!value||!Number.isSafeInteger(value.maxTurns)||value.maxTurns<1||value.maxTurns>100||!Number.isSafeInteger(value.maxSeconds)||value.maxSeconds<10||value.maxSeconds>3600)throw Error('Choose 1–100 turns and 10–3600 seconds')
   if(value.providers&&(!['openaichatgpt','claudecode'].includes(value.providers.a)||!['openaichatgpt','claudecode'].includes(value.providers.b)))throw Error('Unsupported conversation provider')
-  return {id:bounded(value.id,128),workspaceId:bounded(value.workspaceId,128),anchorMessageId:bounded(value.anchorMessageId,128),goal:bounded(value.goal,12000),models:{a:bounded(value.models?.a,128),b:bounded(value.models?.b,128)},maxTurns:value.maxTurns,maxSeconds:value.maxSeconds,
+  return {...(value.images!==undefined?{images:parseHadronImages(value.images)}:{}),id:bounded(value.id,128),workspaceId:bounded(value.workspaceId,128),anchorMessageId:bounded(value.anchorMessageId,128),goal:bounded(value.goal,12000),models:{a:bounded(value.models?.a,128),b:bounded(value.models?.b,128)},maxTurns:value.maxTurns,maxSeconds:value.maxSeconds,
    ...(value.projectGrantId?{projectGrantId:bounded(value.projectGrantId,128)}:{}),...(value.providers?{providers:{a:value.providers.a,b:value.providers.b}}:{}),...(value.continuationOf?{continuationOf:bounded(value.continuationOf,128)}:{}),...(value.continuationInstruction?{continuationInstruction:bounded(value.continuationInstruction,4000)}:{})}
  }
  private admitted(input:ContinuousChatInput,role:'a'|'b'){const provider=input.providers?.[role]??'openaichatgpt';return this.deps.admitModel?this.deps.admitModel(provider,input.models[role]):provider==='openaichatgpt'&&this.deps.allowedModels.has(input.models[role])}
@@ -66,7 +67,7 @@ export class ContinuousChatService {
  }
  continueSaved(owner:string,sourceId:string,raw:ContinuousContinuationInput):ContinuousChatView{
   const {row,input:source}=this.owned(owner,sourceId)
-  const input=this.input({...source,projectGrantId:raw.projectGrantId,id:raw.id,models:raw.models,providers:raw.providers??source.providers,maxTurns:raw.maxTurns,maxSeconds:raw.maxSeconds,continuationOf:sourceId,continuationInstruction:raw.instruction?.trim()||undefined})
+  const input=this.input({...source,images:raw.images??source.images,projectGrantId:raw.projectGrantId,id:raw.id,models:raw.models,providers:raw.providers??source.providers,maxTurns:raw.maxTurns,maxSeconds:raw.maxSeconds,continuationOf:sourceId,continuationInstruction:raw.instruction?.trim()||undefined})
   // A retried UI handoff checks the existing child; it never dispatches twice.
   if(this.db.prepare('SELECT 1 FROM hadron_continuous_sessions WHERE id=?').get(input.id))return this.create(owner,input)
   if(['running','pause_requested','stop_requested'].includes(row.state)||this.controls.get(sourceId)?.ended===false)throw Error('Stop the source conversation and wait for its worker before continuing')

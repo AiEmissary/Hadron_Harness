@@ -1,11 +1,13 @@
 import {workspaceMessagePath,type UnifiedWorkspaceAction,type UnifiedWorkspaceState,type WorkspaceChat,type WorkspaceMessage} from './unifiedWorkspace'
 import {composeSharedContext} from './attachmentContext'
 import {WORKSPACE_VISUAL_INSTRUCTION} from './workspaceVisuals'
+import {parseHadronImages,type HadronImage} from '../../../../../shared/hadronImages'
 
 export interface WorkspaceRunRequest {
  id:string;chatId:string;projectId:string;nativeWorkspaceId?:string;workType:WorkspaceChat['workType'];permission:WorkspaceChat['permission'];agent:WorkspaceChat['agent'];
  models:WorkspaceChat['models'];maxTurns:number;folder:WorkspaceChat['folder'];
  question:WorkspaceMessage;answerId:string;path:WorkspaceMessage[];
+ images?:HadronImage[];
 }
 export interface WorkspaceRunEvent {
  text:string;state:'running'|'completed'|'failed'|'stopped'|'unknown';error?:string;origin?:WorkspaceMessage['origin'];
@@ -36,7 +38,11 @@ export class WorkspaceRunner {
   if(Object.values(state.chats).some(other=>other.id!==chat.id&&other.jobState!=='idle'&&(other.workType!=='individual'||chat.workType!=='individual'||other.agent===chat.agent)))throw Error('One of these agents already has work in progress')
   const context=composeSharedContext([chat.instructions??'',WORKSPACE_VISUAL_INSTRUCTION].filter(Boolean).join('\n\n'),chat.attachments??[])
   const id=this.deps.id(),answerId=this.deps.id(),question:WorkspaceMessage={id:this.deps.id(),parentId:chat.selectedId,role:'user',text:chat.draft,state:'completed',...(context?{context}:{})}
-  const request:WorkspaceRunRequest=structuredClone({id,chatId:chat.id,projectId:state.projectId,nativeWorkspaceId:chat.nativeWorkspaceId,workType:chat.workType,permission:chat.folder?chat.permission:'chat',agent:chat.agent,models:chat.models,maxTurns:chat.maxTurns,folder:chat.folder,question,answerId,path:workspaceMessagePath(chat)})
+  const path=workspaceMessagePath(chat)
+  const attached=parseHadronImages((chat.attachments??[]).flatMap(file=>file.image?[file.image]:[]))
+  if(attached.length)question.images=attached
+  const images=parseHadronImages([...new Map([...path.flatMap(message=>message.images??[]),...attached].map(image=>[image.id,image])).values()])
+  const request:WorkspaceRunRequest=structuredClone({id,chatId:chat.id,projectId:state.projectId,nativeWorkspaceId:chat.nativeWorkspaceId,workType:chat.workType,permission:chat.folder?chat.permission:'chat',agent:chat.agent,models:chat.models,maxTurns:chat.maxTurns,folder:chat.folder,question,answerId,path,...(images.length?{images}:{})})
   // Build and validate locally before clearing the user's draft or showing an admitted task.
   let record:{request:WorkspaceRunRequest;handle:WorkspaceRunHandle;ended:boolean}|undefined
   const buffered:WorkspaceRunEvent[]=[]

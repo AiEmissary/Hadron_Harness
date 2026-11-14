@@ -1,6 +1,6 @@
 import type { SubagentRunService } from '../subagentRunService.js'
 import { buildHadronWorkerPrompt } from './hadronWorkerPrompt.js'
-import { proposalHash, validParticipantId, type ProposalCheckpoint, type ProposalReference, type ProposalSnapshot } from './proposalCheckpoints.js'
+import { proposalTaskPacket, proposalHash, validParticipantId, type ProposalCheckpoint, type ProposalReference, type ProposalSnapshot } from './proposalCheckpoints.js'
 
 export interface ProposalSpikeInput {
   sessionId: string
@@ -8,6 +8,7 @@ export interface ProposalSpikeInput {
   sourceLineageId: string
   anchorMessageId: string
   task: string
+  images?:import('../../../../../../shared/hadronImages.js').HadronImage[]
   context: string
   participants: readonly { id: string; modelName: string; provider?: 'openaichatgpt'|'claudecode' }[]
 }
@@ -41,8 +42,8 @@ export class ProposalSpike {
       !input.sessionId.trim() || input.sessionId.length > 128 || !input.task.trim() || input.task.length + input.context.length > 32_000) {
       throw new Error('Expected two named models and a nonempty bounded task/context packet')
     }
-    this.input = { ...input, participants: input.participants.map(p => ({ ...p })) }
-    this.packet = JSON.stringify({ schemaVersion: 1, task: input.task, context: input.context })
+    this.input = { ...input, ...(input.images?{images:structuredClone(input.images)}:{}), participants: input.participants.map(p => ({ ...p })) }
+    this.packet = proposalTaskPacket(input)
     this.snapshot = Object.freeze({ sessionId: input.sessionId, conversationId: input.conversationId,
       sourceLineageId: input.sourceLineageId, anchorMessageId: input.anchorMessageId,
       contextHash: proposalHash(this.packet) })
@@ -74,7 +75,7 @@ export class ProposalSpike {
         const child = await this.deps.agents.spawnDetached({
           conversationId: this.input.conversationId, parentMessageId: this.input.anchorMessageId,
           lineageId: null, rootPath: null, fullAccess: false,
-          prompt: this.packet, systemPrompt: buildHadronWorkerPrompt(this.deps.implementerId===participant.id?'implementation':'proposal'),
+          images:this.input.images, prompt: this.packet, systemPrompt: buildHadronWorkerPrompt(this.deps.implementerId===participant.id?'implementation':'proposal'),
           provider: participant.provider ?? 'openaichatgpt', modelName: participant.modelName, userId: this.deps.providerUserId,
           autoApprove: false, operationMode: 'plan', tools: [], maxTurns: 1,
           autoCompactionEnabled: false,

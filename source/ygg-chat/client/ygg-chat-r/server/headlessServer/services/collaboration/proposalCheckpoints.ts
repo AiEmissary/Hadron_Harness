@@ -96,3 +96,8 @@ export function publishProposalCheckpoints(deps: {
     })
   })
 }
+
+/** Bind vision inputs to the committed proposal without putting image bytes in text. */
+export function proposalTaskPacket(input:{task:string;context:string;images?:import('../../../../../../shared/hadronImages.js').HadronImage[]}):string{
+ return JSON.stringify({schemaVersion:1,task:input.task,context:input.context,...(input.images?.length?{imageReferences:input.images.map(image=>({id:image.id,name:image.name,sha256:proposalHash(image.dataUrl)}))}:{})})
+}

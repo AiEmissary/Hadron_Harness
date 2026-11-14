@@ -1,6 +1,6 @@
 import type {HadronProvider} from '../../../../../shared/hadronProviders'
 
-export interface WorkspaceAttachment {id:string;name:string;text:string}
+export interface WorkspaceAttachment {id:string;name:string;text:string;image?:import('../../../../../shared/hadronImages').HadronImage}
 export type WorkspaceAgent='a'|'b'
 export type WorkspaceWorkType='individual'|'together'|'continuous'
 export type WorkspacePermission='chat'|'agent'
@@ -14,6 +14,7 @@ export interface WorkspaceMessage {
   edited?:boolean;
   note?:string;
   context?:string;
+  images?:import('../../../../../shared/hadronImages').HadronImage[];
   reference?:{chatId:string;messageId:string;capturedAt:number;state:WorkspaceMessage['state']};
 }
 export interface WorkspaceChat {

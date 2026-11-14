@@ -1,4 +1,5 @@
 import http from 'node:http'
+import {parseHadronImages,type HadronImage} from '../../../../shared/hadronImages.js'
 import { randomBytes } from 'node:crypto'
 
 const upstream = 'https://chatgpt.com/backend-api/codex'
@@ -7,11 +8,14 @@ const upstream = 'https://chatgpt.com/backend-api/codex'
  * No tool request can reach the model and no tool call can reach the CLI.
  */
 export async function startCodexRequestGuard(options: {
+  images?:HadronImage[];
   model: string; instructions: string; messages: Array<{ role: string; content: string }>
   signal: AbortSignal; onViolation(): void; fetch?: typeof fetch
   onText?(delta: string): void
   onProgress?():void
 }) {
+  const images=parseHadronImages(options.images)
+  const messages=options.messages.map((message,index)=>images.length&&index===options.messages.length-1&&message.role==='user'?{...message,content:[{type:'input_text',text:message.content},...images.map(image=>({type:'input_image',image_url:image.dataUrl}))]}:message)
   const secret = '/' + randomBytes(32).toString('hex')
   let requests = 0, completed = false, text = '', violated = false, stage = 'waiting'
   const deny = () => { violated = true; options.onViolation() }
@@ -57,7 +61,7 @@ export async function startCodexRequestGuard(options: {
       if (!original || original.model !== options.model || !Array.isArray(original.input)) throw new Error('Unexpected native request')
       // Replace all context/authority-bearing fields with the host-owned packet.
       const payload = { ...original, model: options.model, instructions: options.instructions,
-        input: options.messages, tools: [], tool_choice: 'none', parallel_tool_calls: false, store: false, stream: true }
+        input: messages, tools: [], tool_choice: 'none', parallel_tool_calls: false, store: false, stream: true }
       for (const key of ['previous_response_id', 'conversation', 'context_management', 'background', 'metadata']) delete payload[key]
       const response = await (options.fetch ?? fetch)(upstream + '/responses', { method: 'POST', redirect: 'error',
         signal: options.signal, headers: { ...headers(req), 'Content-Type': 'application/json', Accept: 'text/event-stream' }, body: JSON.stringify(payload) })

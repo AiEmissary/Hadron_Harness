@@ -3,7 +3,7 @@ import { type ProposalSessionInput } from '../../../../../../shared/collaboratio
 import type { CollaborationRepo } from '../../persistence/collaborationRepo.js'
 import type { SubagentRunRepo } from '../../persistence/subagentRunRepo.js'
 import type { LineageRepo } from '../../persistence/lineageRepo.js'
-import { proposalHash, type ProposalCheckpoint } from './proposalCheckpoints.js'
+import { proposalTaskPacket, proposalHash, type ProposalCheckpoint } from './proposalCheckpoints.js'
 
 export interface CommittedReviewPacket {
   schemaVersion: 1; kind: 'cross_review_packet'; sessionId: string; recipientId: string; round: 1
@@ -26,7 +26,7 @@ export function buildCommittedReviewPacket(deps: {
   const checkpoints = JSON.parse(row.checkpoints_json ?? '[]') as ProposalCheckpoint[]
   const bindings = deps.sessions.participants(sessionId, ownerId)
   if (checkpoints.length !== 2 || new Set(checkpoints.map(item => item.participantId)).size !== 2) throw new Error('Missing committed proposals')
-  const contextHash = proposalHash(JSON.stringify({ schemaVersion: 1, task: input.task, context: input.context }))
+  const contextHash = proposalHash(proposalTaskPacket(input))
   const proposals = input.participants.map(participant => {
     const checkpoint = checkpoints.find(item => item.participantId === participant.id)
     const binding = bindings.find(item => item.participant_id === participant.id)

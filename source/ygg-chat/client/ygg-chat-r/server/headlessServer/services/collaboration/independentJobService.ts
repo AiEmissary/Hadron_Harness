@@ -107,7 +107,7 @@ export class IndependentJobService {
       signal.throwIfAborted(); this.authorize(ownerId, input)
       const toolSession = input.toolMode ? this.deps.toolSession!(ownerId, input) : undefined
       const child = await this.deps.agents.spawnDetached({ conversationId: input.conversationId, parentMessageId: input.anchorMessageId,
-        prompt: JSON.stringify({ schemaVersion: 1, task: input.task, context: input.context, ...(conversationHistory.length ? { conversationHistory } : {}) }),
+        images:input.images, prompt: JSON.stringify({ schemaVersion: 1, task: input.task, context: input.context, ...(conversationHistory.length ? { conversationHistory } : {}) }),
         systemPrompt: buildHadronWorkerPrompt('independent_job'),
         provider: input.provider, modelName: input.modelName, userId: ownerId, lineageId: null, rootPath: null,
         tools: [], maxTurns: 1, operationMode: 'plan', autoApprove: false, fullAccess: false, autoCompactionEnabled: false,

@@ -103,3 +103,6 @@ html[data-hadron-text] .hadron-v2-message-text {color:var(--hadron-reading)!impo
 .hadron-v2-tree-item{width:calc(160px * var(--tree-zoom,1));height:calc(74px * var(--tree-zoom,1))}
 .hadron-v2-tree-node{width:calc(156px * var(--tree-zoom,1));height:calc(66px * var(--tree-zoom,1));padding:calc(8px * var(--tree-zoom,1)) calc(10px * var(--tree-zoom,1));font-size:calc(10px * var(--tree-zoom,1));border-radius:calc(15px * var(--tree-zoom,1))}
 body.hadron-app .hadron-desktop-workspace .hadron-v2-tree-node:not(:disabled):not([aria-disabled='true']){border-radius:calc(15px * var(--tree-zoom,1))!important}
+
+.hadron-v2-attached-image{display:inline-block;max-width:min(100%,320px);max-height:240px;object-fit:contain;border-radius:12px;margin:8px 12px 8px 0}
+.hadron-v2-image-thumbnail{width:48px;height:48px;object-fit:contain;border-radius:6px;margin-right:8px}

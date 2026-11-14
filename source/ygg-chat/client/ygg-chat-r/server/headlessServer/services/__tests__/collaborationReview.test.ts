@@ -1,3 +1,4 @@
+import {fixtureImage} from '../../../../../../shared/__fixtures__/hadronImage.js'
 import { expect, it, vi } from 'vitest'
 import type { ProviderRouter } from '../providerRouter.js'
 import { proposalSqlite } from './fixtures/proposalSqlite.js'
@@ -35,7 +36,7 @@ function fixture(verify = false) {
   const service = new ProposalSessionService(deps)
   const input = { schemaVersion: 1 as const, workflow: verify ? 'review_verify_and_synthesis' as const : 'review_and_synthesis' as const, sessionId: 'full',
     conversationId: 'c1', sourceLineageId: f.source.id, anchorMessageId: f.anchor.id,
-    task: 'Choose a plan', context: 'Only supplied evidence', participants: [
+    images:[fixtureImage], task: 'Choose a plan', context: 'Only supplied evidence', participants: [
       { id: 'a', provider: 'openaichatgpt' as const, modelName: 'a-model' },
       { id: 'b', provider: 'openaichatgpt' as const, modelName: 'b-model' },
     ] }
@@ -76,6 +77,7 @@ it('executes independent proposals, both canonical cross-reviews and one final u
     expect(run.model_name).toBe('a-model')
     expect(packet.reviews.map((review: any) => review.text)).toEqual(['A review: accept B with uncertainty', 'B review: retain dissent'])
     expect(run.system_prompt).toContain('Do not claim unanimous consensus where there is dissent')
+    expect(f.packets).toHaveLength(5);expect(f.packets.every(request=>request.images?.[0]?.dataUrl===fixtureImage.dataUrl)).toBe(true)
     f.pending[4]('Combined plan. Remaining disagreements: deadline uncertain.')
     expect((await result).error).toBeNull()
     const status = f.service.status('owner', 'full')!

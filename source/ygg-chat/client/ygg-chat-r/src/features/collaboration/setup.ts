@@ -36,6 +36,6 @@ export function buildProposalInput(draft: CollaborationDraft, options: ReadonlyA
       throw new Error('Choose an available provider and model for both agents')
     }
   }
-  return parseProposalSession({ schemaVersion: 1, workflow: draft.verification ? 'review_verify_and_synthesis' : 'review_and_synthesis', ...anchor, context: composeSharedContext([anchor.context,draft.importedContext??''].filter(Boolean).join('\n'), draft.attachments), task: draft.task.trim() || (draft.attachments.length ? 'Work on the attached files.' : ''),
+  return parseProposalSession({ schemaVersion: 1, workflow: draft.verification ? 'review_verify_and_synthesis' : 'review_and_synthesis', ...anchor, ...(draft.attachments.some(file=>file.image)?{images:draft.attachments.flatMap(file=>file.image?[file.image]:[])}:{}), context: composeSharedContext([anchor.context,draft.importedContext??''].filter(Boolean).join('\n'), draft.attachments), task: draft.task.trim() || (draft.attachments.length ? 'Work on the attached files.' : ''),
     participants: draft.participants.map(p => ({ ...p })),...(draft.projectGrantId?{projectGrantId:draft.projectGrantId}:{}) })
 }

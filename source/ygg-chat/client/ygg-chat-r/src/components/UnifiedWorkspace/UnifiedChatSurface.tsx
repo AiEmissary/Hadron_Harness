@@ -132,6 +132,7 @@ export function UnifiedChatSurface(props:UnifiedChatSurfaceProps){
     {!path.length&&<div className='hadron-v2-empty'><MessageSquare size={66} strokeWidth={1}/><h2>Start a conversation</h2><p>Ask one or both agents a question. Files and folders are optional.</p><button onClick={onFolder}>Attach folder (optional)</button></div>}
     {path.map(message=><article key={message.id} className={`hadron-v2-message ${message.role}`} data-message-id={message.id} onContextMenu={event=>openContext(event,message,true)}>
      {toolbar(message)}<small>{message.role==='user'?'You':message.agent==='both'?'Agents A and B':`Agent ${(message.agent??chat.agent).toUpperCase()}`}</small>
+     {message.images?.map(image=><img key={image.id} className='hadron-v2-attached-image' src={image.dataUrl} alt={image.name} title={image.name}/>)}
      <div className='hadron-v2-message-text'>{message.text?workspaceVisualText(message.text):(message.state==='running'?'':message.state==='stopped'?'Stopped before a reply was produced.':'No answer text was returned.')}</div>
      {message.role==='assistant'&&workspaceVisuals(message.text).length>0&&<button className='hadron-v2-visual-link' onClick={()=>setVisualMessage(message.id)}>Open visual preview</button>}
      {message.reference&&<span className='hadron-v2-hint'>Copied snapshot{message.reference.state==='running'?' · captured while the source was working':''}</span>}
@@ -160,7 +161,7 @@ export function UnifiedChatSurface(props:UnifiedChatSurfaceProps){
       </div>
       {reasoningControl}
       <div className='hadron-v2-setup-anchor'><button aria-label='Attach file or folder' aria-expanded={attachments} onClick={()=>setAttachments(value=>!value)}><Paperclip size={18}/></button>
-       {attachments&&<div role='menu' className='hadron-v2-attachment-menu'><button role='menuitem' onClick={()=>{setAttachments(false);onFile()}}>Attach files</button><button role='menuitem' onClick={()=>{setAttachments(false);onFolder()}}>Attach folder</button>{chat.attachments?.map(file=><button key={file.id} role='menuitem' title={`Remove ${file.name}`} onClick={()=>props.onRemoveFile?.(file.id)}>{file.name} · Remove</button>)}</div>}
+       {attachments&&<div role='menu' className='hadron-v2-attachment-menu'><button role='menuitem' onClick={()=>{setAttachments(false);onFile()}}>Attach files</button><button role='menuitem' onClick={()=>{setAttachments(false);onFolder()}}>Attach folder</button>{chat.attachments?.map(file=><button key={file.id} role='menuitem' title={`Remove ${file.name}`} onClick={()=>props.onRemoveFile?.(file.id)}>{file.image&&<img className='hadron-v2-image-thumbnail' src={file.image.dataUrl} alt=''/>}{file.name} · Remove</button>)}</div>}
       </div>
       {busy?<button className='hadron-v2-send' aria-label='Stop' onClick={onStop}><Square size={16}/></button>:<button className='hadron-v2-send' aria-label='Send' disabled={!canSend} onClick={onSend}><ArrowUp size={20}/></button>}
      </div>

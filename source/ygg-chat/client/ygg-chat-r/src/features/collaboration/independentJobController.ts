@@ -46,7 +46,7 @@ export class IndependentJobController {
   private update(patch: Partial<IndependentJobView>) {
     this.view = { ...this.view, ...patch }; if (!this.disposed) this.changed(this.view)
   }
-  async submit(draft: Pick<IndependentJobInput, 'task' | 'context' | 'provider' | 'modelName' | 'toolMode' | 'projectGrantId'>, parent?: AgentBranchParent): Promise<boolean> {
+  async submit(draft: Pick<IndependentJobInput, 'images' | 'task' | 'context' | 'provider' | 'modelName' | 'toolMode' | 'projectGrantId'>, parent?: AgentBranchParent): Promise<boolean> {
     if (this.disposed || this.view.phase !== 'ready') throw new Error('Check the existing job first')
     const id = crypto.randomUUID()
     const frozen = parseIndependentJob({ schemaVersion: 1, id, conversationId: 'preparing', anchorMessageId: 'preparing', ...draft })

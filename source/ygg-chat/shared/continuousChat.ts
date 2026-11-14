@@ -1,6 +1,6 @@
 export type ContinuousProviders={a:'openaichatgpt'|'claudecode';b:'openaichatgpt'|'claudecode'}
-export interface ContinuousChatInput {projectGrantId?:string;id:string;workspaceId:string;anchorMessageId:string;goal:string;models:{a:string;b:string};providers?:ContinuousProviders;maxTurns:number;maxSeconds:number;continuationOf?:string;continuationInstruction?:string}
-export interface ContinuousContinuationInput {projectGrantId?:string;id:string;models:{a:string;b:string};providers?:ContinuousProviders;maxTurns:number;maxSeconds:number;instruction?:string}
+export interface ContinuousChatInput {images?:import('./hadronImages.js').HadronImage[];projectGrantId?:string;id:string;workspaceId:string;anchorMessageId:string;goal:string;models:{a:string;b:string};providers?:ContinuousProviders;maxTurns:number;maxSeconds:number;continuationOf?:string;continuationInstruction?:string}
+export interface ContinuousContinuationInput {images?:import('./hadronImages.js').HadronImage[];projectGrantId?:string;id:string;models:{a:string;b:string};providers?:ContinuousProviders;maxTurns:number;maxSeconds:number;instruction?:string}
 export interface ContinuousMemory {throughTurn:number;text:string}
 export interface ContinuousChatHistory {memory?:ContinuousMemory;sourceId:string;turns:Array<{role:'a'|'b';text:string}>;messages:Array<{afterTurn:number;text:string}>}
 export interface ContinuousChatView {

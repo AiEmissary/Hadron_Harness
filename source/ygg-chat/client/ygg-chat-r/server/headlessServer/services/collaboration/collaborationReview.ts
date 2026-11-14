@@ -45,7 +45,7 @@ export class CollaborationReview {
     const child = await this.deps.agents.spawnDetached({
       conversationId: this.input.conversationId, parentMessageId: this.input.anchorMessageId,
       lineageId: null, rootPath: null, fullAccess: false,
-      prompt, systemPrompt: buildHadronWorkerPrompt(role), provider,
+      images:this.input.images, prompt, systemPrompt: buildHadronWorkerPrompt(role), provider,
       modelName: selection.model_name, userId: this.owner, autoApprove: false,
       operationMode: 'plan', tools: [], maxTurns: 1, autoCompactionEnabled: false,
     }, { signal: this.controller.signal, toolPolicy: 'none', toolSession,helpers:{jobId:this.input.sessionId,role:selection.participant_id}, onPrepared: binding => {

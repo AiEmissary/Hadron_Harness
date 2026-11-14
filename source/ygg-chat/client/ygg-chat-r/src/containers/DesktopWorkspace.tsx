@@ -64,7 +64,7 @@ function DesktopConversation({runtime,navigate}:{runtime:DesktopWorkspaceRuntime
    if(name==='delete'){await runtime.actions.remove(selection);await refresh();return}
    if(['copy-to','move-to','copy-new','move-new'].includes(name)){setDestination({selection,move:name.startsWith('move'),newChat:name.endsWith('new'),projects:await runtime.projects(),id:crypto.randomUUID()});return}
    if(name==='note'){setTextDialog({title:'Note for selection',initial:messages[0]?.note??'',save:async text=>{await runtime.actions.note(selection,text)}});return}
-   if(name==='info'){setTextDialog({title:'Message information',readOnly:true,initial:JSON.stringify(messages.map(({text,context,...metadata})=>({...metadata,characters:text.length,attachedContextCharacters:context?.length??0})),null,2)});return}
+   if(name==='info'){setTextDialog({title:'Message information',readOnly:true,initial:JSON.stringify(messages.map(({text,context,images,...metadata})=>({...metadata,characters:text.length,attachedContextCharacters:context?.length??0,...(images?.length?{attachedPictures:images.map(image=>image.name)}:{})})),null,2)});return}
    if(name==='edit'&&messages.length===1){
     const message=messages[0]
     setTextDialog({title:'Edit message',initial:message.text,save:async text=>{
