@@ -81,12 +81,14 @@ def export_source():
         p=destination(name);p.parent.mkdir(parents=True,exist_ok=True)
         if not p.exists() or p.read_bytes()!=data: p.write_bytes(data)
         managed[name]=hashlib.sha256(data).hexdigest()
-    entries=[]
+    entries=[];executable_files=[]
     for record in git(['ls-tree','-r','-z','HEAD']).stdout.split(b'\0'):
         if not record: continue
         info,name=record.split(b'\t',1);mode,kind,oid=info.decode().split()
         name=name.decode()
-        if kind=='blob' and mode!='120000' and allowed(name): entries.append((name,oid))
+        if kind=='blob' and mode!='120000' and allowed(name):
+            entries.append((name,oid))
+            if mode=='100755': executable_files.append('source/'+name)
     worker=subprocess.Popen(['git','cat-file','--batch'],cwd=SOURCE,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     try:
         for name,oid in entries:
@@ -139,7 +141,7 @@ On a restored clone, normal Git commits and pushes can be used.
     write('.gitignore',b'**/node_modules/\n**/.codex/\n**/.claude/\n**/.qubit/\n**/.env*\n**/auth.json\n*.db\n*.sqlite*\n*.exe\n*.log\n')
     write('.gitattributes',b'# Preserve exact exported file bytes and SHA256 manifest values.\n* -text\n')
     write('tools/Sync-Hadron-GitHub.py',Path(__file__).read_bytes())
-    manifest={'product':'Hadron Harness','version':version,'sourceRevision':revision,'scope':'Committed application sources and build materials; local account settings and personal data excluded','files':managed.copy()}
+    manifest={'product':'Hadron Harness','version':version,'sourceRevision':revision,'scope':'Committed application sources and build materials; local account settings and personal data excluded','executableFiles':executable_files,'files':managed.copy()}
     write('SOURCE_REVISION.json',json.dumps(manifest,indent=2,sort_keys=True).encode())
     for name in previous-set(managed):
         if not allowed(name): raise RuntimeError('Unexpected previous backup path')
@@ -162,6 +164,10 @@ def push_backup(token,version,revision,managed,previous):
         raise RuntimeError('GitHub has changes not present in this backup; merge them before updating')
     paths=b'\0'.join(name.encode() for name in sorted(set(managed)|previous))+b'\0'
     git(['--literal-pathspecs','add','--force','--all','--pathspec-from-file=-','--pathspec-file-nul'],cwd=MIRROR,input=paths)
+    # Preserve source executable bits even when preparing the backup on Windows.
+    git(['update-index','--chmod=-x','-z','--stdin'],cwd=MIRROR,input=b'\0'.join(name.encode() for name in sorted(managed))+b'\0')
+    executables=json.loads((MIRROR/'SOURCE_REVISION.json').read_text(encoding='utf-8'))['executableFiles']
+    if executables: git(['update-index','--chmod=+x','-z','--stdin'],cwd=MIRROR,input=b'\0'.join(name.encode() for name in executables)+b'\0')
     if git(['diff','--cached','--quiet'],cwd=MIRROR,check=False).returncode:
         git(['-c','commit.gpgsign=false','commit','-m',f'Back up Hadron Harness {version} ({revision[:7]})'],cwd=MIRROR)
     git(['push','--set-upstream','origin','main'],cwd=MIRROR)
