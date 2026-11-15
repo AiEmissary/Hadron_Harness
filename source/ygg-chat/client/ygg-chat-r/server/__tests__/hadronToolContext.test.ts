@@ -1,6 +1,38 @@
 import {expect,it,vi} from 'vitest'
-import {runHadronToolConversation,type HadronToolSession} from '../hadronTools/types.js'
+import {admitHadronToolSession,withHadronToolDeadline,runHadronToolConversation,type HadronToolSession} from '../hadronTools/types.js'
 import {isOversizedContextError,toolContextBudget,toolContextTokens} from '../hadronTools/toolContext.js'
+it('asks for a final report near the task deadline without repeating completed operations',async()=>{
+ let now=1700000000000,calls=0;const clock=vi.spyOn(Date,'now').mockImplementation(()=>now)
+ const session=admitHadronToolSession({execution:'agent' as const,maxRequests:100,instructions:'Inspect and report',deadlineAt:now+180000,invoke:vi.fn(async()=>({success:true,evidence:'Recorded fact'}))})
+ try{
+  const answer=await runHadronToolConversation({session,task:'Read and compare',signal:new AbortController().signal,generate:async raw=>{
+   const packet=JSON.parse(raw)
+   if(calls++===0){expect(packet.finalAnswerRequired).toBe(false);now+=130000;return JSON.stringify({tool:'read_file',arguments:{path:'fixture.txt'}})}
+   expect(packet.finalAnswerRequired).toBe(true);expect(packet.timeRemainingMs).toBe(50000);expect(packet.hostInstruction).toContain('No more tool calls')
+   return JSON.stringify({answer:'Available comparison from recorded evidence.'})
+  }})
+  expect(answer).toContain('comparison');expect(session.invoke).toHaveBeenCalledTimes(1);expect(calls).toBe(2)
+ }finally{clock.mockRestore()}
+})
+it('retains evidence and a time-limit outcome when the last response requests another operation',async()=>{
+ let now=1700000000000,calls=0;const clock=vi.spyOn(Date,'now').mockImplementation(()=>now)
+ const session:HadronToolSession={execution:'agent',maxRequests:100,instructions:'Inspect',deadlineAt:now+180000,invoke:vi.fn(async()=>({success:true,evidence:'Saved evidence'}))}
+ try{
+  const text=await runHadronToolConversation({session,task:'Investigate',signal:new AbortController().signal,generate:async()=>{if(calls++===0)now+=130000;return JSON.stringify({tool:'read_file',arguments:{path:'fixture.txt'}})}})
+  expect(text).toContain('Not finished');expect(text).toContain('Saved evidence');expect(session.outcome?.incompleteReason).toBe('time_limit');expect(session.invoke).toHaveBeenCalledTimes(1)
+ }finally{clock.mockRestore()}
+})
+it('allows trusted deadline propagation to shorten a budget but never extend an earlier deadline',()=>{
+ const session=admitHadronToolSession({instructions:'Read only',deadlineAt:1000,invoke:vi.fn()})
+ expect(withHadronToolDeadline(session,2000).deadlineAt).toBe(1000)
+ expect(withHadronToolDeadline(session,500).deadlineAt).toBe(500)
+ expect(()=>withHadronToolDeadline({...session},2000)).toThrow('Invalid')
+})
+it('dispatches no generation or operation once the task deadline has already expired',async()=>{
+ const session:HadronToolSession={instructions:'Read',deadlineAt:Date.now()-1,invoke:vi.fn()},generate=vi.fn()
+ await expect(runHadronToolConversation({session,task:'Read',signal:new AbortController().signal,generate})).rejects.toThrow('task time limit')
+ expect(generate).not.toHaveBeenCalled();expect(session.invoke).not.toHaveBeenCalled();expect(session.outcome?.incompleteReason).toBe('time_limit')
+})
 
 it('continues beyond the old 90,000-character cutoff and produces a report with the supplied model budget',async()=>{
  let calls=0;const sizes:number[]=[],invoke=vi.fn(async()=>({text:'source line and observed evidence. '.repeat(450)}))

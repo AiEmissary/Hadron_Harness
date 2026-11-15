@@ -1,3 +1,13 @@
+# Shared Claude task-deadline correction — 15 November 2026
+
+The reported failure was a five-minute Claude tool-runner cutoff inside an admitted ten-minute shared task. Claude was still completing reads/searches one second before cancellation; the other agent's answer was saved. No provider context, usage or sign-in rejection was recorded. Local source now propagates the coordinator deadline, requests a final report near expiry, fences late operations and explains host timeouts clearly. See SHARED_TOOL_DEADLINES.md for read-only evidence, 128 automated checks, build and isolated desktop validation.
+
+Save/copy unsent text, close Hadron and reopen through the existing Desktop shortcut to load the local renderer and host. The original failed task was not replayed and the user window was not touched. Installer 6.0.6 remains unchanged and does not include this or the preceding later continuous-input correction.
+
+Earlier checkpoints below are historical.
+
+---
+
 # Continuous pasted/attached input correction — 15 November 2026
 
 The local build corrects the legacy 4K continuous continuation limit which counted accepted text attachments, the 12K start limit, related question-anchor/journal limits and repeated prompt copies. Large supplied input can be condensed in consecutive bounded memory parts while originals stay saved. Activity and the guide explain preparation. See CONTINUOUS_INPUT_CONTEXT.md for scope and 132 automated plus full native desktop checks.

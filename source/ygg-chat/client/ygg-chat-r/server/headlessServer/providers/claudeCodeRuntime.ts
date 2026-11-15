@@ -234,7 +234,11 @@ export class ClaudeCodeRuntime {
     if(!input.hadronToolSession)return this.generateText(input,emit)
     if(!isHadronToolSession(input.hadronToolSession)||input.requestPolicy!=='single_attempt'||input.tools?.length||!this.allowedModels.has(input.modelName)||this.closing||this.login||this.toolJobs.size>=2)throw Error('Claude tool capability was not admitted')
     const controller=new AbortController(),epoch=this.epoch
-    const signal=AbortSignal.any([controller.signal,AbortSignal.timeout(300000),...(input.signal?[input.signal]:[])])
+    const deadline=input.hadronToolSession.deadlineAt
+    if(deadline!==undefined&&(!Number.isSafeInteger(deadline)||deadline<=0))throw Error('Invalid Claude tool deadline')
+    const remaining=deadline===undefined?300000:Math.max(1,Math.min(600000,deadline-Date.now()))
+    const timeoutSignal=AbortSignal.timeout(remaining)
+    const signal=AbortSignal.any([controller.signal,timeoutSignal,...(input.signal?[input.signal]:[])])
     let finish!:()=>void;const done=new Promise<void>(resolve=>{finish=resolve});this.toolJobs.set(done,controller)
     try{
       input.hadronToolSession.bindWebSearch?.(async(query,_options,searchSignal)=>{
@@ -247,6 +251,9 @@ export class ClaudeCodeRuntime {
         generate:async(packet,instructions)=>{signal.throwIfAborted();if(epoch!==this.epoch)throw Error('Claude account changed');return (await this.generateText({...input,hadronToolSession:undefined,signal,systemPrompt:`${input.systemPrompt??''}\n${instructions}`,history:[{role:'user',content:packet}],userContent:packet},()=>emit?.({type:'chunk',part:'reasoning',delta:''}),true)).content}})
       signal.throwIfAborted();if(epoch!==this.epoch)throw Error('Claude account changed')
       emit?.({type:'chunk',part:'text',delta:content});return {content}
+    }catch(error){
+      if(timeoutSignal.aborted&&!input.signal?.aborted&&!controller.signal.aborted)throw Error('Hadron stopped Claude at its tool-work time limit. Available work remains saved; no automatic retry was made.')
+      throw error
     }finally{controller.abort();this.toolJobs.delete(done);finish()}
   }
   private async generateText(input:ProviderGenerateInput,emit?:ProviderStreamEventHandler,structured=false,webSearch=false):Promise<ProviderGenerateOutput>{

@@ -46,6 +46,19 @@ function fixture(verify = false,largeImage=false,research=false) {
 }
 const observe = <T>(promise: Promise<T>) => promise.then(value => ({ value, error: null }), error => ({ value: null, error }))
 const count = async (f: ReturnType<typeof fixture>, n: number) => vi.waitFor(() => expect(f.pending).toHaveLength(n))
+it('propagates one absolute task deadline through both proposals and reviews without granting synthesis tools',async()=>{
+ const f=fixture(false,false,true),service=new ProposalSessionService({...f.deps,deadlineMs:600000}),started=Date.now(),result=observe(service.start('owner',f.input))
+ try{
+  await count(f,2)
+  const deadline=f.packets[0].hadronToolSession.deadlineAt
+  expect(deadline).toBeGreaterThanOrEqual(started+600000);expect(deadline).toBeLessThanOrEqual(Date.now()+600000)
+  f.pending[0]('Plan A');f.pending[1]('Plan B');await count(f,4)
+  f.pending[2]('A review');f.pending[3]('B review');await count(f,5);f.pending[4]('Combined answer')
+  expect((await result).error).toBeNull()
+  expect(f.packets.slice(0,4).every(request=>isHadronToolSession(request.hadronToolSession)&&request.hadronToolSession.deadlineAt===deadline)).toBe(true)
+  expect(f.packets[4].hadronToolSession).toBeUndefined()
+ }finally{service.stop('owner',f.input.sessionId);await result;f.cleanup()}
+})
 
 it('executes independent proposals, both canonical cross-reviews and one final using A, with durable logs and no replay', async () => {
   const f = fixture(false,true), result = observe(f.service.start('owner', f.input))

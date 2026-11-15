@@ -17,6 +17,24 @@ it('uses print streaming input to send JPEG bytes through the existing Claude ac
 import {readFileSync,existsSync} from 'node:fs'
 import {claudeWebSearchResult} from '../../../hadronTools/providerWebSearch.js'
 import { ClaudeCodeRuntime, claudeConversationText, claudeNativePackage, claudeRuntimeEnvironment,claudeTextResult,claudeStructuredResult,claudeNeedsSignIn,CLAUDE_SIGN_IN_REQUIRED,claudeFailureDetails,claudeFailureCategory } from '../claudeCodeRuntime.js'
+it('uses the coordinator deadline for tool work rather than cutting a ten-minute task off at five minutes',async()=>{
+ let now=1700000000000,step=0;const clock=vi.spyOn(Date,'now').mockImplementation(()=>now),durations:number[]=[]
+ const timeout=vi.spyOn(AbortSignal,'timeout').mockImplementation(ms=>{durations.push(ms);return new AbortController().signal})
+ const runtime=new ClaudeCodeRuntime({runtimeDirectory:os.tmpdir(),profileDirectory:path.join(os.tmpdir(),'hadron-deadline-fixture'),platform:'win32',nativeHostDirectory:os.tmpdir()});runtime.allowedModels.add('haiku')
+ const session=admitHadronToolSession({instructions:'Read and report',execution:'agent',maxRequests:100,deadlineAt:now+600000,invoke:vi.fn(async()=>({evidence:'Recorded fact'}))})
+ vi.spyOn(runtime as any,'generateText').mockImplementation(async()=>{if(step++===0){now+=300001;return {content:JSON.stringify({tool:'read_file',arguments:{path:'fixture.txt'}})}}return {content:JSON.stringify({answer:'Finished after the former five-minute cutoff.'})}})
+ try{
+  expect(await runtime.generate({modelName:'haiku',requestPolicy:'single_attempt',history:[],userContent:'Read',hadronToolSession:session})).toMatchObject({content:expect.stringContaining('Finished')})
+  expect(durations).toEqual([600000]);expect(session.invoke).toHaveBeenCalledTimes(1)
+ }finally{await runtime.shutdown();timeout.mockRestore();clock.mockRestore()}
+})
+it('reports an actual host tool deadline without hiding it as an unclassified timeout',async()=>{
+ const runtime=new ClaudeCodeRuntime({runtimeDirectory:os.tmpdir(),profileDirectory:path.join(os.tmpdir(),'hadron-deadline-expiry-fixture'),platform:'win32',nativeHostDirectory:os.tmpdir()});runtime.allowedModels.add('haiku')
+ const session=admitHadronToolSession({instructions:'Read',deadlineAt:Date.now()+40,invoke:vi.fn()})
+ vi.spyOn(runtime as any,'generateText').mockImplementation(async(input:any)=>new Promise((_resolve,reject)=>{const fail=()=>reject(input.signal.reason);if(input.signal.aborted)fail();else input.signal.addEventListener('abort',fail,{once:true})}))
+ try{await expect(runtime.generate({modelName:'haiku',requestPolicy:'single_attempt',history:[],userContent:'Read',hadronToolSession:session})).rejects.toThrow('Hadron stopped Claude at its tool-work time limit')}
+ finally{await runtime.shutdown()}
+})
 
 it('identifies provider rejections even when the terminal subtype says success and retains no raw account text',()=>{
  const raw=JSON.stringify({type:'result',subtype:'success',is_error:true,result:'API Error: 400 invalid_request_error PRIVATE ACCOUNT DETAIL'})

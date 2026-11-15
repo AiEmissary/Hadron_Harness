@@ -9,9 +9,11 @@ export interface HadronToolSession {
   execution?:'agent'
   acceptStructuredAnswer?:boolean
   maxRequests?:number
+  /** Absolute coordinator deadline, supplied only by trusted host admission. */
+  deadlineAt?:number
   /** Trusted optional same-provider helper; shares the existing helper quota and cancellation. */
   condense?(text:string,signal:AbortSignal):Promise<string>
-  outcome?:{incompleteReason?:'context_limit'|'request_limit'|'agent_incomplete'}
+  outcome?:{incompleteReason?:'context_limit'|'request_limit'|'time_limit'|'agent_incomplete'}
   requireEvidenceAttempt?: boolean
   evidenceAttempted?(): boolean
   evidenceInstruction?:string
@@ -21,6 +23,10 @@ export interface HadronToolSession {
 const trusted = new WeakSet<object>()
 export function admitHadronToolSession(session: HadronToolSession): HadronToolSession { trusted.add(session); return session }
 export function isHadronToolSession(value: unknown): value is HadronToolSession { return !!value && typeof value === 'object' && trusted.has(value) }
+export function withHadronToolDeadline(session:HadronToolSession,deadlineAt:number):HadronToolSession{
+ if(!isHadronToolSession(session)||!Number.isSafeInteger(deadlineAt)||deadlineAt<=0)throw Error('Invalid host tool deadline')
+ return admitHadronToolSession({...session,deadlineAt:Math.min(session.deadlineAt??deadlineAt,deadlineAt)})
+}
 
 /** Keep evidence of large operations without echoing their entire source payload. */
 export function compactHostRequest(value:unknown):unknown{
@@ -53,18 +59,23 @@ export async function runHadronToolConversation(input: {
   }
   const maximum=input.session.maxRequests??8
   if(!Number.isSafeInteger(maximum)||maximum<1||maximum>(input.session.execution==='agent'?100:8))throw Error('Invalid host protocol budget')
-  const partial = (reason:'context_limit'|'request_limit'='request_limit'):string => {
+  const partial = (reason:'context_limit'|'request_limit'|'time_limit'='request_limit'):string => {
     outcome.incompleteReason=reason
-    if(input.session.acceptStructuredAnswer)throw Error('Research budget reached before a usable structured proposal. No changes were prepared.')
+    const timedOut='Not finished — the task time limit was reached before a final answer. Saved work is available.'
+    if(input.session.acceptStructuredAnswer)throw Error(reason==='time_limit'?timedOut:'Research budget reached before a usable structured proposal. No changes were prepared.')
     const evidence=transcript.filter(item=>item.role==='tool_evidence'||item.role==='host_memory')
-    if(!evidence.length||input.session.requireEvidenceAttempt&&!input.session.evidenceAttempted?.())throw Error('Research budget reached without the required evidence check')
+    if(!evidence.length||input.session.requireEvidenceAttempt&&!input.session.evidenceAttempted?.())throw Error(reason==='time_limit'?timedOut:'Research budget reached without the required evidence check')
+    if(reason==='time_limit')return 'Not finished — Hadron stopped before a final answer was produced.\nThe task time limit was approaching. The agent requested another operation instead of returning its final answer; that operation was not run. Earlier operations may already have changed files. Saved evidence follows; it does not establish completion.\n\n'+evidence.slice(-8).map((item,index)=>'Operation '+(index+1)+':\n```json\n'+JSON.stringify(item.content).slice(0,1200)+'\n```').join('\n\n')
     if(input.session.execution==='agent')return 'Work stopped at the request or context limit before a final answer was produced. Some operations may already have changed files. The recorded results below show what ran; they do not establish that the task is finished.\n\n'+evidence.slice(-8).map((item,index)=>'Operation '+(index+1)+':\n```json\n'+JSON.stringify(item.content).slice(0,1200)+'\n```').join('\n\n')
     return '### Partial research — limit reached\nHadron stopped further research at the configured request or context limit. The agent did not supply a final assessment. This is a host-saved evidence record, not a completed recommendation or verification. No additional request or tool operation was started.\n\n'+evidence.slice(-8).map((item,index)=>'Evidence '+(index+1)+' (untrusted tool result; may be incomplete):\n```json\n'+JSON.stringify(item.content).slice(0,1200)+'\n```').join('\n\n')+'\n\n### Remaining uncertainty\nOnly the recorded excerpts were inspected. Missing or truncated evidence cannot establish the wider project state. Further focused research may be needed; do not treat this limit as consensus.'
   }
   for (let turn = 0; turn < maximum; turn++) {
     input.signal.throwIfAborted()
-    let finalAnswerRequired=turn===maximum-1
-    const makePacket=()=>JSON.stringify({ kind: 'hadron_tool_conversation', transcript, remainingRequests: maximum - turn,finalAnswerRequired,
+    const timeRemainingMs=input.session.deadlineAt===undefined?undefined:Math.max(0,input.session.deadlineAt-Date.now())
+    if(timeRemainingMs===0)return partial('time_limit')
+    const finalForTime=timeRemainingMs!==undefined&&timeRemainingMs<=60_000
+    let finalAnswerRequired=turn===maximum-1||finalForTime
+    const makePacket=()=>JSON.stringify({ kind: 'hadron_tool_conversation', transcript, remainingRequests: maximum - turn,finalAnswerRequired,...(timeRemainingMs!==undefined?{timeRemainingMs}:{}),
       ...(finalAnswerRequired?{hostInstruction:'FINAL RESPONSE REQUIRED. No more tool calls are allowed. Return your final answer now, using only evidence already returned. State incomplete research and uncertainty explicitly. If a structured proposal is required, return that schema only when supported; never invent file changes.'}:{}) })
     let packet=makePacket()
     if(toolContextTokens(input.session.instructions+packet)>budget){await condense();packet=makePacket()}
@@ -101,7 +112,7 @@ export async function runHadronToolConversation(input: {
     }
     if(input.session.acceptStructuredAnswer&&value&&typeof value==='object'&&!Array.isArray(value)&&!('tool' in value)&&!('arguments' in value)){const answer=finish(JSON.stringify(value));if(answer!==undefined)return answer;continue}
     if (!value || Object.keys(value).sort().join(',') !== 'arguments,tool' || typeof value.tool !== 'string') throw new Error('Expected a tool request or final answer within the request budget')
-    if(finalAnswerRequired)return partial()
+    if(finalAnswerRequired)return partial(finalForTime?'time_limit':'request_limit')
     transcript.push({ role: 'assistant', content: compactHostRequest(value) })
     let result: unknown
     try { result = await input.session.invoke(value.tool, value.arguments, input.signal) }

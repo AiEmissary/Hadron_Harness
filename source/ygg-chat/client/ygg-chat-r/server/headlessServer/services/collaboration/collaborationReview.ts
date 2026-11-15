@@ -4,6 +4,7 @@ import type { ProposalSessionDeps } from './proposalSessionService.js'
 import { buildCommittedReviewPacket } from './reviewPacket.js'
 import { buildHadronWorkerPrompt } from './hadronWorkerPrompt.js'
 import {withProjectVerification} from '../../../hadronTools/projectVerification.js'
+import {withHadronToolDeadline} from '../../../hadronTools/types.js'
 
 /** One review round, optional tool verification and one synthesis, with durable stage bindings.
  * No retries, automatic resumption or direct peer messaging. Synthesis uses the recorded evidence. */
@@ -12,7 +13,7 @@ export class CollaborationReview {
   private readonly children: Array<{ handle: string; runId: string }> = []
   constructor(private readonly deps: ProposalSessionDeps, private readonly owner: string,
     private readonly input: ProposalSessionInput, private readonly checkpoint: () => void,
-    private readonly checkDeadline: () => void) {}
+    private readonly checkDeadline: () => void,private readonly deadlineAt?:number) {}
 
   stop(): void {
     this.controller.abort()
@@ -43,6 +44,7 @@ export class CollaborationReview {
       toolSession=toolSession?withProjectVerification(toolSession,folder,(tool,result)=>{this.check();this.deps.sessions.recordVerificationEvidence(this.input.sessionId,this.owner,tool,result)},()=>{this.check();this.deps.sessions.recordVerificationAttempt(this.input.sessionId,this.owner)}):folder
     }
     if(!toolSession&&role==='review')toolSession=this.deps.researchSession?.(this.owner,this.input,stage,()=>this.check())
+    if(toolSession&&this.deadlineAt!==undefined)toolSession=withHadronToolDeadline(toolSession,this.deadlineAt)
     const child = await this.deps.agents.spawnDetached({
       conversationId: this.input.conversationId, parentMessageId: this.input.anchorMessageId,
       lineageId: null, rootPath: null, fullAccess: false,

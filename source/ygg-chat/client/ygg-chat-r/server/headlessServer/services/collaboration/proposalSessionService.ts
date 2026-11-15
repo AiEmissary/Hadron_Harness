@@ -12,6 +12,8 @@ import { proposalHash, publishProposalCheckpoints, type ProposalCheckpoint } fro
 import type { AgentJobJournal } from './agentJobJournal.js'
 import { freezeSharedContinuation, readProposalConfig } from './sharedContinuation.js'
 import { CollaborationReview } from './collaborationReview.js'
+import {withHadronToolDeadline} from '../../../hadronTools/types.js'
+import {hadronTimeFailure} from './timeFailure.js'
 
 export interface ProposalSessionDeps {
   sessions: CollaborationRepo
@@ -141,8 +143,9 @@ export class ProposalSessionService {
     const failedParticipant=failedStage??participants.find(participant=>participant.run_id&&this.deps.runs.getRunById(participant.run_id)?.status==='error')
     const failedSelection=failedParticipant&&input.participants.find(item=>item.id===failedParticipant.participant_id)
     const claudeSignIn=failedSelection?.provider==='claudecode'&&failedParticipant?.run_id&&this.deps.runs.getRunById(failedParticipant.run_id)?.error?.startsWith('Claude sign-in has expired or could not be refreshed.')
-    const failedRunError=failedParticipant?.run_id?this.deps.runs.getRunById(failedParticipant.run_id)?.error??'':''
-    const failureReason=Object.values(failedSelection?.provider==='claudecode'?CLAUDE_FAILURE_REASONS:CODEX_FAILURE_REASONS).find(reason=>failedRunError.startsWith(reason))
+    const failedRun=failedParticipant?.run_id?this.deps.runs.getRunById(failedParticipant.run_id):null
+    const failedRunError=failedRun?.error??''
+    const failureReason=hadronTimeFailure(failedRunError,failedRun?.created_at,failedRun?.updated_at)??Object.values(failedSelection?.provider==='claudecode'?CLAUDE_FAILURE_REASONS:CODEX_FAILURE_REASONS).find(reason=>failedRunError.startsWith(reason))
     const failedPhase=failedStage?.stage_id.startsWith('review_')?'review':failedStage?.stage_id==='verification'?'verification':failedStage?.stage_id==='final'?'combined answer':'reply'
     const stoppedPeers=participants.filter(participant=>participant.participant_id!==failedParticipant?.participant_id&&participant.run_id&&this.deps.runs.getRunById(participant.run_id)?.status==='aborted')
     const participantFailure=failedSelection?`Agent ${failedSelection.id.toUpperCase()} (${failedSelection.provider==='claudecode'?'Claude':'ChatGPT'}) ${claudeSignIn?'needs you to reconnect Claude because its sign-in expired or could not be refreshed. Open the chat setup pop-up and reconnect Claude.':`could not complete its ${failedPhase}.`}${failureReason?' Reason: '+failureReason:''}${stoppedPeers.length?' '+stoppedPeers.map(peer=>'Agent '+peer.participant_id.toUpperCase()).join(' and ')+' was stopped when the shared task failed.':''} Your question is saved; no combined answer was produced.`:undefined
@@ -157,7 +160,7 @@ export class ProposalSessionService {
           runId: participant.run_id, streamId: participant.stream_id }
       }),
       artifacts: (JSON.parse(row.checkpoints_json ?? '[]') as ProposalCheckpoint[]).map(checkpoint =>
-        ({ ...checkpoint, kind: 'proposal', verified: false })), error: researchFailure?`Agent ${researchFailure.participant_id.toUpperCase()} reached Hadron’s research limit before returning a final answer. The collaboration stopped before review. Saved folder activity and job logs remain available; this is not a sign-in or folder-permission error.`:participantFailure??workflow?.error ?? row.error,
+        ({ ...checkpoint, kind: 'proposal', verified: false })), error: researchFailure?`Agent ${researchFailure.participant_id.toUpperCase()} reached Hadron’s research limit before returning a final answer. The collaboration stopped before review. Saved folder activity and job logs remain available; this is not a sign-in or folder-permission error.`:participantFailure??(row.error==='Proposal deadline exceeded'?'Work together reached Hadron’s task time limit. Available work is saved; no complete combined answer was produced.':workflow?.error ?? row.error),
       ...(workflow ? { collaboration: { phase: workflow.phase === 'reviews' && this.deps.sessions.workflowRuns(sessionId, ownerId).some(stage => stage.stage_id === 'verification' && stage.run_id) ? 'verification' as const : workflow.phase, maxRequests: input.workflow === 'review_verify_and_synthesis' ? 13 as const : 5 as const,
         researchLimited:[...participants.map(item=>item.run_id),...this.deps.sessions.workflowRuns(sessionId,ownerId).map(item=>item.run_id)].some(id=>id&&this.deps.runs.getRunById(id)?.final_response?.startsWith('### Partial research — limit reached')),
         ...(input.projectGrantId?{folderAccess:true,folderActivity:(this.deps.projectActivity?.(ownerId,input)??[]).slice(-200)}:{}),
@@ -242,12 +245,13 @@ export class ProposalSessionService {
       }
     }
     const review = input.workflow ? new CollaborationReview(this.deps, ownerId, executionInput,
-      () => this.checkpoint(ownerId, input.sessionId), checkDeadline) : undefined
+      () => this.checkpoint(ownerId, input.sessionId), checkDeadline,deadlineAt) : undefined
     const spike = new ProposalSpike({ agents: this.deps.agents, providerUserId: ownerId,
       implementerId:input.projectMode==='agent'?'a':undefined,
       toolSession:(participantId:string)=>{
         const authorize=()=>{checkDeadline();this.deps.sessions.assertRunning(input.sessionId,ownerId);this.authorize(ownerId,input)}
-        return input.projectGrantId ? this.deps.projectSession!(ownerId,executionInput,'proposal_'+participantId,authorize) : this.deps.researchSession?.(ownerId,executionInput,'proposal_'+participantId,authorize)
+        const session=input.projectGrantId ? this.deps.projectSession!(ownerId,executionInput,'proposal_'+participantId,authorize) : this.deps.researchSession?.(ownerId,executionInput,'proposal_'+participantId,authorize)
+        return session?withHadronToolDeadline(session,deadlineAt):undefined
       },
       validateAnchor: () => { this.deps.sessions.assertRunning(input.sessionId, ownerId); validateAnchor() },
       onPrepared: (participantId, child) => {

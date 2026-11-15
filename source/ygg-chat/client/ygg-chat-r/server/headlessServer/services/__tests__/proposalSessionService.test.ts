@@ -32,6 +32,18 @@ function fixture(proposalText = 'Committed proposal') {
   return { ...f, dependencies, service, sessions, input, pending, generate }
 }
 const observe = <T>(promise: Promise<T>) => promise.then(value => ({ value, error: null }), error => ({ value: null, error }))
+it('explains a saved historical host timeout in participant feedback without replaying either provider',async()=>{
+ const f=fixture();f.generate.mockRejectedValueOnce(new Error('The operation was aborted due to timeout'))
+ const outcome=await observe(f.service.start('owner',f.input))
+ try{
+  expect(outcome.error).toBeTruthy()
+  const failed=f.sessions.participants(f.input.sessionId,'owner').find(participant=>participant.run_id&&f.runs.getRunById(participant.run_id)?.status==='error')!
+  f.db.prepare('UPDATE subagent_runs SET created_at=?,updated_at=? WHERE id=?').run('2026-11-15T21:32:46.426Z','2026-11-15T21:37:46.514Z',failed.run_id)
+  const before=f.generate.mock.calls.length,status=f.service.status('owner',f.input.sessionId)!
+  expect(status.error).toContain('Hadron');expect(status.error).toContain('5 minutes');expect(status.error).not.toContain('The operation was aborted')
+  expect(f.generate).toHaveBeenCalledTimes(before)
+ }finally{f.service.stop('owner',f.input.sessionId);f.close()}
+})
 
 it('writes separate collaboration participant logs and requires current owner access to read them', async () => {
   const f = fixture(), directory = mkdtempSync(path.join(os.tmpdir(), 'hadron-proposal-logs-'))

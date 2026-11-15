@@ -932,7 +932,7 @@ export class SubagentRunService {
 
       const incompleteReason=hadronToolSession?.outcome?.incompleteReason
       if(incompleteReason){
-        const message=incompleteReason==='context_limit'?'Not finished — the available context could not hold the task and its evidence. Saved work is available.':incompleteReason==='request_limit'?'Not finished — the tool request limit was reached before a final answer. Saved work is available.':'Not finished — the agent reported that its assigned work is incomplete. Saved work is available.'
+        const message=incompleteReason==='context_limit'?'Not finished — the available context could not hold the task and its evidence. Saved work is available.':incompleteReason==='request_limit'?'Not finished — the tool request limit was reached before a final answer. Saved work is available.':incompleteReason==='time_limit'?'Not finished — the task time limit was reached before a final answer. Saved work is available.':'Not finished — the agent reported that its assigned work is incomplete. Saved work is available.'
         this.runRepo.updateRun(runId,{status:'error',error:message,finalResponse:finalText,turnsUsed,toolCallsUsed})
         this.streamingRunRepo.finish(subStreamId,{status:'error',endReason:'error',error:message,metadata:{subagent_run_id:runId,hadronIncompleteReason:incompleteReason}})
         publishAndEmit({type:'error',subagentRunId:runId,lineageId:request.lineageId??null,error:message,provider})
