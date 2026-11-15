@@ -1,3 +1,15 @@
+# Hadron Harness installer 6.0.6 — 15 November 2026
+
+The user authorized an installer update. Hadron-Harness-6.0.6-win-x64.exe is on the Desktop and in distribution. It includes the inline branch editor, complete branch transcript browsing, provider-backed no-extra-key web research and suppression of restored-task notification replays, with updated How to use Hadron instructions.
+
+86 automated tests, hidden branch-editor checks in all work types, production renderer/main/typechecks, packaged startup, bundled native/provider checks, installer running-app guard and 50 fresh-path NSIS probes passed. All 266 packaged compiled files match the current build. Installer integrity and all 1,959 payload names/sizes/CRC32 checks passed. The Desktop, release and distribution copies have SHA256 ca80dbd96185d267bfeee8abc0122cfbe37415ab32979ea205c304cf9b6cb93d (370,778,405 bytes).
+
+The installer is unsigned. Close Hadron before installing. Personal chats and sign-ins are excluded from the package and retained in the existing profile on upgrade. Testing did not install over the user's current application or close its window; actual clean-PC sign-in remains an acceptance check. Source archive and private GitHub release backup accompany this release. Details: RELEASE_6_0_6.md.
+
+Earlier checkpoints below are historical.
+
+---
+
 # Inline branching correction — 15 November 2026
 
 Branch opens an editable box in place of the selected message on the left. An alternative question creates a sibling path on the right, preserving the original conversation and the unsent bottom-composer draft/files. Agent answers open blank follow-up editors. Hover and right-click actions share this behavior in all work types. 70 focused tests, isolated browser checks and the production renderer build passed. See INLINE_BRANCHING.md. Save any draft and reopen the existing desktop shortcut to load it. The installer is unchanged.

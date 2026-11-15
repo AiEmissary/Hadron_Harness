@@ -101,7 +101,7 @@
   },
   "extraMetadata": {
     "name": "hadron-harness",
-    "version": "6.0.5",
+    "version": "6.0.6",
     "description": "Hadron Harness: local multi-agent workspace",
     "author": "Hadron Harness",
     "homepage": ""

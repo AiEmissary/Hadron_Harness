@@ -1,4 +1,4 @@
-# Build Hadron Harness 5.0.0 from this source
+# Build Hadron Harness 6.0.6 from this source
 
 The source archive contains source/ygg-chat plus the inherited licence and upstream readme, distribution/licences, this guide and SOURCE_REVISION.json. It intentionally excludes user profiles, credentials, private validation history, node_modules, generated binaries and build output.
 

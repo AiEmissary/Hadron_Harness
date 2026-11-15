@@ -31,3 +31,7 @@ The user authorized the installer update after fixing JPEG admission and stuck t
 ## Release 6.0.5 — 14 November 2026
 
 Final delivery includes the follow-up retry guard: failed/stopped/unavailable independent tasks carry their saved text and pictures into a new explicit request, rather than referencing the failed native parent. The verified 6.0.5 installer supersedes the initial 6.0.4 backup; existing release assets are retained unchanged. 177 automated tests and the final package integrity/startup checks passed.
+
+## Release 6.0.6 — 15 November 2026
+
+The user authorized an updated installer containing the inline branch editor, complete branch transcript browsing, provider-backed web research without an extra search key, restored-notification replay correction and updated help. 86 automated tests, isolated interface and packaged startup checks, build/native/vendor validation and complete installer payload comparison passed. Source and the verified 6.0.6 Desktop installer are backed up as a new private release; earlier assets remain unchanged. Actual clean-PC installation and provider sign-in remain separate acceptance checks. See source/hadron-project/RELEASE_6_0_6.md.

@@ -1,6 +1,6 @@
-# Hadron Harness - Release 6.0.5
+# Hadron Harness - Release 6.0.6
 
-Install **Hadron-Harness-6.0.5-win-x64.exe** on Windows x64. The installer lets you choose a location and creates a desktop shortcut. Close the installed copy of Hadron before upgrading. Its saved chats, projects and account connections remain in `%APPDATA%\Hadron-Harness`; uninstall also preserves that data. The local test build uses this same profile, so close it before opening the installed app.
+Install **Hadron-Harness-6.0.6-win-x64.exe** on Windows x64. The installer lets you choose a location and creates a desktop shortcut. Close the installed copy of Hadron before upgrading. Its saved chats, projects and account connections remain in `%APPDATA%\Hadron-Harness`; uninstall also preserves that data. The local test build uses this same profile, so close it before opening the installed app.
 
 ## Using Hadron
 
@@ -20,7 +20,15 @@ ChatGPT defaults to the official Codex browser OAuth flow. Device-code sign-in i
 
 The custom Tool library is in **Settings > Agents and tools > Tool library**. The installed library is `%APPDATA%\Hadron-Harness\hadron-tools`. Normal file-reading, editing and coding tools are built in; they do not require you to add a custom tool. New custom tools are disabled until reviewed and enabled.
 
-## New in release 6.0.5
+## New in release 6.0.6
+
+- Branch opens an editable box in place of the selected message on the left. Alternative questions create sibling branches on the right; an agent answer opens a blank follow-up. The original path and unsent bottom-composer draft/files stay intact. Hover and right-click actions use the same editor in all work types.
+- Selecting an earlier coloured tree message scrolls to it while retaining later questions and replies on that branch. The down arrow goes to the end of the displayed branch; siblings remain separate.
+- Provider-backed web search and public-page reading are available after provider sign-in, without an extra Brave API key, including individual, shared and continuous conversations. Brave remains an optional alternative. Provider/model restrictions and usage limits can still prevent a search. These tools do not operate logged-in websites or perform account actions.
+- Reopening saved conversations does not replay their completion alerts. Notifications are armed only for work started in the current application session.
+- How to use Hadron includes the updated branch navigation, inline editor, web access and notification behavior.
+
+## Included from release 6.0.5
 
 - Follow-ups after a failed, stopped or unavailable independent task use the selected saved conversation text and pictures, without trying to reuse the failed native task as a parent. This lets the user send again after recovery unlocks the controls.
 - Supersedes the initial 6.0.4 backup with the complete retry fix; earlier release assets are retained unchanged.
@@ -61,4 +69,4 @@ This Windows installer is unsigned. Windows may identify the publisher as unknow
 
 ## Source and notices
 
-The matching source archive is **Hadron-Harness-6.0.3-source.zip**. It includes build instructions, a source-revision manifest and dependency/provider notices. Preserve the inherited AGPL licence and third-party attribution. These build materials do not represent certification of third-party redistribution permissions. No public upload is performed by this release process.
+The matching source archive is **Hadron-Harness-6.0.6-source.zip**. It includes build instructions, a source-revision manifest and dependency/provider notices. Preserve the inherited AGPL licence and third-party attribution. These build materials do not represent certification of third-party redistribution permissions. Source and the validated installer are backed up to the user's private GitHub repository.
