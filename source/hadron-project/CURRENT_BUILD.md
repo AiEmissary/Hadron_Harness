@@ -1,3 +1,9 @@
+# Inline branching correction — 15 November 2026
+
+Branch opens an editable box in place of the selected message on the left. An alternative question creates a sibling path on the right, preserving the original conversation and the unsent bottom-composer draft/files. Agent answers open blank follow-up editors. Hover and right-click actions share this behavior in all work types. 70 focused tests, isolated browser checks and the production renderer build passed. See INLINE_BRANCHING.md. Save any draft and reopen the existing desktop shortcut to load it. The installer is unchanged.
+
+---
+
 # Branch transcript navigation correction — 15 November 2026
 
 The local renderer now scrolls to an earlier selected tree message without hiding the later replies on that branch. Sibling paths remain separate and the down arrow follows the displayed branch. See TREE_NAVIGATION.md for validation and context-isolation details. How to use Hadron is updated. The installer is unchanged; save any draft and reopen using the existing desktop shortcut to load this local update.

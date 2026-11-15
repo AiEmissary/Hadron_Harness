@@ -28,18 +28,23 @@ export class WorkspaceRunner {
   getState():UnifiedWorkspaceState;dispatch(action:UnifiedWorkspaceAction):void;
   transport:WorkspaceRunTransport;id():string;error(chatId:string,error:string|null):void;
  }){}
- async send():Promise<void>{
+ async send(branch?:{chatId:string;messageId:string;text:string}):Promise<void>{
   if(this.disposed)throw Error('Workspace is closed')
-  const state=this.deps.getState(),chat=state.chats[state.activeChatId]
-  if(!chat?.draft.trim())throw Error('Write a message first')
+  const state=this.deps.getState(),chat=state.chats[branch?.chatId??state.activeChatId]
+  const text=branch?.text??chat?.draft
+  if(!chat||!text?.trim())throw Error('Write a message first')
+  const source=branch?chat.messages.find(message=>message.id===branch.messageId):undefined
+  if(branch&&!source)throw Error('The branch source is no longer available')
   if(chat.jobState!=='idle'||this.runs.get(chat.id)&&!this.runs.get(chat.id)!.ended)throw Error('This chat still has work in progress')
   const agents=chat.workType==='individual'?[chat.agent]:['a','b'] as const
   if(agents.some(agent=>!chat.models[agent]?.provider||!chat.models[agent]?.modelName))throw Error('Choose an agent provider and model in the pop-up')
   if(Object.values(state.chats).some(other=>other.id!==chat.id&&other.jobState!=='idle'&&(other.workType!=='individual'||chat.workType!=='individual'||other.agent===chat.agent)))throw Error('One of these agents already has work in progress')
-  const context=composeSharedContext([chat.instructions??'',WORKSPACE_VISUAL_INSTRUCTION].filter(Boolean).join('\n\n'),chat.attachments??[])
-  const id=this.deps.id(),answerId=this.deps.id(),question:WorkspaceMessage={id:this.deps.id(),parentId:chat.selectedId,role:'user',text:chat.draft,state:'completed',...(context?{context}:{})}
-  const path=workspaceMessagePath(chat)
-  const attached=parseHadronImages((chat.attachments??[]).flatMap(file=>file.image?[file.image]:[]))
+  const context=source?.role==='user'&&source.context?source.context:composeSharedContext([chat.instructions??'',WORKSPACE_VISUAL_INSTRUCTION].filter(Boolean).join('\n\n'),branch?[]:chat.attachments??[])
+  // An alternative question is a sibling of the original, not a repeated follow-up beneath it.
+  const parentId=source?(source.role==='user'?source.parentId:source.id):chat.selectedId
+  const id=this.deps.id(),answerId=this.deps.id(),question:WorkspaceMessage={id:this.deps.id(),parentId,role:'user',text,state:'completed',...(context?{context}:{})}
+  const path=workspaceMessagePath({...chat,selectedId:parentId})
+  const attached=parseHadronImages(branch?(source?.role==='user'?source.images:[]) : (chat.attachments??[]).flatMap(file=>file.image?[file.image]:[]))
   if(attached.length)question.images=attached
   const images=parseHadronImages([...new Map([...path.flatMap(message=>message.images??[]),...attached].map(image=>[image.id,image])).values()])
   const request:WorkspaceRunRequest=structuredClone({id,chatId:chat.id,projectId:state.projectId,nativeWorkspaceId:chat.nativeWorkspaceId,workType:chat.workType,permission:chat.folder?chat.permission:'chat',agent:chat.agent,models:chat.models,maxTurns:chat.maxTurns,folder:chat.folder,question,answerId,path,...(images.length?{images}:{})})
@@ -76,8 +81,8 @@ export class WorkspaceRunner {
   this.deps.dispatch({type:'select-message',chatId:chat.id,id:answerId})
   this.deps.dispatch({type:'follow-updates',chatId:chat.id,value:true})
   this.deps.dispatch({type:'job',chatId:chat.id,id,state:'running'})
-  this.deps.dispatch({type:'draft',chatId:chat.id,text:''});this.deps.error(chat.id,null)
-  this.deps.dispatch({type:'attachments',chatId:chat.id,files:[]})
+  if(!branch){this.deps.dispatch({type:'draft',chatId:chat.id,text:''});this.deps.dispatch({type:'attachments',chatId:chat.id,files:[]})}
+  this.deps.error(chat.id,null)
   for(const event of buffered)changed(event)
   try{await handle.start()}
   catch{

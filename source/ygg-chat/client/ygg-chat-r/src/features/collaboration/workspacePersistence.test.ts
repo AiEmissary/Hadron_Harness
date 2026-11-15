@@ -47,3 +47,24 @@ it('keeps an unsaved draft and reports a failed checkpoint before a task can be 
  expect(f.store.revision('chat-a')).toBe(0)
  await f.store.flush('chat-a');expect(f.rows.get('chat-a')?.revision).toBe(1)
 })
+it('saves and reloads an inline question branch without changing the original or consuming the main draft',async()=>{
+ const f=fixture()
+ f.session.dispatch({type:'configure',chatId:'chat-a',models:{a:{provider:'openaichatgpt',modelName:'model'}}})
+ f.session.dispatch({type:'message',chatId:'chat-a',message:{id:'original',parentId:null,role:'user',text:'Original question',state:'completed'}})
+ f.session.dispatch({type:'message',chatId:'chat-a',message:{id:'answer',parentId:'original',role:'assistant',text:'Original answer',state:'completed'}})
+ f.session.dispatch({type:'select-message',chatId:'chat-a',id:'answer'})
+ f.session.dispatch({type:'draft',chatId:'chat-a',text:'Unsent bottom draft'})
+ const failed=await f.session.branch('chat-a','original','Alternative question')
+ expect(failed).toBe(false);expect(f.session.getSnapshot().state.chats['chat-a'].messages).toHaveLength(2)
+ // A separate session supplies a local completed transport instead of the storage fixture's request guard.
+ const original=f.session.getSnapshot().state.chats['chat-a']
+ const session=new WorkspaceSession('project','chat-a',{create:(_request,changed)=>({start:async()=>{changed({text:'Alternative answer',state:'completed'})},stop:async()=>{},recover:async()=>{},dispose:()=>{}})},undefined,structuredClone(original));sessions.push(session)
+ const store=new WorkspacePersistence(session,f.api,[],100000);stores.push(store)
+ expect(await session.branch('chat-a','original','Alternative question')).toBe(true)
+ await store.flush('chat-a')
+ const saved=await f.api.load('chat-a'),restored=new WorkspaceSession('project','chat-a',{create(){throw Error('Reload must not infer')}},undefined,saved!.chat);sessions.push(restored)
+ const chat=restored.getSnapshot().state.chats['chat-a']
+ expect(chat.messages.map(message=>message.text)).toEqual(['Original question','Original answer','Alternative question','Alternative answer'])
+ expect(chat.messages[2].parentId).toBeNull();expect(chat.draft).toBe('Unsent bottom draft')
+ expect(chat.selectedId).toBe(chat.messages[3].id)
+})

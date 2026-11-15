@@ -6,6 +6,9 @@
 .hadron-v2-transcript{flex:1;min-height:0;overflow:auto;padding:22px 22px 14px;scrollbar-gutter:stable}
 .hadron-v2-message{position:relative;margin:0 0 20px;padding:12px 14px;border-radius:12px;font-size:14px;line-height:1.65}
 .hadron-v2-message.user{background:#f2f3f4}.hadron-v2-message small{display:block;color:#67657e;font-size:11px;margin-bottom:5px;font-weight:600}
+.hadron-v2-branch-editor>textarea{display:block;width:100%;min-height:100px;resize:vertical;padding:12px;border:0;border-radius:12px;background:var(--hp-soft,#eaf1f7);color:inherit;font:inherit;outline:none}
+.hadron-v2-branch-editor>textarea:focus{box-shadow:0 0 0 2px #4887be44}.hadron-v2-branch-editor>div{display:flex;justify-content:flex-end;gap:8px;margin-top:9px}.hadron-v2-branch-editor button{border:0;border-radius:12px;padding:7px 12px;background:var(--hp-soft,#eaf1f7)}.hadron-v2-branch-editor button:disabled{opacity:.45}
+html.dark .hadron-v2-branch-editor>textarea,html.dark .hadron-v2-branch-editor button{background:var(--hp-dark-soft,#2c343d);color:var(--hp-dark-ink,#eef2f5)}
 .hadron-v2-message-text{white-space:pre-wrap;overflow-wrap:anywhere}.hadron-v2-message-actions{position:absolute;right:5px;top:-14px;display:flex;gap:4px;align-items:center;background:var(--chat-surface-background,#fff);border:0;border-radius:20px;padding:3px 7px;opacity:0;pointer-events:none;z-index:2;font-size:10px}
 .hadron-v2-message:hover .hadron-v2-message-actions,.hadron-v2-message:focus-within .hadron-v2-message-actions{opacity:1;pointer-events:auto}
 .hadron-v2-message-actions>button{padding:5px;border-radius:50%}.hadron-v2-message-actions button:hover{background:#edf1f4}

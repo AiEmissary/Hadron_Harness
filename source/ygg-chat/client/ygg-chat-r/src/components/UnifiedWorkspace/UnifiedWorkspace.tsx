@@ -23,12 +23,12 @@ export function UnifiedWorkspace(props:UnifiedWorkspaceProps){
  }
  const files=async()=>{try{await props.attachFiles(chat)}catch(error){session.error(chat.id,error instanceof Error?error.message:'Files could not be attached.')}}
  const agents=chat.workType==='individual'?[chat.agent]:['a','b'] as const
- const canSend=!props.disabled&&!!chat.draft.trim()&&chat.jobState==='idle'&&agents.every(agent=>{
+ const canBranch=!props.disabled&&chat.jobState==='idle'&&agents.every(agent=>{
   const model=chat.models[agent],provider=props.providers.find(item=>item.provider===model?.provider)
   return provider?.connected&&provider.models.some(item=>item.id===model?.modelName)
  })
  return <UnifiedChatSurface chat={chat} providers={props.providers} help={props.help} connections={props.connections} reasoningControl={props.reasoningControl}
-  error={snapshot.errors[chat.id]??undefined} canSend={canSend} selectedIds={snapshot.selections[chat.id]}
+  error={snapshot.errors[chat.id]??undefined} canSend={canBranch&&!!chat.draft.trim()} canBranch={canBranch} onBranch={(messageId,text)=>session.branch(chat.id,messageId,text)} selectedIds={snapshot.selections[chat.id]}
   onDraft={text=>session.dispatch({type:'draft',chatId:chat.id,text})} onSend={()=>void session.send()} onStop={()=>void session.stop(chat.id)}
   onAgent={agent=>safely(()=>{if(chat.messages.length===0&&chat.jobState==='idle')session.dispatch({type:'configure',chatId:chat.id,agent});else session.dispatch({type:'switch-agent',agent,newChatId:crypto.randomUUID()});const state=session.getSnapshot().state;props.onChatChange?.(state.chats[state.activeChatId])})}
   onConfigure={next=>safely(()=>session.dispatch({type:'configure',chatId:chat.id,...next}))}

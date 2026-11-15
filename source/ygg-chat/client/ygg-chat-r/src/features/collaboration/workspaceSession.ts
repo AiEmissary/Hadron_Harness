@@ -49,6 +49,10 @@ export class WorkspaceSession {
   const chatId=this.snapshot.state.activeChatId
   try{await this.runner.send()}catch(error){this.error(chatId,error instanceof Error?error.message:'The message could not be sent.')}
  }
+ async branch(chatId:string,messageId:string,text:string):Promise<boolean>{
+  try{await this.runner.send({chatId,messageId,text});return true}
+  catch(error){this.error(chatId,error instanceof Error?error.message:'The branch could not be sent.');return false}
+ }
  attachRecovery(chatId:string,control:{stop():Promise<void>;recover():Promise<void>;dispose():void}){this.recovered.get(chatId)?.dispose();this.recovered.set(chatId,control)}
  endRecovery(chatId:string){this.recovered.get(chatId)?.dispose();this.recovered.delete(chatId)}
  stop(chatId=this.snapshot.state.activeChatId){return this.recovered.get(chatId)?.stop()??this.runner.stop(chatId)}

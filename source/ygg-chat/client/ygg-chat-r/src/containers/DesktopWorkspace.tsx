@@ -60,7 +60,6 @@ function DesktopConversation({runtime,navigate}:{runtime:DesktopWorkspaceRuntime
   const selection={chatId:chat.id,ids,excerpts},messages=chat.messages.filter(message=>ids.includes(message.id))
   try{
    if(name==='copy'){await navigator.clipboard.writeText(messages.map(message=>excerpts?.[message.id]?.text??message.text).join('\n\n'));return}
-   if(name==='branch'){runtime.session.dispatch({type:'select-message',chatId:chat.id,id:messages.at(-1)?.id??null});return}
    if(name==='delete'){await runtime.actions.remove(selection);await refresh();return}
    if(['copy-to','move-to','copy-new','move-new'].includes(name)){setDestination({selection,move:name.startsWith('move'),newChat:name.endsWith('new'),projects:await runtime.projects(),id:crypto.randomUUID()});return}
    if(name==='note'){setTextDialog({title:'Note for selection',initial:messages[0]?.note??'',save:async text=>{await runtime.actions.note(selection,text)}});return}

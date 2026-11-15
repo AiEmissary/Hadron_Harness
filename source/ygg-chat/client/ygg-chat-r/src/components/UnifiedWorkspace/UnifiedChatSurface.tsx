@@ -15,7 +15,8 @@ export type MessageAction='copy'|'edit'|'branch'|'delete'|'copy-to'|'move-to'|'c
 export type MessageExcerpts=Record<string,{start:number;end:number;text:string}>
 export interface UnifiedChatSurfaceProps {
  chat:WorkspaceChat;providers:ReadonlyArray<ParticipantOption>;connections?:ReactNode;help:ReactNode;reasoningControl?:ReactNode;
- error?:string;canSend:boolean;selectedIds?:ReadonlySet<string>;
+ error?:string;canSend:boolean;canBranch?:boolean;selectedIds?:ReadonlySet<string>;
+ onBranch?(messageId:string,text:string):Promise<boolean>;
  onDraft(text:string):void;onSend():void;onStop():void;onAgent(agent:WorkspaceAgent):void;
  onConfigure:WorkspaceMenuProps['onConfigure'];onFile():void;onFolder():void;
  onRemoveFile?(id:string):void;onLatest(id?:string):void;
@@ -42,6 +43,10 @@ export function UnifiedChatSurface(props:UnifiedChatSurfaceProps){
   previousVisualReplies.current={chatId:chat.id,completed:new Set(chat.messages.filter(message=>message.state==='completed').map(message=>message.id))}
  },[chat.id,chat.messages])
  const [context,setContext]=useState<{x:number;y:number;ids:string[];excerpts?:MessageExcerpts}|null>(null)
+ const [branchDrafts,setBranchDrafts]=useState<Record<string,{messageId:string;text:string;previousSelection:string|null;submitting?:boolean;error?:string}>>({})
+ const activeChatId=useRef(chat.id);activeChatId.current=chat.id
+ const branchDraft=branchDrafts[chat.id],branchInput=useRef<HTMLTextAreaElement>(null),branchSubmitting=useRef(new Set<string>())
+ useEffect(()=>{if(branchDraft)branchInput.current?.focus({preventScroll:true})},[chat.id,branchDraft?.messageId])
  const contextMenu=useRef<HTMLDivElement>(null)
  useEffect(()=>{
   if(!context)return
@@ -101,7 +106,41 @@ export function UnifiedChatSurface(props:UnifiedChatSurfaceProps){
   const model=chat.models[agent],provider=providers.find(provider=>provider.provider===model?.provider)
   return `Agent ${agent.toUpperCase()}${model?.modelName?' · '+(provider?.models.find(option=>option.id===model.modelName)?.label??model.modelName):''}`
  }).join('  /  ')
- const action=(name:MessageAction,message:WorkspaceMessage)=>{onMessageAction(name,props.selectedIds?.has(message.id)?[...props.selectedIds]:[message.id]);if(name==='branch'||name==='edit')input.current?.focus()}
+ const selectionAction=(name:MessageAction,ids:string[],excerpts?:MessageExcerpts)=>{
+  if(name==='branch'){
+   const source=chat.messages.find(message=>message.id===ids.at(-1));if(!source)return
+   setMore(null);setVisualMessage(null)
+   if(branchDraft){
+    selectNode(branchDraft.messageId)
+    if(source.id!==branchDraft.messageId)setBranchDrafts(current=>({...current,[chat.id]:{...current[chat.id],error:'Send or cancel this branch draft before starting another.'}}))
+    branchInput.current?.focus({preventScroll:true});return
+   }
+   setBranchDrafts(current=>({...current,[chat.id]:{messageId:source.id,text:source.role==='user'?source.text:'',previousSelection:chat.selectedId}}))
+   selectNode(source.id);return
+  }
+  onMessageAction(name,ids,excerpts);if(name==='edit')input.current?.focus()
+ }
+ const action=(name:MessageAction,message:WorkspaceMessage)=>selectionAction(name,name==='branch'?[message.id]:props.selectedIds?.has(message.id)?[...props.selectedIds]:[message.id])
+ const removeBranchDraft=(chatId:string)=>setBranchDrafts(current=>{const next={...current};delete next[chatId];return next})
+ const cancelBranch=()=>{
+  if(!branchDraft||branchSubmitting.current.has(chat.id))return
+  removeBranchDraft(chat.id)
+  if(branchDraft.previousSelection&&chat.messages.some(message=>message.id===branchDraft.previousSelection))onSelect(branchDraft.previousSelection)
+ }
+ const sendBranch=async()=>{
+  if(!branchDraft||!branchDraft.text.trim()||!props.canBranch||!props.onBranch||branchSubmitting.current.has(chat.id))return
+  const chatId=chat.id;branchSubmitting.current.add(chatId)
+  setBranchDrafts(current=>({...current,[chatId]:{...current[chatId],submitting:true,error:undefined}}))
+  try{
+   if(await props.onBranch(branchDraft.messageId,branchDraft.text)){
+    removeBranchDraft(chatId)
+    if(activeChatId.current===chatId){follow.current=true;setAway(false);setBrowseTarget(null)
+     requestAnimationFrame(()=>{if(activeChatId.current===chatId&&transcript.current)transcript.current.scrollTop=transcript.current.scrollHeight})}
+   }else setBranchDrafts(current=>({...current,[chatId]:{...current[chatId],submitting:false,error:'The branch has not been sent. Check the message below.'}}))
+  }catch{
+   setBranchDrafts(current=>({...current,[chatId]:{...current[chatId],submitting:false,error:'The branch could not be sent. Your draft is still here.'}}))
+  }finally{branchSubmitting.current.delete(chatId)}
+ }
  const openContext=(event:React.MouseEvent<HTMLElement>,message:WorkspaceMessage,allowText:boolean)=>{
   event.preventDefault();event.stopPropagation();setMore(null)
   let excerpts:MessageExcerpts|undefined
@@ -142,7 +181,15 @@ export function UnifiedChatSurface(props:UnifiedChatSurfaceProps){
   <section className='hadron-v2-chat' aria-label='Conversation'>
    <div className='hadron-v2-transcript' ref={transcript} onScroll={event=>{const el=event.currentTarget;follow.current=el.scrollHeight-el.clientHeight-el.scrollTop<80;setAway(!follow.current);onScroll(el.scrollTop,follow.current)}}>
     {!path.length&&<div className='hadron-v2-empty'><MessageSquare size={66} strokeWidth={1}/><h2>Start a conversation</h2><p>Ask one or both agents a question. Files and folders are optional.</p><button onClick={onFolder}>Attach folder (optional)</button></div>}
-    {path.map(message=><article key={message.id} className={`hadron-v2-message ${message.role}`} data-message-id={message.id} onContextMenu={event=>openContext(event,message,true)}>
+    {path.map(message=><article key={message.id} className={`hadron-v2-message ${message.role}`} data-message-id={message.id} onContextMenu={branchDraft?.messageId===message.id?undefined:event=>openContext(event,message,true)}>
+     {branchDraft?.messageId===message.id?<form className='hadron-v2-branch-editor' aria-label='New branch' onSubmit={event=>{event.preventDefault();void sendBranch()}}>
+      <small>New branch</small>
+      <p className='hadron-v2-hint'>{message.role==='user'?'Edit this question to start an alternative branch. The original stays saved.':'Write a follow-up to this answer. The original conversation stays saved.'}</p>
+      <textarea ref={branchInput} aria-label='Branch message' value={branchDraft.text} disabled={branchDraft.submitting} onChange={event=>setBranchDrafts(current=>({...current,[chat.id]:{...current[chat.id],text:event.target.value,error:undefined}}))} onKeyDown={event=>{if(event.key==='Escape')cancelBranch();if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();void sendBranch()}}}/>
+      {branchDraft.error&&<p role='alert' className='hadron-v2-inline-error'>{branchDraft.error}</p>}
+      {!props.canBranch&&<p className='hadron-v2-hint'>{busy?'Wait for the current reply to finish, or stop it before sending this branch.':'Choose a connected provider and model in the three-dot menu before sending.'}</p>}
+      <div><button type='button' onClick={cancelBranch} disabled={branchDraft.submitting}>Cancel</button><button type='submit' disabled={!props.canBranch||!branchDraft.text.trim()||branchDraft.submitting}>{branchDraft.submitting?'Sending…':'Send branch'}</button></div>
+     </form>:<>
      {toolbar(message)}<small>{message.role==='user'?'You':message.agent==='both'?'Agents A and B':`Agent ${(message.agent??chat.agent).toUpperCase()}`}</small>
      {message.images?.map(image=><img key={image.id} className='hadron-v2-attached-image' src={image.dataUrl} alt={image.name} title={image.name}/>)}
      <div className='hadron-v2-message-text'>{message.text?workspaceVisualText(message.text):(message.state==='running'?'':message.state==='stopped'?'Stopped before a reply was produced.':'No answer text was returned.')}</div>
@@ -156,6 +203,7 @@ export function UnifiedChatSurface(props:UnifiedChatSurfaceProps){
      {message.state==='running'&&<span role='status' className='hadron-v2-working'>{chat.jobState==='unknown'?'Checking saved task…':'Working…'}</span>}
      {(message.state==='failed'||message.role==='assistant'&&message.state==='completed'&&isHadronIncompleteRecord(message.text))&&<strong role='status' className='hadron-v2-not-finished'>Not finished</strong>}
      {message.state==='stopped'&&<strong role='status' className='hadron-v2-not-finished'>Not finished · Stopped</strong>}
+     </>}
     </article>)}
    </div>
    {(away||path.length>0&&chat.selectedId!==path.at(-1)?.id)&&<button className='hadron-v2-latest' aria-label='Go to latest message' onClick={()=>{props.onLatest(path.at(-1)?.id);follow.current=true;setAway(false);onScroll(transcript.current?.scrollHeight??0,true);transcript.current?.scrollTo({top:transcript.current.scrollHeight,behavior:'smooth'})}}><ArrowDown size={18}/></button>}
@@ -223,7 +271,7 @@ export function UnifiedChatSurface(props:UnifiedChatSurfaceProps){
    </div>}
   </section>
   {context&&createPortal(<div ref={contextMenu} role='menu' aria-label='Conversation selection actions' className='hadron-v2-context-menu' style={{left:context.x,top:context.y}}>
-   {options.map(([name,label])=><button key={name} role='menuitem' onClick={()=>{const chosen=context;setContext(null);onMessageAction(name,chosen.ids,chosen.excerpts)}}>{label}</button>)}
+   {options.map(([name,label])=><button key={name} role='menuitem' onClick={()=>{const chosen=context;setContext(null);selectionAction(name,chosen.ids,chosen.excerpts)}}>{label}</button>)}
   </div>,document.body)}
  </div>
 }
