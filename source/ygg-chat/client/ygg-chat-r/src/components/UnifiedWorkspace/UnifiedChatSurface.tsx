@@ -3,7 +3,7 @@ import {createPortal} from 'react-dom'
 import {isHadronIncompleteRecord} from '../../../../../shared/hadronWorkOutcome'
 import {ArrowDown,ArrowUp,Copy,GitBranch,MessageSquare,MoreHorizontal,Paperclip,Pencil,Share2,Square,Trash2} from 'lucide-react'
 import type {ParticipantOption} from '../../features/collaboration/setup'
-import {workspaceMessagePath,type WorkspaceAgent,type WorkspaceChat,type WorkspaceMessage} from '../../features/collaboration/unifiedWorkspace'
+import {workspaceTranscriptPath,type WorkspaceAgent,type WorkspaceChat,type WorkspaceMessage} from '../../features/collaboration/unifiedWorkspace'
 import {layoutAgentBranches} from '../../features/collaboration/agentConversation'
 import type {AgentConversationNode} from '../../../../../shared/independentJobs'
 import {WorkspaceMenu,type WorkspaceMenuProps} from './WorkspaceMenu'
@@ -18,7 +18,7 @@ export interface UnifiedChatSurfaceProps {
  error?:string;canSend:boolean;selectedIds?:ReadonlySet<string>;
  onDraft(text:string):void;onSend():void;onStop():void;onAgent(agent:WorkspaceAgent):void;
  onConfigure:WorkspaceMenuProps['onConfigure'];onFile():void;onFolder():void;
- onRemoveFile?(id:string):void;onLatest():void;
+ onRemoveFile?(id:string):void;onLatest(id?:string):void;
  onSelect(id:string,multiple?:boolean):void;onSelection(ids:string[]):void;onMessageAction(action:MessageAction,ids:string[],excerpts?:MessageExcerpts):void;onScroll(top:number,following:boolean):void;
 }
 const colorAt=(index:number)=>['#2869e6','#268ed9','#12aab0','#56ad59','#c1b929','#e6a01d','#ed742c','#cb282d'][index%8]
@@ -55,6 +55,8 @@ export function UnifiedChatSurface(props:UnifiedChatSurfaceProps){
   return()=>{document.removeEventListener('pointerdown',close);document.removeEventListener('keydown',key)}
  },[context])
  const transcript=useRef<HTMLDivElement>(null),input=useRef<HTMLTextAreaElement>(null),follow=useRef(true)
+ const branchLeaves=useRef(new Map<string,string>())
+ const [browseTarget,setBrowseTarget]=useState<{chatId:string;id:string}|null>(null)
  const [away,setAway]=useState(false)
  const [search,setSearch]=useState(''),[selection,setSelection]=useState<{x:number;y:number;endX:number;endY:number}|null>(null)
  const treeViewport=useRef<HTMLDivElement>(null),pan=useRef<{x:number;y:number;left:number;top:number;moved:boolean}|null>(null)
@@ -81,10 +83,20 @@ export function UnifiedChatSurface(props:UnifiedChatSurfaceProps){
   return()=>viewport.removeEventListener('wheel',wheel)
  },[treeZoom,chat.id,chat.messages.length===0])
  const drag=useRef<{x:number;y:number;endX:number;endY:number}|null>(null)
- const path=workspaceMessagePath(chat),busy=chat.jobState!=='idle'
+ const path=workspaceTranscriptPath(chat,branchLeaves.current.get(chat.id)),busy=chat.jobState!=='idle'
+ useEffect(()=>{const leaf=path.at(-1);if(leaf)branchLeaves.current.set(chat.id,leaf.id);if(branchLeaves.current.size>200)branchLeaves.current.delete(branchLeaves.current.keys().next().value!)},[chat.id,path.at(-1)?.id])
  useEffect(()=>{setContext(null);setMore(null);setAttachments(false);follow.current=chat.followLatest;setAway(!chat.followLatest);if(transcript.current)transcript.current.scrollTop=chat.scrollTop},[chat.id])
  const latest=path.at(-1)?.text
  useEffect(()=>{if(follow.current&&transcript.current)transcript.current.scrollTop=transcript.current.scrollHeight},[latest,path.length])
+ useEffect(()=>{
+  if(!browseTarget||browseTarget.chatId!==chat.id||browseTarget.id!==chat.selectedId||!transcript.current)return
+  const pane=transcript.current,selected=Array.from(pane.querySelectorAll<HTMLElement>('[data-message-id]')).find(element=>element.dataset.messageId===browseTarget.id)
+  if(selected)pane.scrollTo({top:Math.max(0,pane.scrollTop+selected.getBoundingClientRect().top-pane.getBoundingClientRect().top-8),behavior:'instant'})
+ },[browseTarget,chat.id,chat.selectedId])
+ const selectNode=(id:string,multiple=false)=>{
+  if(!multiple){follow.current=false;setAway(true);setBrowseTarget({chatId:chat.id,id})}
+  onSelect(id,multiple)
+ }
  const labels=(chat.workType==='individual'?[chat.agent]:['a','b'] as const).map(agent=>{
   const model=chat.models[agent],provider=providers.find(provider=>provider.provider===model?.provider)
   return `Agent ${agent.toUpperCase()}${model?.modelName?' · '+(provider?.models.find(option=>option.id===model.modelName)?.label??model.modelName):''}`
@@ -146,7 +158,7 @@ export function UnifiedChatSurface(props:UnifiedChatSurfaceProps){
      {message.state==='stopped'&&<strong role='status' className='hadron-v2-not-finished'>Not finished · Stopped</strong>}
     </article>)}
    </div>
-   {(away||chat.messages.length>0&&chat.selectedId!==chat.messages.at(-1)?.id)&&<button className='hadron-v2-latest' aria-label='Go to latest message' onClick={()=>{props.onLatest();follow.current=true;setAway(false);onScroll(transcript.current?.scrollHeight??0,true);transcript.current?.scrollTo({top:transcript.current.scrollHeight,behavior:'smooth'})}}><ArrowDown size={18}/></button>}
+   {(away||path.length>0&&chat.selectedId!==path.at(-1)?.id)&&<button className='hadron-v2-latest' aria-label='Go to latest message' onClick={()=>{props.onLatest(path.at(-1)?.id);follow.current=true;setAway(false);onScroll(transcript.current?.scrollHeight??0,true);transcript.current?.scrollTo({top:transcript.current.scrollHeight,behavior:'smooth'})}}><ArrowDown size={18}/></button>}
    <div className='hadron-v2-composer' data-workspace-composer='true'>
     {error&&<p role='alert' className='hadron-v2-inline-error'>{error}</p>}
     {chat.folder&&<p className='hadron-v2-folder' title={chat.folder.label}>{chat.folder.label}</p>}
@@ -175,7 +187,7 @@ export function UnifiedChatSurface(props:UnifiedChatSurfaceProps){
     if(event.key!=='Enter'||!search.trim())return
     const matches=chat.messages.filter(message=>message.text.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()))
     const next=matches[(matches.findIndex(message=>message.id===chat.selectedId)+1)%matches.length]
-    if(next)onSelect(next.id)
+    if(next)selectNode(next.id)
    }}/>
    {!chat.messages.length?<div className='hadron-v2-empty'><Share2 size={76} strokeWidth={1}/><h2>Conversation tree will appear here</h2><p>Your questions, replies and branches appear here as you chat.</p></div>:<div ref={treeViewport} className='hadron-v2-tree-scroll' tabIndex={0} aria-label='Tree canvas' title='Drag the tree in any direction. Click a branch to select it. Shift-drag selects branches. Ctrl + mouse wheel zooms.'
     onPointerDown={event=>{suppressTreeClick.current=false;if((event.button!==0&&event.button!==1)||event.shiftKey||event.ctrlKey||event.metaKey||(event.target as Element).closest('.hadron-v2-message-actions'))return;if(event.button===1)event.preventDefault();suppressTreeClick.current=false;pan.current={x:event.clientX,y:event.clientY,left:treeOffset.current.x,top:treeOffset.current.y,moved:false};if(event.button===1||!(event.target as Element).closest('.hadron-v2-tree-node'))event.currentTarget.setPointerCapture(event.pointerId)}}
@@ -203,7 +215,7 @@ export function UnifiedChatSurface(props:UnifiedChatSurfaceProps){
      {chat.messages.map((message,index)=>{const point=layout.points.get(message.id)!;return <foreignObject key={message.id} x={(point.x-80)*treeZoom} y={(point.y-30)*treeZoom} width={160*treeZoom} height={74*treeZoom} style={{overflow:'visible'}}>
       <div className='hadron-v2-tree-item' onContextMenu={event=>openContext(event,message,false)} data-search-match={!!search.trim()&&message.text.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())}>
       {toolbar(message)}
-      <button className='hadron-v2-tree-node' style={{background:colorAt(index),'--branch-color':colorAt(index)} as React.CSSProperties} aria-label={`Select branch: ${message.text.slice(0,60)}`} aria-pressed={chat.selectedId===message.id||props.selectedIds?.has(message.id)} onClick={event=>onSelect(message.id,event.ctrlKey||event.metaKey||event.shiftKey)}>{message.role==='assistant'&&(message.state==='failed'||message.state==='stopped'||isHadronIncompleteRecord(message.text))&&<strong>Not finished · </strong>}{message.text||(message.state==='running'?'Working…':'No answer text')}</button>
+      <button className='hadron-v2-tree-node' style={{background:colorAt(index),'--branch-color':colorAt(index)} as React.CSSProperties} aria-label={`Select branch: ${message.text.slice(0,60)}`} aria-pressed={chat.selectedId===message.id||props.selectedIds?.has(message.id)} onClick={event=>selectNode(message.id,event.ctrlKey||event.metaKey||event.shiftKey)}>{message.role==='assistant'&&(message.state==='failed'||message.state==='stopped'||isHadronIncompleteRecord(message.text))&&<strong>Not finished · </strong>}{message.text||(message.state==='running'?'Working…':'No answer text')}</button>
       </div>
      </foreignObject>})}
      {selection&&<rect x={Math.min(selection.x,selection.endX)*treeZoom} y={Math.min(selection.y,selection.endY)*treeZoom} width={Math.abs(selection.x-selection.endX)*treeZoom} height={Math.abs(selection.y-selection.endY)*treeZoom} fill='#4a90d922' stroke='#4a90d9' strokeWidth={treeZoom} pointerEvents='none'/>}

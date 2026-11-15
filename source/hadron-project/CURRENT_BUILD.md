@@ -1,3 +1,9 @@
+# Branch transcript navigation correction — 15 November 2026
+
+The local renderer now scrolls to an earlier selected tree message without hiding the later replies on that branch. Sibling paths remain separate and the down arrow follows the displayed branch. See TREE_NAVIGATION.md for validation and context-isolation details. How to use Hadron is updated. The installer is unchanged; save any draft and reopen using the existing desktop shortcut to load this local update.
+
+---
+
 # Online research correction — 15 November 2026
 
 The local source build now exposes provider-backed web search and public-page reads in individual Chat/Agent, Work together and Continuous conversation, with or without an attached folder. Claude Haiku and ChatGPT GPT-6.1-Sol passed real no-extra-key search probes. Brave remains an optional configured alternative. The setup pop-up, settings and help explain tool availability. See WEB_ACCESS.md for scope and evidence.

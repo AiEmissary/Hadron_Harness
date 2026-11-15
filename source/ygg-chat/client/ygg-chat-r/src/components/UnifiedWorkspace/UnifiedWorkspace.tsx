@@ -33,7 +33,7 @@ export function UnifiedWorkspace(props:UnifiedWorkspaceProps){
   onAgent={agent=>safely(()=>{if(chat.messages.length===0&&chat.jobState==='idle')session.dispatch({type:'configure',chatId:chat.id,agent});else session.dispatch({type:'switch-agent',agent,newChatId:crypto.randomUUID()});const state=session.getSnapshot().state;props.onChatChange?.(state.chats[state.activeChatId])})}
   onConfigure={next=>safely(()=>session.dispatch({type:'configure',chatId:chat.id,...next}))}
   onFile={()=>void files()} onFolder={()=>void folder()}
-  onLatest={()=>{const last=chat.messages.at(-1);if(last)session.dispatch({type:'select-message',chatId:chat.id,id:last.id});session.dispatch({type:'follow-updates',chatId:chat.id,value:true})}}
+  onLatest={id=>{const last=id?chat.messages.find(message=>message.id===id):chat.messages.at(-1);if(last)session.dispatch({type:'select-message',chatId:chat.id,id:last.id});session.dispatch({type:'follow-updates',chatId:chat.id,value:true})}}
   onRemoveFile={id=>session.dispatch({type:'attachments',chatId:chat.id,files:(chat.attachments??[]).filter(file=>file.id!==id)})}
   onSelect={(id,multiple)=>safely(()=>session.select(id,multiple))} onSelection={ids=>safely(()=>session.selection(chat.id,ids))}
   onMessageAction={(action,ids,excerpts)=>props.messageAction(chat,action,ids,excerpts)}

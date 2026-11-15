@@ -175,6 +175,33 @@ export function workspaceMessagePath(chat:WorkspaceChat):WorkspaceMessage[]{
   }
   return path
 }
+/** Reading an earlier node must not cut off the rest of its branch. The
+ * submission path still ends at selectedId; this is a display-only projection. */
+export function workspaceTranscriptPath(chat:WorkspaceChat,preferredLeaf?:string):WorkspaceMessage[]{
+  const selected=workspaceMessagePath(chat)
+  if(!selected.length)return selected
+  const byId=new Map(chat.messages.map(message=>[message.id,message]))
+  let root=selected.at(-1)!.id
+  if(preferredLeaf&&byId.has(preferredLeaf)){
+    const previous=workspaceMessagePath({...chat,selectedId:preferredLeaf})
+    if(previous.some(message=>message.id===root))root=preferredLeaf
+  }
+  const children=new Map<string,string[]>(),order=new Map<string,number>()
+  chat.messages.forEach((message,index)=>{
+    order.set(message.id,index)
+    if(message.parentId){const list=children.get(message.parentId)??[];list.push(message.id);children.set(message.parentId,list)}
+  })
+  const pending=[root],seen=new Set<string>();let leaf=root,last=-1
+  while(pending.length){
+    const id=pending.pop()!
+    if(seen.has(id))throw Error('Invalid branch cycle')
+    seen.add(id)
+    const next=children.get(id)
+    if(next?.length)pending.push(...next)
+    else if(order.get(id)!>last){leaf=id;last=order.get(id)!}
+  }
+  return workspaceMessagePath({...chat,selectedId:leaf})
+}
 export function workspaceChatPreview(chat:WorkspaceChat):string {
   const text=chat.messages.find(message=>message.role==='user')?.text??chat.title
   return text.replace(/\s+/g,' ').trim().slice(0,85)
