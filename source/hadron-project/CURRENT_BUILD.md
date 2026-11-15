@@ -1,3 +1,13 @@
+# Continuous pasted/attached input correction — 15 November 2026
+
+The local build corrects the legacy 4K continuous continuation limit which counted accepted text attachments, the 12K start limit, related question-anchor/journal limits and repeated prompt copies. Large supplied input can be condensed in consecutive bounded memory parts while originals stay saved. Activity and the guide explain preparation. See CONTINUOUS_INPUT_CONTEXT.md for scope and 132 automated plus full native desktop checks.
+
+Save/copy any unsent text, close Hadron, then reopen through the existing Desktop shortcut to load the local renderer and host. The open user window was not touched. The previously delivered 6.0.6 installer is unchanged and does not contain this later correction; no installer was rebuilt in this pass.
+
+Earlier checkpoints below are historical.
+
+---
+
 # Hadron Harness installer 6.0.6 — 15 November 2026
 
 The user authorized an installer update. Hadron-Harness-6.0.6-win-x64.exe is on the Desktop and in distribution. It includes the inline branch editor, complete branch transcript browsing, provider-backed no-extra-key web research and suppression of restored-task notification replays, with updated How to use Hadron instructions.

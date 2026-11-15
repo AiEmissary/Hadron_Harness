@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import {executionStartup} from '../../../hadronTools/executionStartup.js'
+import {CONTINUOUS_INPUT_MAX_BYTES} from '../../../../../../shared/continuousChat.js'
 
 export interface AgentJournalSnapshot {
   ownerId: string; jobId: string; participantId: string; task: string; context: string
@@ -47,7 +48,8 @@ export class AgentJobJournal {
   }
   checkpoint(snapshot: AgentJournalSnapshot): void {
     const { key, file } = this.location(snapshot.ownerId, snapshot.jobId, snapshot.participantId)
-    if (snapshot.task.length > 16000 || snapshot.context.length > 16000 || snapshot.text.length > 1_000_000) throw new Error('Journal content exceeds limits')
+    const taskLimit=snapshot.executionKind==='continuous-conversation'?CONTINUOUS_INPUT_MAX_BYTES:16000
+    if (snapshot.task.length > taskLimit || snapshot.context.length > 16000 || snapshot.text.length > 1_000_000) throw new Error('Journal content exceeds limits')
     const hash = createHash('sha256').update(JSON.stringify(snapshot)).digest('hex')
     let previous = this.previous.get(key)
     const remember = () => {

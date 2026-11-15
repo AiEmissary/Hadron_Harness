@@ -6,6 +6,10 @@ import {createRequire} from 'node:module'
 import {beforeEach,afterEach,expect,it,vi} from 'vitest'
 import {continuousFailure,similarRepeatedReplies} from '../hadronTools/continuousMemory.js'
 import {ContinuousChatService} from '../hadronTools/continuousChat.js'
+import {continuousWorkspaceTransport} from '../../src/features/collaboration/workspaceContinuousTransport'
+import {composeSharedContext} from '../../src/features/collaboration/attachmentContext'
+import type {ContinuousChatApi} from '../../../../shared/continuousChat.js'
+import type {WorkspaceRunRequest} from '../../src/features/collaboration/workspaceRunner'
 const {DatabaseSync}=createRequire(import.meta.url)('node:sqlite')
 let root:string,db:any,service:ContinuousChatService,calls:any[],hold:boolean,release:()=>void,joinFails:boolean
 let holdMemory:boolean
@@ -20,11 +24,80 @@ function make(authorizeRead?:()=>void){return new ContinuousChatService(db,{auth
   calls.push({images:config.images,role,packet,prompt,model:config.models[role],provider:config.providers?.[role]??'openaichatgpt'});onPrepared(binding)
   if(rejections-->0)throw Error(failureMessage)
   if(hold||(holdMemory&&packet.kind==='continuous_memory'))await new Promise<void>(resolve=>{release=resolve;signal.addEventListener('abort',resolve,{once:true})})
-  signal.throwIfAborted();return {text:consensusResponse?consensusResponse(packet):packet.kind==='continuous_memory'?`Memory through ${packet.transcript.at(-1).turn}: retain decisions, uncertainty and accessibility.`:`Agent ${role} turn ${ordinal}: evidence considered.`,binding}
+  signal.throwIfAborted();return {text:consensusResponse?consensusResponse(packet):packet.inputSummary?'Condensed supplied report: preserve original units, compare evidence, do not trade.':packet.kind==='continuous_memory'?`Memory through ${packet.transcript.at(-1).turn}: retain decisions, uncertainty and accessibility.`:`Agent ${role} turn ${ordinal}: evidence considered.`,binding}
  },cancel:vi.fn(),join:async()=>{if(joinFails)throw Error('No termination evidence');if(holdJoin)await new Promise<void>(resolve=>{releaseJoin=resolve})},waitForRetry:async(milliseconds,signal)=>{delays.push(milliseconds);if(holdRetry)await new Promise<void>(resolve=>signal.addEventListener('abort',()=>resolve(),{once:true}))}})}
 beforeEach(()=>{root=fs.mkdtempSync(path.join(os.tmpdir(),'hadron-continuous-'));db=new DatabaseSync(path.join(root,'chat.db'));calls=[];consensusResponse=undefined;hold=false;holdMemory=false;joinFails=false;rejections=0;holdRetry=false;holdJoin=false;claudeAdmitted=false;releaseJoin=()=>{};failureMessage='Hadron ChatGPT temporarily unavailable [upstream_http_503]';delays=[];release=()=>{};service=make()})
 afterEach(async()=>{await service.shutdown();if(path.dirname(root)!==fs.realpathSync(os.tmpdir())||!path.basename(root).startsWith('hadron-continuous-'))throw Error('Invalid cleanup root');fs.rmSync(root,{recursive:true,force:true})})
 async function wait(condition:()=>boolean){for(let step=0;step<500;step++){if(condition())return;await new Promise(resolve=>setImmediate(resolve))}throw Error('Conversation did not settle')}
+it('carries a real composed text attachment through the workspace transport into native continuation and both agents',async()=>{
+ service.start('owner',{...input(),maxTurns:2});await wait(()=>service.status('owner','conversation').workersEnded)
+ const supplied='Original attached report. '+ 'Figures, units and qualifications. '.repeat(300)
+ const context=composeSharedContext('',[{id:'report',name:'report.txt',text:supplied}])
+ const request:WorkspaceRunRequest={id:'native-ui-follow-up',chatId:'ui',projectId:'project',workType:'continuous',permission:'chat',agent:'a',models:{a:{provider:'openaichatgpt',modelName:'model-a'},b:{provider:'openaichatgpt',modelName:'model-b'}},maxTurns:2,folder:undefined,answerId:'reply',question:{id:'question',parentId:'last',role:'user',text:'Read the text file, compare and reach consensus.',context,state:'completed'},path:[{id:'last',parentId:null,role:'assistant',text:'Previous consensus.',state:'completed',origin:{kind:'continuous',id:'conversation',nodeId:'turn:2',fullContext:true}}]}
+ const api={start:async value=>service.start('owner',value),continueSaved:async(id,value)=>service.continueSaved('owner',id,value),status:async id=>service.status('owner',id),stop:async id=>service.stop('owner',id)} as ContinuousChatApi
+ const events:any[]=[],before=calls.length,handle=continuousWorkspaceTransport({api,workspaceId:'workspace',anchor:async()=>'anchor',remember:()=>{},pollMs:100000}).create(request,event=>events.push(event))
+ try{
+  await handle.start();await wait(()=>service.status('owner',request.id).workersEnded);await handle.recover()
+  const fresh=calls.slice(before);expect(fresh).toHaveLength(2)
+  for(const call of fresh){expect(call.packet.userMessages.at(-1).text).toBe(request.question.text+'\n\n'+context);expect(call.prompt).toContain(supplied);expect(call.prompt.match(/Original attached report\./g)).toHaveLength(1)}
+  expect(events.at(-1).state).toBe('completed');expect(events.at(-1).replies).toHaveLength(2)
+  expect(request.question.context).toBe(context)
+ }finally{handle.dispose()}
+})
+it('accepts full attached text beyond the old continuation cap and sends it once to each agent',async()=>{
+ service.start('owner',{...input(),maxTurns:2});await wait(()=>service.status('owner','conversation').workersEnded)
+ const instruction='Read the attached report and compare it.\n'+JSON.stringify({files:[{name:'report.txt',text:'Supplied evidence. '.repeat(600)}]})
+ expect(Buffer.byteLength(instruction)).toBeGreaterThan(4000)
+ const before=calls.length
+ service.continueSaved('owner','conversation',{id:'attached-report',models:input().models,maxTurns:2,maxSeconds:60,instruction})
+ await wait(()=>service.status('owner','attached-report').workersEnded)
+ expect(service.status('owner','attached-report').input.continuationInstruction).toBe(instruction)
+ expect(calls.slice(before)).toHaveLength(2)
+ for(const call of calls.slice(before)){expect(call.packet.userMessages.at(-1).text).toBe(instruction);expect(call.prompt.match(/Read the attached report and compare it\./g)).toHaveLength(1)}
+})
+it('summarises every part of long new input before conversation replies and retains the full original',async()=>{
+ const goal='Compare this complete supplied report.\n'+'🌙 Trading evidence and units.\n'.repeat(3000)+'END: do not trade.'
+ service.start('owner',{...input(),goal,maxTurns:2})
+ await wait(()=>service.status('owner','conversation').workersEnded)
+ const view=service.status('owner','conversation'),parts=calls.filter(call=>call.packet.inputSummary),replies=calls.filter(call=>call.packet.kind==='continuous_conversation')
+ expect(view.reason).toBe('turn_budget');expect(view.input.goal).toBe(goal)
+ expect(parts.length).toBeGreaterThan(1);expect(parts.map(call=>call.packet.userMessages[0].text).join('')).toBe(goal)
+ expect(replies).toHaveLength(2);expect(replies[0].packet.goal).toContain('lossy summary')
+ expect(view.turns.filter(turn=>turn.kind==='reply')).toHaveLength(2)
+ for(const call of calls)expect(Buffer.byteLength(call.prompt)).toBeLessThanOrEqual(64000)
+})
+it('Stop during supplied-input condensation saves no partial summary and starts no peer reply',async()=>{
+ holdMemory=true
+ service.start('owner',{...input(),goal:'Report evidence. '.repeat(6000),maxTurns:2})
+ await wait(()=>!!calls.at(-1)?.packet.inputSummary)
+ const view=await service.stop('owner','conversation')
+ expect(view).toMatchObject({state:'stopped',workersEnded:true})
+ expect(view.turns.filter(turn=>turn.kind==='reply')).toHaveLength(0)
+ expect(db.prepare('SELECT COUNT(*) AS count FROM hadron_continuous_input_memory').get().count).toBe(0)
+ expect(calls).toHaveLength(1)
+})
+it('resumes supplied-input preparation after a committed part without processing that part again',async()=>{
+ const goal='LONG REPORT\n'+'evidence and constraints\n'.repeat(4000)
+ holdMemory=true;service.start('owner',{...input(),goal,maxTurns:2});await wait(()=>!!calls.at(-1)?.packet.inputSummary)
+ service.pause('owner','conversation');holdMemory=false;release();await wait(()=>service.status('owner','conversation').workersEnded)
+ const paused=service.status('owner','conversation'),first=calls[0].packet.inputSummary
+ expect(paused.state).toBe('paused')
+ expect(db.prepare('SELECT through_character AS through FROM hadron_continuous_input_memory').get().through).toBe(first.to)
+ service.resume('owner','conversation',paused.revision,0);await wait(()=>service.status('owner','conversation').workersEnded)
+ const parts=calls.filter(call=>call.packet.inputSummary)
+ expect(parts[1].packet.inputSummary.from).toBe(first.to)
+ expect(parts.map(call=>call.packet.userMessages[0].text).join('')).toBe(goal)
+ expect(service.status('owner','conversation').reason).toBe('turn_budget')
+})
+it('admits long in-conversation instructions at a turn boundary and keeps injection idempotent',async()=>{
+ hold=true;service.start('owner',{...input(),maxTurns:2});await wait(()=>calls.length===1)
+ const text='Compare these additional figures. '+ 'Keep the units and uncertainty. '.repeat(300)
+ service.inject('owner','conversation','long-instruction',text);service.inject('owner','conversation','long-instruction',text)
+ hold=false;release();await wait(()=>service.status('owner','conversation').workersEnded)
+ expect(service.status('owner','conversation').messages).toHaveLength(1)
+ expect(calls[1].packet.userMessages.at(-1).text).toBe(text)
+ expect(calls[1].prompt.match(/Compare these additional figures\./g)).toHaveLength(1)
+})
 it('ends after both agents explicitly agree on the same settled conclusion and saves readable feedback',async()=>{
  consensusResponse=packet=>packet.consensus.peerProposal
   ?'I checked the proposal. Use the existing tested solution.\n'+packet.consensus.peerProposal.confirmMarker
@@ -352,7 +425,8 @@ it('sends readable attributed history, role-specific guidance, and persists the 
  expect(calls[0].prompt).toContain('Role: proposer.')
  expect(calls[1].prompt).toContain('Role: critic.')
  expect(calls[1].prompt).toContain('Agent A: (turn 1)\n> Agent a turn 1: evidence considered.')
- expect(calls[1].prompt).toContain('You: (after turn 1)\n> Prioritise maintainability.')
+ expect(calls[1].prompt).toContain('You: (after turn 1) — current instruction shown in full above.')
+ expect(calls[1].prompt.match(/Prioritise maintainability\./g)).toHaveLength(1)
  expect(calls[1].prompt.indexOf('Agent A: (turn 1)')).toBeLessThan(calls[1].prompt.indexOf('You: (after turn 1)'))
  expect(calls[1].prompt).not.toContain('You:\nAgent a turn')
  expect(()=>JSON.parse(calls[1].prompt)).toThrow()

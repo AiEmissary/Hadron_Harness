@@ -2,6 +2,14 @@ import { afterEach, expect, it, vi } from 'vitest'
 vi.mock('../../utils/api', () => ({ getLocalServerOrigin: async () => 'http://127.0.0.1:3012' }))
 import { createCollaborationClient } from './client'
 afterEach(() => vi.restoreAllMocks())
+it('prepares a long continuous question in full with an explicit workflow and the existing owner capability',async()=>{
+ const task='Complete report 📘\n'.repeat(5000),token='a'.repeat(64)
+ const fetch=vi.spyOn(globalThis,'fetch').mockResolvedValue(new Response(JSON.stringify({schemaVersion:1,conversationId:'chat',sourceLineageId:'lineage',anchorMessageId:'anchor',context:'',messageCount:0})))
+ await createCollaborationClient(async()=>token).prepareTask('request','chat',task,'continuous')
+ expect(JSON.parse(fetch.mock.calls[0][1]!.body as string)).toEqual({schemaVersion:1,id:'request',conversationId:'chat',task,workflow:'continuous'})
+ expect(fetch.mock.calls[0][1]!.headers).toMatchObject({authorization:'Bearer '+token})
+ expect(fetch).toHaveBeenCalledTimes(1)
+})
 it('accepts saved review/synthesis results and rejects malformed stage projections without retrying', async () => {
   const status = { schemaVersion: 1, sessionId: 's', phase: 'independent_proposals', status: 'completed', revision: 9,
     limits: { deadlineMs: 360000, maxRequestsPerParticipant: 1 },

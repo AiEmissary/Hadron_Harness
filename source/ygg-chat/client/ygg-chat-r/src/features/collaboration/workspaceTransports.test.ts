@@ -112,6 +112,27 @@ it('shows the failed stage and completed peer review alongside saved work when s
  expect(f.client.start).toHaveBeenCalledTimes(1)
 })
 import {fixtureImage} from '../../../../../shared/__fixtures__/hadronImage'
+it.each(['pasted','attached'] as const)('accepts long %s continuous follow-ups with unchanged text and current folder/models',async source=>{
+ const input=request('continuous'),text='Compare all figures and reach a conclusion.\n'+'Report evidence and constraints. '.repeat(300)
+ input.question.text=source==='pasted'?text:'Read report.txt and compare it with this discussion.'
+ if(source==='attached')input.question.context=JSON.stringify({files:[{name:'report.txt',text}]})
+ input.folder={id:'read-grant',label:'Chosen folder'}
+ input.path=[{id:'last',parentId:null,role:'assistant',text:'Previous conclusion.',state:'completed',origin:{kind:'continuous',id:'saved-source',nodeId:'turn:4',fullContext:true}}]
+ const view={id:input.id,input:{},state:'paused',reason:'consensus_reached',revision:1,workersEnded:true,canResume:true,turns:[],messages:[]} as unknown as ContinuousChatView
+ const api={start:vi.fn(),continueSaved:vi.fn(async()=>view),status:vi.fn(async()=>view),stop:vi.fn(async()=>view)} as unknown as ContinuousChatApi
+ const handle=continuousWorkspaceTransport({api,workspaceId:'workspace',anchor:async()=>'anchor',remember:()=>{}}).create(input,()=>{});handles.push(handle)
+ await handle.start()
+ expect(api.start).not.toHaveBeenCalled();expect(api.continueSaved).toHaveBeenCalledTimes(1)
+ expect(api.continueSaved).toHaveBeenCalledWith('saved-source',expect.objectContaining({instruction:[input.question.text,input.question.context].filter(Boolean).join('\n\n'),projectGrantId:'read-grant',models:{a:'model-a',b:'model-b'}}))
+})
+it('admits a long initial continuous question with its context instead of the legacy 12K cap',async()=>{
+ const input=request('continuous');input.question.text='全文📘 '.repeat(5000);input.question.context='Retain these constraints.'
+ const view={id:input.id,state:'paused',revision:1,workersEnded:true,turns:[],messages:[]} as unknown as ContinuousChatView
+ const api={start:vi.fn(async()=>view)} as unknown as ContinuousChatApi
+ const handle=continuousWorkspaceTransport({api,workspaceId:'workspace',anchor:async()=>'anchor',remember:()=>{}}).create(input,()=>{});handles.push(handle)
+ await handle.start()
+ expect(api.start).toHaveBeenCalledWith(expect.objectContaining({goal:input.question.text+'\n\nAttached context: '+input.question.context}))
+})
 it('sends a follow-up from saved text and pictures without reusing a failed native parent',async()=>{
  const input=request('individual');input.agent='b';input.images=[fixtureImage]
  input.path=[{id:'saved-q',parentId:null,role:'user',text:'Add the logo to the brochure.',state:'completed',images:[fixtureImage]},

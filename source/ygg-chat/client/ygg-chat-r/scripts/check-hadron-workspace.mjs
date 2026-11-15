@@ -22,7 +22,7 @@ b=sqlite3.connect(os.path.join(target,'history-baseline.db'));c.backup(b);b.clos
 }
 const outfile=path.join(cwd,'electron','workspace-smoke.mjs')
 await build({entryPoints:[path.join(cwd,'electron','hadronWorkspaceSmoke.ts')],outfile,bundle:true,platform:'node',format:'esm',target:'node22',external:['electron','better-sqlite3','keytar','node-pty'],banner:{js:"import { createRequire as fixtureRequire } from 'node:module'; const require = fixtureRequire(import.meta.url);"},define:{'process.env.VITE_SUPABASE_URL':'""','process.env.VITE_SUPABASE_ANON_KEY':'""'}})
-const env={...process.env,HADRON_DESKTOP_SMOKE_PROFILE:profile,HADRON_USE_BUILT_RENDERER:'1',...(history?{HADRON_WORKSPACE_HISTORY_ONLY:'1'}:{}),...(process.argv.includes('--consensus')?{HADRON_WORKSPACE_CONSENSUS_ONLY:'1'}:{})};delete env.ELECTRON_RUN_AS_NODE
+const env={...process.env,HADRON_DESKTOP_SMOKE_PROFILE:profile,HADRON_USE_BUILT_RENDERER:'1',...(history?{HADRON_WORKSPACE_HISTORY_ONLY:'1'}:{}),...(process.argv.includes('--consensus')?{HADRON_WORKSPACE_CONSENSUS_ONLY:'1'}:{}),...(process.argv.includes('--long-input')?{HADRON_WORKSPACE_LONG_INPUT:'1'}:{})};delete env.ELECTRON_RUN_AS_NODE
 console.log(profile)
 const child=spawn(require('electron'),[outfile],{cwd,env,windowsHide:true,stdio:['ignore','pipe','pipe']})
 const log=fs.createWriteStream(path.join(profile,'process.log'));child.stdout.pipe(log);child.stderr.pipe(log)

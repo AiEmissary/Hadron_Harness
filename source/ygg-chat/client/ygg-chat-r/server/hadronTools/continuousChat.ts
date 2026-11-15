@@ -1,8 +1,9 @@
 import {continuousFailure,MEMORY_INSTRUCTION,similarRepeatedReplies} from './continuousMemory.js'
 import {randomUUID} from 'node:crypto'
 import {continuousPrompt,type ContinuousPromptPacket} from './continuousPrompt.js'
+import {continuousInputContext} from './continuousInputContext.js'
 import {consensusPacket,consensusReply,type ConsensusOffer} from './continuousConsensus.js'
-import type {ContinuousChatInput,ContinuousChatView,ContinuousChatHistory,ContinuousContinuationInput} from '../../../../shared/continuousChat.js'
+import {CONTINUOUS_INPUT_MAX_BYTES,type ContinuousChatInput,type ContinuousChatView,type ContinuousChatHistory,type ContinuousContinuationInput} from '../../../../shared/continuousChat.js'
 interface Database {exec(sql:string):unknown;prepare(sql:string):any;close():void}
 export interface ContinuousBinding {runId:string;handle:string;streamId:string}
 interface Control {promise:Promise<void>;controller?:AbortController;handle?:string;ended:boolean;uncertain?:boolean}
@@ -37,6 +38,7 @@ export class ContinuousChatService {
    CREATE TABLE IF NOT EXISTS hadron_continuous_context (
    session_id TEXT PRIMARY KEY REFERENCES hadron_continuous_sessions(id),source_id TEXT NOT NULL REFERENCES hadron_continuous_sessions(id),context_json TEXT NOT NULL);
    CREATE TABLE IF NOT EXISTS hadron_continuous_memory (session_id TEXT PRIMARY KEY REFERENCES hadron_continuous_sessions(id),through_turn INTEGER NOT NULL,text TEXT NOT NULL);
+   CREATE TABLE IF NOT EXISTS hadron_continuous_input_memory (session_id TEXT NOT NULL REFERENCES hadron_continuous_sessions(id) ON DELETE CASCADE,source_key TEXT NOT NULL,through_character INTEGER NOT NULL,text TEXT NOT NULL,PRIMARY KEY(session_id,source_key));
    CREATE TABLE IF NOT EXISTS hadron_continuous_folder_activity (session_id TEXT NOT NULL REFERENCES hadron_continuous_sessions(id),time TEXT NOT NULL,tool TEXT NOT NULL,state TEXT NOT NULL);
    UPDATE hadron_continuous_sessions SET state='needs_recovery',reason='interrupted_host',revision=revision+1 WHERE state IN ('running','pause_requested','stop_requested');`)
   if(!db.prepare('PRAGMA table_info(hadron_continuous_turns)').all().some((column:any)=>column.name==='kind'))db.exec("ALTER TABLE hadron_continuous_turns ADD COLUMN kind TEXT NOT NULL DEFAULT 'reply'")
@@ -46,8 +48,8 @@ export class ContinuousChatService {
  private input(value:ContinuousChatInput){
   if(!value||!Number.isSafeInteger(value.maxTurns)||value.maxTurns<1||value.maxTurns>100||!Number.isSafeInteger(value.maxSeconds)||value.maxSeconds<10||value.maxSeconds>3600)throw Error('Choose 1–100 turns and 10–3600 seconds')
   if(value.providers&&(!['openaichatgpt','claudecode'].includes(value.providers.a)||!['openaichatgpt','claudecode'].includes(value.providers.b)))throw Error('Unsupported conversation provider')
-  return {...(value.images!==undefined?{images:parseHadronImages(value.images)}:{}),id:bounded(value.id,128),workspaceId:bounded(value.workspaceId,128),anchorMessageId:bounded(value.anchorMessageId,128),goal:bounded(value.goal,12000),models:{a:bounded(value.models?.a,128),b:bounded(value.models?.b,128)},maxTurns:value.maxTurns,maxSeconds:value.maxSeconds,
-   ...(value.projectGrantId?{projectGrantId:bounded(value.projectGrantId,128)}:{}),...(value.providers?{providers:{a:value.providers.a,b:value.providers.b}}:{}),...(value.continuationOf?{continuationOf:bounded(value.continuationOf,128)}:{}),...(value.continuationInstruction?{continuationInstruction:bounded(value.continuationInstruction,4000)}:{})}
+  return {...(value.images!==undefined?{images:parseHadronImages(value.images)}:{}),id:bounded(value.id,128),workspaceId:bounded(value.workspaceId,128),anchorMessageId:bounded(value.anchorMessageId,128),goal:bounded(value.goal,CONTINUOUS_INPUT_MAX_BYTES),models:{a:bounded(value.models?.a,128),b:bounded(value.models?.b,128)},maxTurns:value.maxTurns,maxSeconds:value.maxSeconds,
+   ...(value.projectGrantId?{projectGrantId:bounded(value.projectGrantId,128)}:{}),...(value.providers?{providers:{a:value.providers.a,b:value.providers.b}}:{}),...(value.continuationOf?{continuationOf:bounded(value.continuationOf,128)}:{}),...(value.continuationInstruction?{continuationInstruction:bounded(value.continuationInstruction,CONTINUOUS_INPUT_MAX_BYTES)}:{})}
  }
  private admitted(input:ContinuousChatInput,role:'a'|'b'){const provider=input.providers?.[role]??'openaichatgpt';return this.deps.admitModel?this.deps.admitModel(provider,input.models[role]):provider==='openaichatgpt'&&this.deps.allowedModels.has(input.models[role])}
  private owned(owner:string,id:string){
@@ -130,7 +132,7 @@ export class ContinuousChatService {
     const remaining=all.length-through
     // Summarise five older replies at a time, keeping at least two recent replies verbatim.
     // Oversized historical continuations are processed in smaller bounded batches.
-    const compact=remaining>=7||(remaining>=3&&Buffer.byteLength(JSON.stringify(all.slice(through)))>36000)
+    let compact=remaining>=7||(remaining>=3&&Buffer.byteLength(JSON.stringify(all.slice(through)))>36000)
     let target=through,packet:ContinuousPromptPacket
     const userMessages=[...(history?.messages??[]),...messages.map(message=>({id:message.id,afterTurn:base.length+completed.filter(turn=>turn.ordinal<=message.afterTurn).length,text:message.text}))]
     if(compact){
@@ -144,6 +146,9 @@ export class ContinuousChatService {
      packet={kind:'continuous_memory',instruction:MEMORY_INSTRUCTION,goal:input.goal,previousMemory:memory??null,transcript:older,userMessages}
     }else packet={kind:'continuous_conversation',goal:input.goal,speaker:role,turn:all.length+1,memory:memory??null,consensus:consensusPacket(consensusToken,peer),
       transcript:all.slice(through).map((turn,index)=>({turn:through+index+1,speaker:turn.role,text:turn.text})),userMessages}
+    const projected=continuousInputContext(packet,key=>this.db.prepare('SELECT through_character AS through,text FROM hadron_continuous_input_memory WHERE session_id=? AND source_key=?').get(id,key))
+    packet=projected.packet
+    if(projected.part)compact=true
     const prompt=continuousPrompt(packet)
     if(Buffer.byteLength(prompt)>64000){this.state(id,'paused','context_budget');return}
     if(!this.admitted(input,role))throw Error('Model no longer available')
@@ -169,7 +174,8 @@ export class ContinuousChatService {
      try{
      this.db.prepare("UPDATE hadron_continuous_turns SET state='completed',text=? WHERE session_id=? AND ordinal=? AND state='bound'").run(response,id,ordinal)
       if(parsed.proposed)this.db.prepare('UPDATE hadron_continuous_turns SET consensus_token=? WHERE session_id=? AND ordinal=?').run(consensusToken,id,ordinal)
-      if(compact)this.db.prepare('INSERT INTO hadron_continuous_memory(session_id,through_turn,text) VALUES (?,?,?) ON CONFLICT(session_id) DO UPDATE SET through_turn=excluded.through_turn,text=excluded.text').run(id,target,response)
+      if(projected.part)this.db.prepare('INSERT INTO hadron_continuous_input_memory(session_id,source_key,through_character,text) VALUES (?,?,?,?) ON CONFLICT(session_id,source_key) DO UPDATE SET through_character=excluded.through_character,text=excluded.text').run(id,projected.part.key,projected.part.to,response)
+      else if(compact)this.db.prepare('INSERT INTO hadron_continuous_memory(session_id,through_turn,text) VALUES (?,?,?) ON CONFLICT(session_id) DO UPDATE SET through_turn=excluded.through_turn,text=excluded.text').run(id,target,response)
       this.db.exec('COMMIT')
      }catch(error){this.db.exec('ROLLBACK');throw error}
      this.deps.checkpoint?.(owner,input,role,ordinal,response,'completed',binding.runId)
@@ -244,7 +250,7 @@ export class ContinuousChatService {
   this.launch(owner,id);return this.status(owner,id)
  }
  inject(owner:string,id:string,messageId:string,text:string){
-  const {row}=this.owned(owner,id);bounded(messageId,128);bounded(text,4000)
+  const {row}=this.owned(owner,id);bounded(messageId,128);bounded(text,CONTINUOUS_INPUT_MAX_BYTES)
   if(row.instance_id!==this.instance||!['running','paused','pause_requested'].includes(row.state))throw Error('This conversation cannot accept a message')
   const prior=this.db.prepare('SELECT session_id,text FROM hadron_continuous_messages WHERE id=?').get(messageId)
   if(prior){if(prior.session_id!==id||prior.text!==text)throw Error('Message identity conflict');return this.status(owner,id)}

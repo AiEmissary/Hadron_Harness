@@ -1,5 +1,5 @@
 import {workspaceActivity} from './workspaceActivity'
-import type {ContinuousChatApi,ContinuousChatView} from '../../../../../shared/continuousChat'
+import {CONTINUOUS_INPUT_MAX_BYTES,type ContinuousChatApi,type ContinuousChatView} from '../../../../../shared/continuousChat'
 import type {WorkspaceRunRequest,WorkspaceRunTransport,WorkspaceRunEvent} from './workspaceRunner'
 import {workspaceReplyState} from './workspaceHistory'
 import {workspaceHandoverContext} from './workspaceContext'
@@ -15,23 +15,23 @@ export function continuousWorkspaceTransport(deps:{
   if(!a?.provider||!a.modelName||!b?.provider||!b.modelName)throw Error('Choose both agent providers and models')
   const selected=request.path.at(-1),parent=selected?.origin
   const continuation=!request.path.some(message=>message.edited||message.note)&&selected?.role==='assistant'&&parent?.kind==='continuous'&&parent.fullContext?parent.id:undefined
-  const historyBudget=Math.max(0,12000-request.question.text.length-(request.question.context?.length??0)-120)
-  const context=continuation||!request.path.length?'':workspaceHandoverContext(request.path,'',request.agent,historyBudget)
+  const context=continuation||!request.path.length?'':workspaceHandoverContext(request.path,'',request.agent)
   const goal=context?`Previous selected conversation:\n${context}\n\nCurrent instruction:\n${request.question.text}`:request.question.text
   const goalWithFiles=[goal,request.question.context?'Attached context: '+request.question.context:''].filter(Boolean).join('\n\n')
   const continuationInstruction=[request.question.text,request.question.context??''].filter(Boolean).join('\n\n')
-  if(!continuation&&goalWithFiles.length>12000)throw Error('Select a shorter excerpt to start this conversation')
-  if(continuation&&continuationInstruction.length>4000)throw Error('Use a shorter continuation message or attach a folder for reading')
+  if(new TextEncoder().encode(continuation?continuationInstruction:goalWithFiles).length>CONTINUOUS_INPUT_MAX_BYTES)throw Error('The supplied message and file text exceed the continuous conversation admission limit (256 KB). Choose an excerpt; your original text stays saved.')
   let disposed=false,started=false,posted=false,stopRequested=false,poll:ReturnType<typeof setTimeout>|undefined,revision=-1
   let launch:Promise<void>|undefined
   const render=(view:ContinuousChatView)=>{
    if(disposed||view.id!==request.id||view.revision<revision)return
    revision=view.revision
    const ended=view.workersEnded
+   const preparing=view.turns.at(-1)?.kind==='memory'&&!ended
+   const activity=[...(preparing?[{label:'Preparing long conversation context',state:'Working'}]:view.turns.some(turn=>turn.kind==='memory'&&turn.state==='completed')?[{label:'Conversation context condensed; originals retained',state:'Completed'}]:[]),...workspaceActivity(view.folderActivity)]
    const replyTurns=view.turns.filter(turn=>turn.kind!=='memory')
-   const replies:WorkspaceRunEvent['replies']=replyTurns.map(turn=>({id:`continuous:${view.id}:turn:${turn.ordinal}`,text:turn.text??'',activity:workspaceActivity(view.folderActivity,[{id:turn.role,status:turn.state}]),state:workspaceReplyState(turn.state),agent:turn.role,
+   const replies:WorkspaceRunEvent['replies']=replyTurns.map(turn=>({id:`continuous:${view.id}:turn:${turn.ordinal}`,text:turn.text??'',activity:[...activity,...workspaceActivity([],[{id:turn.role,status:turn.state}])],state:workspaceReplyState(turn.state),agent:turn.role,
     ...request.models[turn.role],origin:{kind:'continuous',id:view.id,nodeId:`turn:${turn.ordinal}`,fullContext:ended&&turn.ordinal===replyTurns.at(-1)?.ordinal}}))
-   changed({text:ended&&!replies.length?'The conversation ended before a reply was produced.':'',state:ended?(view.state==='failed'||view.state==='needs_recovery'||!replies.length?'failed':view.state==='stopped'?'stopped':'completed'):'running',replies,
+   changed({activity,text:ended&&!replies.length?'The conversation ended before a reply was produced.':'',state:ended?(view.state==='failed'||view.state==='needs_recovery'||!replies.length?'failed':view.state==='stopped'?'stopped':'completed'):'running',replies,
     ...(view.state==='failed'||view.state==='needs_recovery'?{error:'This conversation stopped before its limit. Its completed replies are saved.'}:{})})
    if(ended){deps.remember(null);return}
    if(poll)clearTimeout(poll)

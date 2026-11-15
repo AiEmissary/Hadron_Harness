@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import type { MessageRepo } from '../../persistence/messageRepo.js'
 import type { LineageRepo } from '../../persistence/lineageRepo.js'
 import { ProposalAccessDenied } from './proposalSessionService.js'
+import {CONTINUOUS_INPUT_MAX_BYTES} from '../../../../../../shared/continuousChat.js'
 
 /** Explicit task-only root: saves a new branch without copying chat history or
  * making an inference call. Deterministic IDs fence uncertain preparation replies.
@@ -10,9 +11,10 @@ export class SharedTaskContexts {
   constructor(private readonly deps: { db: any; messages: MessageRepo; lineages: LineageRepo;
     authorize(owner: string, conversation: string): void }) {}
   prepare(owner: string, raw: any) {
-    if (!raw || raw.schemaVersion !== 1 || Object.keys(raw).some(key => !['schemaVersion', 'id', 'conversationId', 'task'].includes(key)) ||
+    if (!raw || raw.schemaVersion !== 1 || Object.keys(raw).some(key => !['schemaVersion', 'id', 'conversationId', 'task','workflow'].includes(key)) ||
+      raw.workflow!==undefined&&raw.workflow!=='continuous' ||
       ![raw.id, raw.conversationId].every(value => typeof value === 'string' && value.trim() && value.length <= 128) ||
-      typeof raw.task !== 'string' || !raw.task.trim() || raw.task.length > 16000) throw new Error('Invalid shared task context')
+      typeof raw.task !== 'string' || !raw.task.trim() || (raw.workflow==='continuous'?Buffer.byteLength(raw.task)>CONTINUOUS_INPUT_MAX_BYTES:raw.task.length>16000)) throw new Error('Invalid shared task context')
     try { this.deps.authorize(owner, raw.conversationId) } catch { throw new ProposalAccessDenied() }
     const key = createHash('sha256').update(JSON.stringify([owner, raw.id])).digest('hex')
     const anchorMessageId = `hadron-shared-${key}`, sourceLineageId = `hadron-lineage-${key}`

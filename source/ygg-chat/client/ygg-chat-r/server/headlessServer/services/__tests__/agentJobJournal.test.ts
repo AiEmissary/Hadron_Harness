@@ -39,3 +39,9 @@ it('isolates owners and agents, safely fences supplied Markdown and rejects over
   expect(() => f.journal.read('owner', '../../job', 'b')).toThrow()
   expect(() => f.journal.checkpoint({ ...f.snapshot, text: 'x'.repeat(1_000_001) })).toThrow('limits')
 })
+it('retains a long continuous goal without failing the execution checkpoint',()=>{
+ const f=fixture(),task='Complete supplied report. '.repeat(5000)
+ f.journal.checkpoint({...f.snapshot,task,executionKind:'continuous-conversation'})
+ expect(f.journal.read('owner','../../job','a').markdown).toContain(task)
+ expect(()=>f.journal.checkpoint({...f.snapshot,task})).toThrow('limits')
+})

@@ -124,7 +124,7 @@ export class DesktopWorkspaceRuntime {
    const render:typeof changed=event=>{if(event.nativeJob)identified=true;changed(event)}
    const agentAccess=(input:WorkspaceRunRequest)=>this.native.collaboration.projectAgent(workspace,input.workType==='individual'?input.agent:'shared',input.folder!.id)
    const common={workspaceId:workspace,agentAccess,releaseAgent:(id:string)=>this.native.collaboration.agentRevoke(id),checkpoint}
-   const transport=request.workType==='individual'?individualWorkspaceTransport({...common,client:this.independent,store:()=>browserJobStore(workspace,request.agent,`unified:${request.chatId}`)}):request.workType==='together'?sharedWorkspaceTransport({...common,client:this.shared,store:()=>browserAdmissionStore(workspace,`unified:${request.chatId}`)}):continuousWorkspaceTransport({workspaceId:workspace,api:this.native.continuousChat,checkpoint,anchor:async input=>(await this.shared.prepareTask(input.id,workspace,input.question.text)).anchorMessageId,remember:()=>{}})
+   const transport=request.workType==='individual'?individualWorkspaceTransport({...common,client:this.independent,store:()=>browserJobStore(workspace,request.agent,`unified:${request.chatId}`)}):request.workType==='together'?sharedWorkspaceTransport({...common,client:this.shared,store:()=>browserAdmissionStore(workspace,`unified:${request.chatId}`)}):continuousWorkspaceTransport({workspaceId:workspace,api:this.native.continuousChat,checkpoint,anchor:async input=>(await this.shared.prepareTask(input.id,workspace,input.question.text,'continuous')).anchorMessageId,remember:()=>{}})
    // Local construction validates context before the composer is cleared.
    const handle=transport.create(request,render)
    return {

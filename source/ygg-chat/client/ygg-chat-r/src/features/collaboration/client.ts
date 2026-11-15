@@ -67,11 +67,11 @@ export function createCollaborationClient(getCapability: () => Promise<string>) 
       if(new Set(data.nodes.map((node:any)=>node.id)).size!==data.nodes.length||data.nodes.some((node:any)=>node.parentId&&!data.nodes.some((parent:any)=>parent.id===node.parentId)))throw Error('Invalid shared tree links')
       return data as {schemaVersion:1;conversationId:string;nodes:import('../../../../../shared/independentJobs').AgentConversationNode[]}
     },
-    prepareTask: async (id: string, conversationId: string, task: string) => {
+    prepareTask: async (id: string, conversationId: string, task: string,workflow?:'continuous') => {
       const origin = await getLocalServerOrigin(), token = await getCapability()
       if (!/^[a-f0-9]{64}$/.test(token)) throw new Error('Desktop capability unavailable')
       const response = await fetch(`${origin}/api/collaboration/proposals/context`, { method: 'POST',
-        headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ schemaVersion: 1, id, conversationId, task }) })
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify({ schemaVersion: 1, id, conversationId, task,...(workflow?{workflow}:{}) }) })
       if (!response.ok) throw new Error('Shared task context could not be saved')
       const result = await response.json()
       if (result?.schemaVersion !== 1 || result.conversationId !== conversationId || typeof result.sourceLineageId !== 'string' ||
