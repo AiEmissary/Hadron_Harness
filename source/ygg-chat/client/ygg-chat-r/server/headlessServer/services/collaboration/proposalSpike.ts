@@ -20,7 +20,7 @@ interface ProposalSpikeDeps {
   validateAnchor(snapshot: ProposalSnapshot): void
   onPrepared?(participantId: string, child: { runId: string; handle: string | null; streamId: string }): void
   publish(snapshot: ProposalSnapshot, proposals: readonly ProposalReference[]): ProposalCheckpoint[]
-  toolSession?(participantId:string):import('../../../hadronTools/types.js').HadronToolSession
+  toolSession?(participantId:string):import('../../../hadronTools/types.js').HadronToolSession|undefined
   implementerId?:string
 }
 

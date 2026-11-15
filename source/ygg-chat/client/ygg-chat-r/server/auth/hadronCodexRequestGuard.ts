@@ -13,11 +13,15 @@ export async function startCodexRequestGuard(options: {
   signal: AbortSignal; onViolation(): void; fetch?: typeof fetch
   onText?(delta: string): void
   onProgress?():void
+  /** Trusted dedicated search invocation only; ordinary text jobs keep tools disabled. */
+  webSearch?: boolean
 }) {
   const images=parseHadronImages(options.images)
   const messages=options.messages.map((message,index)=>images.length&&index===options.messages.length-1&&message.role==='user'?{...message,content:[{type:'input_text',text:message.content},...images.map(image=>({type:'input_image',image_url:image.dataUrl}))]}:message)
   const secret = '/' + randomBytes(32).toString('hex')
   let requests = 0, completed = false, text = '', violated = false, stage = 'waiting'
+  const searchCalls=new Set<string>(),webSources:unknown[]=[]
+  let lastEvent='',lastItem=''
   const deny = () => { violated = true; options.onViolation() }
   const server = http.createServer(async (req, res) => {
     const reject = (status = 403) => { res.writeHead(status); res.end('{"error":{"message":"Hadron request policy rejected this operation"}}') }
@@ -61,7 +65,8 @@ export async function startCodexRequestGuard(options: {
       if (!original || original.model !== options.model || !Array.isArray(original.input)) throw new Error('Unexpected native request')
       // Replace all context/authority-bearing fields with the host-owned packet.
       const payload = { ...original, model: options.model, instructions: options.instructions,
-        input: messages, tools: [], tool_choice: 'none', parallel_tool_calls: false, store: false, stream: true }
+        input: messages, tools: options.webSearch ? [{type:'web_search',external_web_access:true}] : [], tool_choice: options.webSearch ? 'required' : 'none', parallel_tool_calls: false, store: false, stream: true,
+        ...(options.webSearch?{include:['web_search_call.action.sources']}:{}), }
       for (const key of ['previous_response_id', 'conversation', 'context_management', 'background', 'metadata']) delete payload[key]
       const response = await (options.fetch ?? fetch)(upstream + '/responses', { method: 'POST', redirect: 'error',
         signal: options.signal, headers: { ...headers(req), 'Content-Type': 'application/json', Accept: 'text/event-stream' }, body: JSON.stringify(payload) })
@@ -87,7 +92,12 @@ export async function startCodexRequestGuard(options: {
             const data = frame.split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n')
             if (data && data !== '[DONE]') {
               const event = JSON.parse(data)
-              validateEvent(event)
+              lastEvent=typeof event.type==='string'&&/^[a-zA-Z0-9_.]{1,100}$/.test(event.type)?event.type:'invalid'
+              lastItem=typeof event.item?.type==='string'&&/^[a-zA-Z0-9_.]{1,80}$/.test(event.item.type)?event.item.type:''
+              validateEvent(event,options.webSearch===true)
+              if(options.webSearch&&event.type==='response.output_item.done'&&event.item?.type==='web_search_call'&&event.item.status==='completed'&&typeof event.item.id==='string'){
+                searchCalls.add(event.item.id);webSources.push(event.item.action?.sources??[])
+              }
               options.onProgress?.()
               if (event.type === 'response.output_text.delta') {
                 if (typeof event.delta !== 'string' || text.length + event.delta.length > 200000) throw new Error('Invalid text output')
@@ -96,6 +106,13 @@ export async function startCodexRequestGuard(options: {
               }
               if (event.type === 'response.completed') {
                 if (event.response?.status !== 'completed' || !Array.isArray(event.response.output)) throw new Error('Incomplete response')
+                if(options.webSearch){
+                  for(const item of event.response.output){
+                    if(item.type==='web_search_call'&&item.status==='completed'&&typeof item.id==='string'){searchCalls.add(item.id);webSources.push(item.action?.sources??[])}
+                    if(item.type==='message')for(const part of item.content??[])if(part.type==='output_text')webSources.push(part.annotations??[])
+                  }
+                  if(!searchCalls.size){stage='search_receipt_missing:'+event.response.output.map((item:any)=>item.type+(typeof item.status==='string'&&/^[a-z_]{1,30}$/.test(item.status)?':'+item.status:'')).join(',');throw Error('Provider did not execute web search')}
+                }
                 // Deltas may contain commentary followed by the final message. Only the
                 // completed final output is authoritative; concatenating both corrupts JSON.
                 const messages = event.response.output.filter((item: any) => item.type === 'message')
@@ -118,6 +135,7 @@ export async function startCodexRequestGuard(options: {
         res.end()
       } finally { await reader.cancel().catch(() => {}) }
     } catch (error: any) {
+      if(options.webSearch&&stage==='stream')stage='stream_rejected:'+lastEvent+(lastItem?':'+lastItem:'')
       const code = String(error?.cause?.code ?? error?.code ?? '')
       if (/CERT|ISSUER|SELF_SIGNED/.test(code)) stage = 'network_tls'
       else if (/ENOTFOUND|ECONN|ETIMEDOUT|UND_ERR/.test(code)) stage = 'network_transport'
@@ -137,7 +155,7 @@ export async function startCodexRequestGuard(options: {
   options.signal.addEventListener('abort', close, { once: true })
   if (options.signal.aborted) close()
   return { baseUrl: `http://127.0.0.1:${address.port}${secret}`,
-    result: () => ({ completed: completed && !violated, text, requests, stage }),
+    result: () => ({ completed: completed && !violated, text, requests, stage, ...(options.webSearch?{webSearchCalls:searchCalls.size,webSources}:{}) }),
     close: () => { options.signal.removeEventListener('abort', close); close() } }
 }
 
@@ -155,13 +173,15 @@ async function boundedBody(response: Response, limit: number): Promise<Uint8Arra
     return Buffer.concat(chunks)
   } finally { await reader.cancel().catch(() => {}) }
 }
-function validateEvent(event: any) {
+function validateEvent(event: any, webSearch=false) {
   if (!event || typeof event.type !== 'string') throw new Error('Invalid response event')
   const item = event.item
-  if (item && !['message', 'reasoning'].includes(item.type)) throw new Error('Tools are unavailable')
+  const allowed=['message','reasoning',...(webSearch?['web_search_call']:[])]
+  if (item && !allowed.includes(item.type)) throw new Error('Tools are unavailable')
   if (event.response?.output) for (const output of event.response.output) {
-    if (!['message', 'reasoning'].includes(output.type)) throw new Error('Tools are unavailable')
+    if (!allowed.includes(output.type)) throw new Error('Tools are unavailable')
   }
-  if (/function_call|tool_call|web_search|code_interpreter|computer|file_search|mcp|apply_patch|shell|custom_tool/.test(event.type) ||
+  if (/function_call|tool_call|code_interpreter|computer|file_search|mcp|apply_patch|shell|custom_tool/.test(event.type) ||
+    (/web_search/.test(event.type)&&(!webSearch||!/^response\.web_search_call\.(in_progress|searching|completed)$/.test(event.type))) ||
     ['error', 'response.failed', 'response.incomplete'].includes(event.type)) throw new Error('Unsupported response event')
 }

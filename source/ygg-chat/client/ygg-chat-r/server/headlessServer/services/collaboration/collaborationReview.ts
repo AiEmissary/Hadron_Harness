@@ -6,7 +6,7 @@ import { buildHadronWorkerPrompt } from './hadronWorkerPrompt.js'
 import {withProjectVerification} from '../../../hadronTools/projectVerification.js'
 
 /** One review round, optional tool verification and one synthesis, with durable stage bindings.
- * No retries, automatic resumption or direct peer messaging; tools only in verification. */
+ * No retries, automatic resumption or direct peer messaging. Synthesis uses the recorded evidence. */
 export class CollaborationReview {
   readonly controller = new AbortController()
   private readonly children: Array<{ handle: string; runId: string }> = []
@@ -42,6 +42,7 @@ export class CollaborationReview {
       const folder=this.deps.projectSession!(this.owner,this.input,stage,()=>this.check())
       toolSession=toolSession?withProjectVerification(toolSession,folder,(tool,result)=>{this.check();this.deps.sessions.recordVerificationEvidence(this.input.sessionId,this.owner,tool,result)},()=>{this.check();this.deps.sessions.recordVerificationAttempt(this.input.sessionId,this.owner)}):folder
     }
+    if(!toolSession&&role==='review')toolSession=this.deps.researchSession?.(this.owner,this.input,stage,()=>this.check())
     const child = await this.deps.agents.spawnDetached({
       conversationId: this.input.conversationId, parentMessageId: this.input.anchorMessageId,
       lineageId: null, rootPath: null, fullAccess: false,

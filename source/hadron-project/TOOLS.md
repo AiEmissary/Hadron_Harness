@@ -1,3 +1,9 @@
+# Current online-tool access
+
+Provider-backed search now works without an extra API key in the unified workspace, including Agent mode with a selected folder. Public-page reading and enabled custom web tools are composed with folder permissions. Brave is optional. Read WEB_ACCESS.md for the current behavior and live-check scope. The older revision notes below are historical.
+
+---
+
 ## Revision99 - helpers, milestones, reference copies and Windows release (2026-11-07)
 
 Implemented Copy into project across saved main, independent, collaborative, automatic and project modes. Copies create ordinary historical text chats in owned local projects, preserve originals, are idempotent and bounded to 128 KiB, and transfer no active jobs, attachments, authority or approvals. Added same-provider known-lightweight helpers with a durable two-helper agent/job budget, one-level delegation, parent-linked visible activity/history and Markdown checkpoints. Parent Stop aborts/joins children; restart marks unfinished work interrupted without replay. Automatic conversation remains text only; automatic repair stages disable helpers to preserve existing approval budgets.

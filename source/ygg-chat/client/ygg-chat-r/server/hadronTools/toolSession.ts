@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { createHash } from 'node:crypto'
 import { braveSearch } from '../tools/braveSearch.js'
-import { getBraveApiKey } from '../keytarSecrets.js'
+import {hasBraveApiKey} from '../keytarSecrets.js'
 import { HadronToolLibrary } from './toolLibrary.js'
 import { readPublicWeb, webPage } from './publicWeb.js'
 import { admitHadronToolSession, type HadronToolSession } from './types.js'
@@ -28,7 +28,7 @@ export function readHadronToolActivity(root: string, owner: string, job: string)
   }).slice(-70)
 }
 export function createHadronToolSession(options: { root: string; owner: string; job: string; mode: HadronToolMode;
-  verification?: boolean; onCheckAttempt?(tool: string): void; authorize?(): void; onEvidence?(tool: string, result: unknown): void; read?: typeof readPublicWeb; search?: typeof braveSearch }): HadronToolSession {
+  verification?: boolean; onCheckAttempt?(tool: string): void; authorize?(): void; onEvidence?(tool: string, result: unknown): void; activity?(tool:string,state:'started'|'completed'|'failed'|'cancelled'):void; read?: typeof readPublicWeb; search?: typeof braveSearch }): HadronToolSession {
   const library = new HadronToolLibrary(options.root)
   const id = createHash('sha256').update(options.owner + ':' + options.job).digest('hex')
   const journalDir = path.join(options.root, 'job-logs'); fs.mkdirSync(journalDir, { recursive: true })
@@ -36,6 +36,7 @@ export function createHadronToolSession(options: { root: string; owner: string; 
   if (fs.lstatSync(journalDir).isSymbolicLink() || (fs.existsSync(journal) && fs.lstatSync(journal).isSymbolicLink())) throw new Error('Tool log links are unavailable')
   const history: string[] = []; let cursor = -1, calls = 0, busy = false, evidenceAttempted = false
   const created = new Set<string>()
+  let providerSearch: typeof braveSearch | undefined
   const enabled = new Map(library.list(options.owner).filter(tool => tool.enabled).map(tool => [tool.definition.name, tool]))
   const instructions = `
 ## Hadron controlled tools v1
@@ -46,7 +47,7 @@ Available built-ins:
 - web_read {url}: read a public HTTP(S) page, bounded text and links. No JavaScript execution, login cookies, forms or downloads. Does not change navigation history.
 - web_navigate {url}: read a page and add it to this job's private navigation history.
 - web_back {}, web_forward {}: revisit this job's own previous/next URL.
-- web_search {query}: search via Hadron's configured Brave Search key. If no key is configured, explicitly report unavailable; do not ask for passwords or copy another application's key.
+- web_search {query}: search online using this agent's signed-in provider. No extra API key is needed. If the user has configured a Brave Search key, Hadron uses that alternative. Use this tool for current information and source discovery; do not claim you have no web access without attempting it. Account/region/usage restrictions can still make a search fail; report the actual host result. Do not ask for passwords or copy another application's key.
 - tool_list {}: list enabled reusable JavaScript tools.
 ${options.mode === 'build' ? `Tool-test execution is granted in this mode. The earlier instruction to report all tests as none is superseded for actual tool_test calls: state the inputs, returned results and any limitations, without inventing independent verification.
 - tool_create {definition:{name,description,inputSchema:{type:"object",properties:{...},required:[...]}},code}: create a NEW DISABLED version in Hadron's own folder. Names use lowercase letters/numbers/underscores, 3-48 characters. Code must define a synchronous JavaScript generator function* run(args). Return a JSON value, or yield {tool:"web_read",arguments:{url:...}} (also web_search/web_navigate/web_back/web_forward) to get host web evidence. No require/import/process/fs/network/DOM globals exist in its QuickJS sandbox. Example: function* run(args){const page=yield {tool:"web_read",arguments:{url:args.url}};return {title:page.title,url:page.url,links:page.links};}
@@ -71,11 +72,16 @@ Enabled tool definitions: ${JSON.stringify([...enabled.values()].map(tool => too
       }
       case 'web_search': {
         if (typeof args.query !== 'string' || !args.query.trim() || args.query.length > 500) throw new Error('Expected a search query of 1-500 characters')
-        if (!options.search && !(await getBraveApiKey())) return { success: false, error: 'Add a Brave Search API key to Hadron Settings. No other app credentials were used.' }
-        const result = await (options.search ?? braveSearch)(args.query, { count: 5 }, signal)
+        let search=options.search
+        if(!search){
+          let configured=Boolean(process.env.BRAVE_API_KEY)
+          if(providerSearch){try{configured ||= await hasBraveApiKey()}catch{/* An unavailable optional vault must not block provider search. */}}
+          search=providerSearch&&!configured?providerSearch:braveSearch
+        }
+        const result = await search(args.query, { count: 5 }, signal)
         signal.throwIfAborted()
-        return result.success ? { success: true, query: args.query, results: result.results?.slice(0, 5).map(item => ({ title: item.title.slice(0, 250), url: item.url.slice(0, 4096), description: item.description.slice(0, 1200) })), fetchedAt: new Date().toISOString(), untrustedContent: true }
-          : { success: false, error: 'Hadron web search is unavailable. Check its API key and connection.' }
+        return result.success ? { success: true, query: args.query, provider: result.provider ?? 'Brave', ...(result.summary?{summary:result.summary.slice(0,6000),notice:'Provider-written search summary; inspect linked pages when needed.'}:{}), results: result.results?.slice(0, 5).map(item => ({ title: item.title.slice(0, 250), url: item.url.slice(0, 4096), description: item.description.slice(0, 1200) })), fetchedAt: new Date().toISOString(), untrustedContent: true }
+          : { success: false, ...(result.code?{code:result.code}:{}), error: result.code ? result.error : 'Hadron web search is unavailable. Check its API key and connection.' }
       }
       case 'tool_list': return [...enabled.values()].filter(tool => library.read(options.owner, tool.definition.name, tool.hash).enabled).map(tool => ({ ...tool.definition, hash: tool.hash }))
       case 'tool_create': {
@@ -106,19 +112,22 @@ Enabled tool definitions: ${JSON.stringify([...enabled.values()].map(tool => too
     // Durable intent before execution. Never save argument values, credentials, source text or web bodies.
     try {
       fs.appendFileSync(journal, JSON.stringify({ time: new Date().toISOString(), tool: name.slice(0, 80), state: 'started' }) + '\n', { flush: true, mode: 0o600 })
+      options.activity?.(name,'started')
       const result = await perform(name, args, signal)
       signal.throwIfAborted()
       if (JSON.stringify(result).length > 20000) throw new Error('Tool output exceeds limit')
       const failed = !!result && typeof result === 'object' && (result as {success?: boolean}).success === false
       if (!failed) options.onEvidence?.(name, result)
       fs.appendFileSync(journal, JSON.stringify({ time: new Date().toISOString(), tool: name.slice(0, 80), state: failed ? 'failed' : 'completed' }) + '\n', { flush: true, mode: 0o600 })
+      options.activity?.(name,failed?'failed':'completed')
       return result
     } catch (error) {
       fs.appendFileSync(journal, JSON.stringify({ time: new Date().toISOString(), tool: name.slice(0, 80), state: signal.aborted ? 'cancelled' : 'failed' }) + '\n', { flush: true, mode: 0o600 })
+      options.activity?.(name,signal.aborted?'cancelled':'failed')
       throw error
     }
   }
-  return admitHadronToolSession({ instructions, requireEvidenceAttempt: options.verification, evidenceAttempted: () => evidenceAttempted, async invoke(name, args, signal) {
+  return admitHadronToolSession({ instructions, bindWebSearch(search){providerSearch=search}, requireEvidenceAttempt: options.verification, evidenceAttempted: () => evidenceAttempted, async invoke(name, args, signal) {
     if (busy) throw new Error('Overlapping tool operations are unavailable')
     busy = true
     try { return await execute(name, args, signal) } finally { busy = false }

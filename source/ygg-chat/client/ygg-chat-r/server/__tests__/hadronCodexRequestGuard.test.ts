@@ -15,11 +15,11 @@ afterEach(() => { for (const close of cleanups.splice(0)) close() })
 const frame = (event: unknown) => 'data: ' + JSON.stringify(event) + '\n\n'
 const delta = { type: 'response.output_text.delta', delta: '12' }
 const completed = { type: 'response.completed', response: { status: 'completed', output: [{ type: 'message', content: [{ type: 'output_text', text: '12' }] }] } }
-async function fixture(events: unknown[] = [delta, completed]) {
+async function fixture(events: unknown[] = [delta, completed],webSearch=false) {
   const forward = vi.fn(async () => new Response(events.map(frame).join(''), { headers: { 'content-type': 'text/event-stream' } }))
   const progress=vi.fn(),violation = vi.fn(), controller = new AbortController()
   const guard = await startCodexRequestGuard({ model: 'fixture-model', instructions: 'Trusted role', messages: [{ role: 'user', content: 'Trusted task' }],
-    signal: controller.signal, onViolation: violation,onProgress:progress, fetch: forward as typeof fetch })
+    signal: controller.signal, onViolation: violation,onProgress:progress, fetch: forward as typeof fetch,webSearch })
   cleanups.push(guard.close)
   const send = (override: Record<string, unknown> = {}, endpoint = '/backend-api/codex/responses') => fetch(guard.baseUrl + endpoint, {
     method: 'POST', headers: { Authorization: 'Bearer fixture-private-token', 'Content-Type': 'application/json' },
@@ -88,4 +88,29 @@ it('reports validated upstream activity even before visible answer text',async()
  await(await f.send()).text()
  expect(f.progress).toHaveBeenCalledTimes(3)
  expect(f.guard.result().completed).toBe(true)
+})
+
+it('permits only provider-hosted search in a dedicated search run and keeps confirmed source receipts',async()=>{
+ const search={type:'web_search_call',id:'search-1',status:'completed',action:{type:'search',query:'public query',sources:[{type:'url',url:'https://example.com/'}]}}
+ const f=await fixture([{type:'response.web_search_call.searching',item_id:'search-1'},{type:'response.completed',response:{status:'completed',output:[search,...completed.response.output]}}],true)
+ await(await f.send()).text()
+ expect(f.guard.result()).toMatchObject({completed:true,webSearchCalls:1})
+ const body=JSON.parse(String((f.forward.mock.calls[0] as unknown as [string,RequestInit])[1].body))
+ expect(body.tools).toEqual([{type:'web_search',external_web_access:true}]);expect(body.tool_choice).toBe('required')
+ expect(JSON.stringify(f.guard.result().webSources)).toContain('https://example.com/')
+})
+it('cannot claim a search completed without a native search receipt, or invoke local tools in search mode',async()=>{
+ for(const events of [[completed],[{type:'response.output_item.added',item:{type:'function_call',name:'shell'}}]]){
+  const f=await fixture(events,true)
+  await f.send().then(response=>response.text()).catch(()=>{})
+  expect(f.guard.result().completed).toBe(false);expect(f.violation).toHaveBeenCalledOnce()
+ }
+})
+
+it('retains a completed streamed search receipt when the terminal output contains only the answer',async()=>{
+ const item={type:'web_search_call',id:'search-streamed',status:'completed',action:{type:'search',sources:[{url:'https://example.com/'}]}}
+ const f=await fixture([{type:'response.output_item.done',item},completed],true)
+ await(await f.send()).text()
+ expect(f.guard.result()).toMatchObject({completed:true,webSearchCalls:1})
+ expect(JSON.stringify(f.guard.result().webSources)).toContain('example.com')
 })

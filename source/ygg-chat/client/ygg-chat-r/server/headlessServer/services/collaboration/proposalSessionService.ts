@@ -30,6 +30,8 @@ export interface ProposalSessionDeps {
   verificationActivity?(owner: string, input: ProposalSessionInput): Array<{ time: string; tool: string; state: string }>
   projectSession?(owner:string,input:ProposalSessionInput,stage:string,authorize:()=>void):import('../../../hadronTools/types.js').HadronToolSession
   projectActivity?(owner:string,input:ProposalSessionInput):Array<{time:string;tool:string;state:string}>
+  researchSession?(owner:string,input:ProposalSessionInput,stage:string,authorize:()=>void):import('../../../hadronTools/types.js').HadronToolSession
+  researchActivity?(owner:string,input:ProposalSessionInput):Array<{time:string;tool:string;state:string}>
   journal?: AgentJobJournal
   visibleProgress?(streamId: string): { text: string; truncated: boolean } | undefined
 }
@@ -56,7 +58,7 @@ export class ProposalSessionService {
       const progress = participant.stream_id ? this.deps.visibleProgress?.(participant.stream_id) : undefined
       this.deps.journal.checkpoint({ ownerId, jobId: sessionId, participantId: participant.participant_id, task: config.task, context: config.continuationSnapshot?.context ?? config.context,
         provider: selection.provider, modelName: selection.modelName, status: `${row.status} / ${run?.status ?? participant.status}`,
-        revision: row.revision, runId: participant.run_id,...(config.projectGrantId?{toolMode:'project' as const}:{}), text: run?.final_response || (progress?.text ? `${progress.truncated ? '[Retained stream excerpt; earlier text may be missing.]\n' : ''}${progress.text}` : '') })
+        revision: row.revision, runId: participant.run_id,...(config.projectGrantId?{toolMode:config.projectMode==='agent'&&participant.participant_id==='a'?'agent' as const:'project' as const}:this.deps.researchSession?{toolMode:'web' as const}:{}), text: run?.final_response || (progress?.text ? `${progress.truncated ? '[Retained stream excerpt; earlier text may be missing.]\n' : ''}${progress.text}` : '') })
     }
     const workflow = this.deps.sessions.workflow(sessionId, ownerId)
     if (workflow) for (const stage of this.deps.sessions.workflowRuns(sessionId, ownerId)) {
@@ -65,7 +67,7 @@ export class ProposalSessionService {
       this.deps.journal.checkpoint({ ownerId, jobId: sessionId, participantId: stage.stage_id,
         task: config.task, context: config.continuationSnapshot?.context ?? config.context, provider: config.participants.find((p:any)=>p.id===stage.participant_id)?.provider ?? 'openaichatgpt', modelName: stage.model_name,
         status: `${workflow.status} / ${stage.stage_id} / ${run?.status ?? 'reserved'}`,
-        revision: row.revision + workflow.revision, runId: stage.run_id, ...(stage.stage_id === 'verification' ? { toolMode: 'web' as const } : {}), text: run?.final_response || progress?.text || '' })
+        revision: row.revision + workflow.revision, runId: stage.run_id, ...(stage.stage_id === 'verification' ? { toolMode: 'web' as const } : stage.stage_id.startsWith('review_') ? config.projectGrantId?{toolMode:'project' as const}:this.deps.researchSession?{toolMode:'web' as const}:{} : {}), text: run?.final_response || progress?.text || '' })
     }
   }
   journal(ownerId: string, sessionId: string, participantId: string) {
@@ -159,7 +161,8 @@ export class ProposalSessionService {
       ...(workflow ? { collaboration: { phase: workflow.phase === 'reviews' && this.deps.sessions.workflowRuns(sessionId, ownerId).some(stage => stage.stage_id === 'verification' && stage.run_id) ? 'verification' as const : workflow.phase, maxRequests: input.workflow === 'review_verify_and_synthesis' ? 13 as const : 5 as const,
         researchLimited:[...participants.map(item=>item.run_id),...this.deps.sessions.workflowRuns(sessionId,ownerId).map(item=>item.run_id)].some(id=>id&&this.deps.runs.getRunById(id)?.final_response?.startsWith('### Partial research — limit reached')),
         ...(input.projectGrantId?{folderAccess:true,folderActivity:(this.deps.projectActivity?.(ownerId,input)??[]).slice(-200)}:{}),
-        ...(input.workflow === 'review_verify_and_synthesis' ? { evidence: this.deps.sessions.verificationEvidence(sessionId, ownerId), toolActivity: this.deps.verificationActivity?.(ownerId, input) ?? [] } : {}),
+        toolActivity: [...(this.deps.researchActivity?.(ownerId,input)??[]), ...(input.workflow === 'review_verify_and_synthesis' ? this.deps.verificationActivity?.(ownerId,input)??[] : [])].slice(-200),
+        ...(input.workflow === 'review_verify_and_synthesis' ? { evidence: this.deps.sessions.verificationEvidence(sessionId, ownerId) } : {}),
         stages: this.deps.sessions.workflowRuns(sessionId, ownerId).map(stage => {
           const run = stage.run_id ? this.deps.runs.getRunById(stage.run_id) : null
           const text = run?.final_response ?? (stage.stream_id ? this.deps.visibleProgress?.(stage.stream_id)?.text : '') ?? ''
@@ -242,7 +245,10 @@ export class ProposalSessionService {
       () => this.checkpoint(ownerId, input.sessionId), checkDeadline) : undefined
     const spike = new ProposalSpike({ agents: this.deps.agents, providerUserId: ownerId,
       implementerId:input.projectMode==='agent'?'a':undefined,
-      ...(input.projectGrantId?{toolSession:(participantId:string)=>this.deps.projectSession!(ownerId,executionInput,'proposal_'+participantId,()=>{checkDeadline();this.deps.sessions.assertRunning(input.sessionId,ownerId);this.authorize(ownerId,input)})}:{}),
+      toolSession:(participantId:string)=>{
+        const authorize=()=>{checkDeadline();this.deps.sessions.assertRunning(input.sessionId,ownerId);this.authorize(ownerId,input)}
+        return input.projectGrantId ? this.deps.projectSession!(ownerId,executionInput,'proposal_'+participantId,authorize) : this.deps.researchSession?.(ownerId,executionInput,'proposal_'+participantId,authorize)
+      },
       validateAnchor: () => { this.deps.sessions.assertRunning(input.sessionId, ownerId); validateAnchor() },
       onPrepared: (participantId, child) => {
         checkDeadline()

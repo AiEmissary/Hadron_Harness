@@ -1,4 +1,5 @@
 import {ProviderAllowance} from './ProviderAllowance'
+import {WebToolStatus} from './WebToolStatus'
 import {useEffect,useRef,type ReactNode} from 'react'
 import type {ParticipantOption} from '../../features/collaboration/setup'
 import type {WorkspaceAgent,WorkspaceChat,WorkspaceModel,WorkspacePermission,WorkspaceWorkType} from '../../features/collaboration/unifiedWorkspace'
@@ -30,7 +31,8 @@ export function WorkspaceMenu({open,chat,providers,connections,onClose,onAgent,o
    <button type='button' aria-pressed={chat.permission==='chat'} disabled={busy} onClick={()=>onConfigure({permission:'chat'})}>Chat</button>
    <button type='button' aria-pressed={chat.permission==='agent'} disabled={busy||chat.workType==='continuous'} onClick={()=>onConfigure({permission:'agent'})}>Agent</button>
   </div>
-  <p className='hadron-v2-hint'>{chat.permission==='chat'?'Chat and read files.':'Read, change files and run project work in your chosen folder.'}</p>
+  <p className='hadron-v2-hint'>{chat.permission==='chat'?'Chat, search online and read public pages or attached files.':'Search online, read public pages, change files and run project work in your chosen folder.'}</p>
+  <WebToolStatus/>
   {chat.workType==='continuous'&&<section aria-label='Conversation turn limit' className='hadron-v2-turn-limit'><label>Conversation turns<input aria-label='Conversation turns' type='number' min={1} max={100} value={chat.maxTurns} disabled={busy} onChange={event=>{const maxTurns=Number(event.target.value);if(Number.isInteger(maxTurns)&&maxTurns>=1&&maxTurns<=100)onConfigure({maxTurns})}}/></label><p className='hadron-v2-hint'>Stops when both agents agree on a conclusion, or at your turn limit (up to 100).</p></section>}
   {(chat.workType==='individual'?[chat.agent]:['a','b'] as const).map(agent=><fieldset key={agent} disabled={busy}>
    <legend>Agent {agent.toUpperCase()}</legend>

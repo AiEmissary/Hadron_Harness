@@ -15,6 +15,7 @@ it('uses print streaming input to send JPEG bytes through the existing Claude ac
  expect(JSON.parse(options.input).message.content[1].source.data).toBe(fixtureImage.dataUrl.slice(23))
 })
 import {readFileSync,existsSync} from 'node:fs'
+import {claudeWebSearchResult} from '../../../hadronTools/providerWebSearch.js'
 import { ClaudeCodeRuntime, claudeConversationText, claudeNativePackage, claudeRuntimeEnvironment,claudeTextResult,claudeStructuredResult,claudeNeedsSignIn,CLAUDE_SIGN_IN_REQUIRED,claudeFailureDetails,claudeFailureCategory } from '../claudeCodeRuntime.js'
 
 it('identifies provider rejections even when the terminal subtype says success and retains no raw account text',()=>{
@@ -336,4 +337,23 @@ it('accepts a coding operation larger than the old 12 KB cap while enforcing the
  expect(JSON.parse(claudeStructuredResult(raw.map(line=>JSON.stringify(line)).join('\n'))).arguments.content).toBe(value.arguments.content)
  value.arguments.content='x'.repeat(131072)
  expect(()=>claudeStructuredResult(raw.map(line=>JSON.stringify(line)).join('\n'))).toThrow('exceeded limit')
+})
+
+it('uses the existing Claude login with only WebSearch for provider-backed research',async()=>{
+ const runtime=new ClaudeCodeRuntime({runtimeDirectory:os.tmpdir(),profileDirectory:path.join(os.tmpdir(),'hadron-search-fixture'),platform:'win32',nativeHostDirectory:os.tmpdir()})
+ vi.spyOn(runtime,'status').mockResolvedValue({installed:true,version:'2.1.318',connected:true,reason:'ready'});await runtime.models()
+ const output=[
+  {type:'system',subtype:'init',tools:['WebSearch'],mcp_servers:[]},
+  {type:'assistant',message:{content:[{type:'tool_use',id:'search',name:'WebSearch',input:{query:'public query'}}]}},
+  {type:'user',message:{content:[{type:'tool_result',tool_use_id:'search',content:'https://example.com/'}]}},
+  {type:'result',subtype:'success',is_error:false,num_turns:2,permission_denials:[],result:'Found a source.'}
+ ].map(frame=>JSON.stringify(frame)).join('\n')
+ const capture=vi.spyOn(runtime as any,'capture').mockResolvedValue({code:0,stdout:output})
+ const result=await(runtime as any).generateText({modelName:'haiku',requestPolicy:'single_attempt',history:[],userContent:'public query'},undefined,false,true)
+ expect(result.content).toBe('Found a source.');expect(claudeWebSearchResult(output).sources).toHaveLength(1)
+ const args=capture.mock.calls[0][0] as string[]
+ expect(args[args.indexOf('--tools')+1]).toBe('WebSearch')
+ expect(args[args.indexOf('--allowedTools')+1]).toBe('WebSearch')
+ expect(args).toContain('--print');expect(args).toContain('--strict-mcp-config')
+ expect(args).not.toContain('--json-schema');expect(args).not.toContain('Read');expect(args).not.toContain('Bash')
 })

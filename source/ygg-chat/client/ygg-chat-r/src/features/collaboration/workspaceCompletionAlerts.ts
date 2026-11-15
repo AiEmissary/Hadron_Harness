@@ -24,7 +24,7 @@ export function watchWorkspaceCompletions(session:WorkspaceSession,notify:(input
  const armed=new Map<string,string>(),announced=new Set<string>()
  return session.subscribe(()=>{
   for(const chat of Object.values(session.getSnapshot().state.chats)){
-   if((chat.jobState==='running'||chat.jobState==='stopping')&&chat.jobId)armed.set(chat.id,chat.jobId)
+   if((chat.jobState==='running'||chat.jobState==='stopping')&&chat.jobId&&session.startedHere(chat.id,chat.jobId))armed.set(chat.id,chat.jobId)
    if(chat.jobState!=='idle')continue
    const id=armed.get(chat.id);if(!id)continue;armed.delete(chat.id)
    const message=chat.messages.findLast(item=>item.role==='assistant')

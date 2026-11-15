@@ -12,7 +12,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-function fixture(verify = false,largeImage=false) {
+function fixture(verify = false,largeImage=false,research=false) {
   const pending: Array<(text: string) => void> = [], failures:Array<(error:Error)=>void>=[], packets: any[] = []
   const generate = vi.fn(async (_provider: string, request: any) => new Promise((resolve, reject) => {
     packets.push(request)
@@ -30,6 +30,7 @@ function fixture(verify = false,largeImage=false) {
   const authorize = vi.fn((owner: string) => { if (owner !== 'owner') throw new Error('Access denied') })
   const deps = { ...f, sessions, allowedModels: new Set(['a-model', 'b-model']), authorize,
     authorizeConversation: authorize,
+    ...(research?{researchSession:(owner:string,input:any,_stage:string,authorize:()=>void)=>createHadronToolSession({root:directory,owner,job:input.sessionId+':web',mode:'web',authorize,read:async url=>({url:String(url),contentType:'text/html',body:'<title>Official source</title>'})})}:{}),
     ...(verify ? { verificationSession: (owner: string, input: any, onEvidence: (tool: string, result: unknown) => void, authorize: () => void, onCheckAttempt: () => void) => createHadronToolSession({ root: directory, owner, job: input.sessionId + ':verification', mode: 'web', verification: true, onEvidence, authorize, onCheckAttempt,
       read: async (url, signal) => { signal.throwIfAborted(); return {url, body: '<title>Official evidence</title><p>The value is 42.</p>', contentType: 'text/html'} } }) } : {}),
     journal: new AgentJobJournal(directory) }
@@ -288,4 +289,20 @@ it('names a failed review and retains the completed peer review without retrying
   expect(status.collaboration!.stages.find(stage=>stage.id==='review_b')?.text).toContain('B completed review')
   expect(f.generate).toHaveBeenCalledTimes(4)
  }finally{f.service.stop('owner','full');await work;f.cleanup()}
+})
+
+it('attaches research to both proposals and reviews without a folder and leaves synthesis on recorded evidence',async()=>{
+ const f=fixture(false,false,true),result=observe(f.service.start('owner',f.input))
+ try{
+  await count(f,2)
+  for(const packet of f.packets){
+   expect(isHadronToolSession(packet.hadronToolSession)).toBe(true)
+   expect(await packet.hadronToolSession.invoke('web_read',{url:'https://example.com'},new AbortController().signal)).toMatchObject({title:'Official source'})
+  }
+  f.pending[0]('A finding');f.pending[1]('B finding');await count(f,4)
+  expect(f.packets.slice(2).every(packet=>isHadronToolSession(packet.hadronToolSession))).toBe(true)
+  f.pending[2]('Review A');f.pending[3]('Review B');await count(f,5)
+  expect(f.packets[4].hadronToolSession).toBeUndefined()
+  f.pending[4]('Combined sourced answer');expect((await result).error).toBeNull()
+ }finally{f.service.stop('owner','full');await result;f.cleanup()}
 })

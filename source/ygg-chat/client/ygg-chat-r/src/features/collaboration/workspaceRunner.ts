@@ -95,6 +95,8 @@ export class WorkspaceRunner {
   try{await run.handle.stop()}catch{this.deps.error(chatId,'Stop could not be confirmed. Checking the existing task.');try{await run.handle.recover()}catch{ /* Retain task identity. */ }}
  }
  async recover(chatId:string):Promise<void>{await this.runs.get(chatId)?.handle.recover()}
+ /** Ephemeral launch provenance: recovered/archive job IDs never enter this map. */
+ startedHere(chatId:string,id:string){return !this.disposed&&this.runs.get(chatId)?.request.id===id}
  /** Unmounting the viewer never stops work or starts an additional request. */
  dispose(){this.disposed=true;for(const run of this.runs.values())run.handle.dispose();this.runs.clear()}
 }

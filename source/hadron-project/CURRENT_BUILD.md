@@ -1,3 +1,13 @@
+# Online research correction — 15 November 2026
+
+The local source build now exposes provider-backed web search and public-page reads in individual Chat/Agent, Work together and Continuous conversation, with or without an attached folder. Claude Haiku and ChatGPT GPT-6.1-Sol passed real no-extra-key search probes. Brave remains an optional configured alternative. The setup pop-up, settings and help explain tool availability. See WEB_ACCESS.md for scope and evidence.
+
+This is a local test-build change. The 6.0.5 installer has not been rebuilt or replaced, and the web correction has been opened through the desktop shortcut. A subsequent restored-task notification correction is prepared for the next restart. Save any unsent message, close Hadron, then use Test Hadron.cmd in the workspace for acceptance. Model/account restrictions still apply; interactive signed-in browser actions are not included.
+
+Historical checkpoints follow.
+
+---
+
 # Hadron Harness Release 5.0 — 12 November 2026
 
 The Windows x64 installer is ready on the desktop: `Hadron-Harness-5.0.0-win-x64.exe` (354 MiB). Copy this file to the USB stick for the other Windows computer. This is the installer, not the development folder. Close Hadron before installing. The app identity and saved-data location are retained for upgrades; uninstall is configured to preserve app data. This release is unsigned.

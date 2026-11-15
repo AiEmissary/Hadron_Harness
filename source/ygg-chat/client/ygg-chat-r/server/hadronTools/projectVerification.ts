@@ -5,6 +5,7 @@ export function withProjectVerification(web:HadronToolSession,folder:HadronToolS
   onEvidence:(tool:string,result:unknown)=>void,onAttempt:()=>void):HadronToolSession{
  let folderAttempted=false
  return admitHadronToolSession({
+  bindWebSearch:web.bindWebSearch,
   maxRequests:8,requireEvidenceAttempt:true,
   evidenceAttempted:()=>folderAttempted||!!web.evidenceAttempted?.(),
   evidenceInstruction:'Use project_search/project_read for a claim about the selected folder, or web_read/web_search for a public claim, through the supplied JSON host protocol. Native CLI tools remain disabled; the named host tools work. Do not send private folder text to web tools. Attempt a relevant operation before the final report.',

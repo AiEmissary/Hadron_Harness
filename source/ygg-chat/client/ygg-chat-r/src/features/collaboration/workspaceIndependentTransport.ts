@@ -44,7 +44,7 @@ export function individualWorkspaceTransport(deps:{client:Client;workspaceId:str
      if(stoppedBeforeLaunch){void deps.releaseAgent?.(agentId);return}
     }
     launch=controller.submit({task:request.question.text,context,...model,...(request.images?.length?{images:request.images}:{}),
-     ...(request.folder?{toolMode:request.permission==='agent'?'agent':'project',projectGrantId:agentId??request.folder.id}:{}),
+     ...(request.folder?{toolMode:request.permission==='agent'?'agent':'project',projectGrantId:agentId??request.folder.id}:{toolMode:'web'}),
     },nativeParent)
     const accepted=await launch
     if(checkpointError){controller.dispose();store.clear();if(agentId)void deps.releaseAgent?.(agentId);changed({text:'The task was not sent because its saved checkpoint failed.',state:'failed',error:checkpointError instanceof Error?checkpointError.message:'Save failed'});return}

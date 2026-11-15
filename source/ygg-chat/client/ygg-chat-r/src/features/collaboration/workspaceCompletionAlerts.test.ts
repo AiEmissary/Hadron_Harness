@@ -6,10 +6,12 @@ import {watchWorkspaceCompletions,notifyWorkspaceCompletion,saveCompletionAlertM
 const sessions:WorkspaceSession[]=[]
 afterEach(()=>{sessions.forEach(session=>session.dispose());sessions.length=0;vi.unstubAllGlobals()})
 function fixture(){
- const session=new WorkspaceSession('project','chat',{create:()=>{throw Error('No inference in alert tests')}});sessions.push(session)
+ let changed!:(event:import('./workspaceRunner').WorkspaceRunEvent)=>void,index=0
+ const initial=blankWorkspaceChat('project','chat');initial.models={a:{provider:'openaichatgpt',modelName:'fixture-a'},b:{provider:'claudecode',modelName:'fixture-b'}}
+ const session=new WorkspaceSession('project','chat',{create:(_request,callback)=>{changed=callback;return{start:async()=>{},stop:async()=>changed({text:'Stopped',state:'stopped'}),recover:async()=>{},dispose:()=>{}}}},()=>++index===1?'job':`node-${index}`,initial);sessions.push(session)
  const notify=vi.fn();watchWorkspaceCompletions(session,notify)
- const start=()=>session.dispatch({type:'job',chatId:'chat',id:'job',state:'running'})
- const finish=(state:'completed'|'failed'|'stopped'='completed')=>{session.dispatch({type:'message',chatId:'chat',message:{id:'answer',parentId:null,role:'assistant',agent:'a',text:'Result',state}});session.dispatch({type:'job',chatId:'chat',id:'job',state:'idle'})}
+ const start=()=>{session.dispatch({type:'draft',chatId:'chat',text:'Question'});void session.send()}
+ const finish=(state:'completed'|'failed'|'stopped'='completed')=>changed({text:'Result',state})
  return{session,notify,start,finish}
 }
 it('announces a newly finished reply once and keeps working shared stages quiet',()=>{
@@ -66,4 +68,32 @@ it('keeps voice notifications silent rather than selecting a ping when speech is
  vi.stubGlobal('speechSynthesis',undefined);vi.stubGlobal('SpeechSynthesisUtterance',undefined)
  await notifyWorkspaceCompletion(f.input)
  expect(f.notify).toHaveBeenCalledWith(f.input,'voice');expect(f.ping).not.toHaveBeenCalled()
+})
+
+it('does not announce archived running jobs as recovery loads their saved completed answers',()=>{
+ const f=fixture()
+ for(let n=0;n<12;n++){
+  const id='old-chat-'+n,job='old-job-'+n,chat=blankWorkspaceChat('project',id)
+  chat.jobId=job;chat.jobState='unknown'
+  chat.messages=[{id:'old-answer-'+n,parentId:null,role:'assistant',text:'Saved answer',state:'running'}]
+  f.session.open(chat)
+  // Recovery can report Running before it has finished reading a terminal transcript.
+  f.session.dispatch({type:'job',chatId:id,id:job,state:'running'})
+  f.session.dispatch({type:'message',chatId:id,message:{...chat.messages[0],state:'completed'}})
+  f.session.dispatch({type:'job',chatId:id,id:job,state:'idle'})
+ }
+ expect(f.notify).not.toHaveBeenCalled()
+ f.session.dispatch({type:'select-chat',id:'chat'});f.start();f.finish()
+ expect(f.notify).toHaveBeenCalledTimes(1)
+})
+it('does not announce an old running chat already present when the watcher attaches',()=>{
+ const initial=blankWorkspaceChat('project','saved')
+ initial.jobId='saved-job';initial.jobState='running';initial.messages=[{id:'saved-answer',parentId:null,role:'assistant',text:'Saved answer',state:'completed'}]
+ const create=vi.fn(()=>{throw Error('Restoration cannot send a request')})
+ const session=new WorkspaceSession('project','saved',{create},undefined,initial);sessions.push(session)
+ const notify=vi.fn();watchWorkspaceCompletions(session,notify)
+ session.dispatch({type:'draft',chatId:'saved',text:'My unsent question'})
+ session.dispatch({type:'job',chatId:'saved',id:'saved-job',state:'idle'})
+ expect(notify).not.toHaveBeenCalled();expect(create).not.toHaveBeenCalled()
+ expect(session.getSnapshot().state.chats.saved.draft).toBe('My unsent question')
 })

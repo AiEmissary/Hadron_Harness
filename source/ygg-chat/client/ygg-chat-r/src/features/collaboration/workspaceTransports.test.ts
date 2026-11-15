@@ -18,7 +18,7 @@ it('can send a drawing-heavy GPT conversation to Claude without a manual excerpt
  const handle=individualWorkspaceTransport({client,workspaceId:'workspace',store:()=>({read:()=>saved,write:value=>{saved=value},clear:()=>{saved=null}}),pollMs:100000}).create(input,()=>{});handles.push(handle)
  await handle.start()
  expect(client.start).toHaveBeenCalledTimes(1)
- expect(client.start.mock.calls[0][0]).toMatchObject({provider:'claudecode',task:input.question.text,images:[fixtureImage]})
+ expect(client.start.mock.calls[0][0]).toMatchObject({provider:'claudecode',toolMode:'web',task:input.question.text,images:[fixtureImage]})
  expect(client.start.mock.calls[0][0].context.length).toBeLessThanOrEqual(16000)
  expect(input.path[0].text.length).toBeGreaterThan(30000)
 })

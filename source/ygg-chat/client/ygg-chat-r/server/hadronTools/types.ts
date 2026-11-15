@@ -3,6 +3,8 @@ import {containsRawToolInvocation} from '../../../../shared/toolOutput.js'
 import {boundedToolReceipt,compactToolTranscript,isOversizedContextError,toolContextBudget,toolContextTokens,type ToolTranscriptEntry} from './toolContext.js'
 /** A capability supplied only by trusted in-process Hadron admission, never a request field. */
 export interface HadronToolSession {
+  /** Trusted runtime supplies its own subscription-backed search, never model/request data. */
+  bindWebSearch?(search: typeof import('../tools/braveSearch.js').braveSearch): void
   /** Set only by native Agent-mode admission; ordinary read/review sessions retain their existing budget. */
   execution?:'agent'
   acceptStructuredAnswer?:boolean

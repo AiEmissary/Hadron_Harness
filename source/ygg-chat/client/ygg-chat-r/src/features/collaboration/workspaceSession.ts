@@ -18,6 +18,7 @@ export class WorkspaceSession {
   this.runner=new WorkspaceRunner({getState:()=>this.snapshot.state,dispatch:action=>this.dispatch(action),transport,id,error:(chatId,error)=>this.error(chatId,error)})
  }
  getSnapshot=()=>this.snapshot
+ startedHere(chatId:string,id:string){return this.runner.startedHere(chatId,id)}
  subscribe=(listener:()=>void)=>{this.listeners.add(listener);return()=>{this.listeners.delete(listener)}}
  private emit(){for(const listener of this.listeners)listener()}
  dispatch(action:UnifiedWorkspaceAction){

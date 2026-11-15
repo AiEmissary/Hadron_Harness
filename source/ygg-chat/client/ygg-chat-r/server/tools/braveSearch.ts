@@ -58,6 +58,9 @@ export async function braveSearch(
   success: boolean
   results?: BraveSearchResult[]
   error?: string
+  code?: 'not_configured' | 'invalid_key' | 'rate_limited' | 'service_unavailable'
+  provider?: string
+  summary?: string
   query: string
   total_results?: number
 }> {
@@ -66,7 +69,8 @@ export async function braveSearch(
   if (!apiKey) {
     return {
       success: false,
-      error: 'Brave Search API key is not configured. Add one in Settings → API Keys or set BRAVE_API_KEY for development.',
+      error: 'Brave Search needs an API key. Add your own in Settings → Agents and tools → Web search. Claude and ChatGPT sign-ins do not include this key.',
+      code: 'not_configured',
       query,
     }
   }
@@ -111,10 +115,11 @@ export async function braveSearch(
     })
 
     if (!response.ok) {
-      const errorText = await response.text()
+      await response.body?.cancel()
       return {
         success: false,
-        error: `Brave API error: ${response.status} ${response.statusText} - ${errorText}`,
+        error: response.status === 429 ? 'Brave Search reached its rate or usage limit. Try again later or check the Brave account allowance.' : [401,403].includes(response.status) ? 'Brave Search rejected its API key. Check the key and its search subscription in Settings → Agents and tools → Web search.' : 'Brave Search is temporarily unavailable. Try again later.',
+        code: response.status === 429 ? 'rate_limited' : [401,403].includes(response.status) ? 'invalid_key' : 'service_unavailable',
         query,
       }
     }
@@ -151,7 +156,8 @@ export async function braveSearch(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error occurred during search',
+      error: 'Brave Search could not connect. Check the internet connection and try again.',
+      code: 'service_unavailable',
       query,
     }
   }

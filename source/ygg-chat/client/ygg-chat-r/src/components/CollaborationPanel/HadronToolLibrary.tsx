@@ -34,8 +34,8 @@ export function HadronToolLibrary() {
   return <section aria-label='Hadron tool library' className='rounded-xl border p-3 space-y-3'>
     <button type='button' aria-expanded={open} disabled={busy} onClick={() => { setOpen(!open); if (!open) void act(refresh) }} className='px-3 py-2 text-sm'>Tool library</button>
     {open && <>
-      <p className='text-sm'>Choose Web research or Create and test tools in an agent’s setup. New tools remain disabled until you review and enable their exact version here.</p>
-      <p className='text-xs text-neutral-500'>Tools use isolated JavaScript with public web operations. They cannot access Node, your filesystem, personal browser cookies or other applications. Shared collaboration can use these tools during its optional verification stage.</p>
+      <p className='text-sm'>Built-in tools are included with Hadron: provider-backed web search, public-page reading, folder search and reading, and Agent-mode file editing and commands. No separate tools folder is needed. Search works through provider sign-in; a Brave key is optional in Web search settings. This list contains custom tools only.</p>
+      <p className='text-xs text-neutral-500'>Custom tools use isolated JavaScript with public web operations. Enabled tools are available to the chat’s agents alongside built-in research tools. They cannot access Node, your filesystem, personal browser cookies or other applications. New versions remain disabled until you review and enable them here.</p>
       {root && <p className='break-all text-xs'>Hadron folder: {root}</p>}
       <button type='button' disabled={busy} onClick={() => void act(refresh)} className='px-3 py-2 text-sm'>Refresh tools</button>
       <button type='button' disabled={busy} onClick={() => { setAdding(!adding); setError('') }} className='px-3 py-2 text-sm'>Add a tool</button>
