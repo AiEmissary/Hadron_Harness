@@ -1,6 +1,7 @@
 import {expect,it,vi} from 'vitest'
 import {admitHadronToolSession,withHadronToolDeadline,runHadronToolConversation,type HadronToolSession} from '../hadronTools/types.js'
 import {isOversizedContextError,toolContextBudget,toolContextTokens} from '../hadronTools/toolContext.js'
+import {CODEX_FAILURE_REASONS} from '../auth/hadronCodexRuntime.js'
 it('asks for a final report near the task deadline without repeating completed operations',async()=>{
  let now=1700000000000,calls=0;const clock=vi.spyOn(Date,'now').mockImplementation(()=>now)
  const session=admitHadronToolSession({execution:'agent' as const,maxRequests:100,instructions:'Inspect and report',deadlineAt:now+180000,invoke:vi.fn(async()=>({success:true,evidence:'Recorded fact'}))})
@@ -54,12 +55,12 @@ it('falls back to bounded receipts if a summary helper fails, without re-executi
  const answer=await runHadronToolConversation({session:{execution:'agent',maxRequests:20,instructions:'Inspect',invoke,condense:async()=>{throw Error('Helper allowance unavailable')}},contextLength:20000,task:'Investigate',signal:new AbortController().signal,generate:async()=>++calls<=10?JSON.stringify({tool:'project_read',arguments:{path:'file.ts'}}):JSON.stringify({answer:'Bounded report with limitations.'})})
  expect(answer).toContain('report');expect(invoke).toHaveBeenCalledTimes(10)
 })
-it('retries only an explicitly oversized generation with smaller context and never repeats the already completed edit',async()=>{
+it.each(['maximum context length exceeded',CODEX_FAILURE_REASONS.context_limit])('reduces an explicitly rejected context (%s) without repeating the completed edit',async message=>{
  let calls=0;const invoke=vi.fn(async()=>({success:true,path:'edited.ts',text:'observed output '.repeat(700)})),sizes:number[]=[]
  const answer=await runHadronToolConversation({session:{execution:'agent',maxRequests:5,instructions:'Finish the task',invoke},contextLength:200000,task:'Apply the requested change once.',signal:new AbortController().signal,generate:async packet=>{
   sizes.push(packet.length);calls++
   if(calls===1)return JSON.stringify({tool:'edit_file',arguments:{path:'edited.ts',oldText:'a',newText:'b'}})
-  if(calls===2)throw Object.assign(new Error('maximum context length exceeded'),{code:'context_length_exceeded'})
+  if(calls===2)throw new Error(message)
   return JSON.stringify({answer:'One edit completed; report based on its receipt.'})
  }})
  expect(answer).toContain('One edit');expect(invoke).toHaveBeenCalledTimes(1);expect(sizes[2]).toBeLessThan(sizes[1])
@@ -67,6 +68,8 @@ it('retries only an explicitly oversized generation with smaller context and nev
 it('does not treat quota or output-capacity failures as input context rejections',()=>{
  expect(isOversizedContextError(new Error('Usage limit reached'))).toBe(false)
  expect(isOversizedContextError(new Error('Claude returned more output than this request allows.'))).toBe(false)
+ expect(isOversizedContextError(new Error(CODEX_FAILURE_REASONS.provider_output_limit))).toBe(false)
+ expect(isOversizedContextError(new Error(CODEX_FAILURE_REASONS.stream_ended))).toBe(false)
  expect(isOversizedContextError({code:'context_length_exceeded'})).toBe(true)
 })
 it('records an incomplete outcome when the request cap is exhausted and the agent ignores final-report instructions',async()=>{

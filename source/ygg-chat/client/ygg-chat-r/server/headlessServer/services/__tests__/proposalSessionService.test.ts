@@ -10,6 +10,7 @@ import { AgentJobJournal } from '../collaboration/agentJobJournal.js'
 import { mkdtempSync, rmSync } from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
+import {CODEX_FAILURE_REASONS} from '../../../auth/hadronCodexRuntime.js'
 
 function fixture(proposalText = 'Committed proposal') {
   const pending: Array<() => void> = []
@@ -41,6 +42,16 @@ it('explains a saved historical host timeout in participant feedback without rep
   f.db.prepare('UPDATE subagent_runs SET created_at=?,updated_at=? WHERE id=?').run('2026-11-15T21:32:46.426Z','2026-11-15T21:37:46.514Z',failed.run_id)
   const before=f.generate.mock.calls.length,status=f.service.status('owner',f.input.sessionId)!
   expect(status.error).toContain('Hadron');expect(status.error).toContain('5 minutes');expect(status.error).not.toContain('The operation was aborted')
+  expect(f.generate).toHaveBeenCalledTimes(before)
+ }finally{f.service.stop('owner',f.input.sessionId);f.close()}
+})
+
+it.each(['stream_ended','invalid_stream','frame_limit','text_limit','context_limit','usage_limit','provider_output_limit','provider_failed','provider_incomplete','empty_answer','network'] as const)('keeps the specific ChatGPT %s reason in saved shared-task feedback',async reason=>{
+ const f=fixture();f.generate.mockRejectedValueOnce(new Error(CODEX_FAILURE_REASONS[reason]+' No automatic retry was made.'))
+ try{
+  expect((await observe(f.service.start('owner',f.input))).error).toBeTruthy()
+  const before=f.generate.mock.calls.length,status=f.service.status('owner',f.input.sessionId)!
+  expect(status.error).toContain(CODEX_FAILURE_REASONS[reason]);expect(status.error).toContain('no combined answer was produced')
   expect(f.generate).toHaveBeenCalledTimes(before)
  }finally{f.service.stop('owner',f.input.sessionId);f.close()}
 })

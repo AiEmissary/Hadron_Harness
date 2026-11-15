@@ -209,3 +209,57 @@ it.each(['timeout','output_limit'] as const)('reports the bounded %s failure and
  expect(JSON.stringify(diagnostic.mock.calls)).not.toContain('private provider detail')
  await runtime.shutdown()
 })
+
+function streamJobFixture(events:unknown[],exitCode=0){
+ const diagnostic=vi.fn(),forward=vi.fn(async()=>new Response(events.map(event=>'data: '+JSON.stringify(event)+'\n\n').join(''),{headers:{'content-type':'text/event-stream'}}))
+ const run=vi.fn(async(args:string[],options:any)=>{
+  if(args[0]==='--version')return{code:0,text:`codex-cli ${HADRON_CODEX_VERSION}`}
+  if(args[0]==='login')return{code:0,text:'Logged in using ChatGPT'}
+  expect(options.discardOutput).toBe(true)
+  const base=JSON.parse(args.find(arg=>arg.startsWith('chatgpt_base_url='))!.slice('chatgpt_base_url='.length))
+  try{
+   await(await fetch(base+'/backend-api/codex/responses',{method:'POST',headers:{Authorization:'Bearer fixture-private-token','Content-Type':'application/json'},body:JSON.stringify({model:'fixture-model',input:[]})})).text()
+   return{code:exitCode,text:''}
+  }catch{return{code:1,text:'private CLI failure detail',category:'cancelled'}}
+ })
+ const runtime=new HadronCodexRuntime({runtimeDirectory:profile,profileDirectory:profile,openBrowser:vi.fn(),run,fetch:forward as typeof fetch,onJobDiagnostic:diagnostic})
+ runtime.allowedModels.add('fixture-model')
+ return{runtime,run,forward,diagnostic,input:{requestPolicy:'single_attempt' as const,modelName:'fixture-model',history:[],userContent:'Synthetic task'}}
+}
+
+it('delivers a confirmed answer after a large reasoning stream through the real local guard',async()=>{
+ const f=streamJobFixture([...Array.from({length:1100},()=>({type:'response.reasoning_summary_text.delta',delta:'r'.repeat(2048)})),{type:'response.completed',response:{status:'completed',output:[{type:'message',content:[{type:'output_text',text:'Completed synthetic report.'}]}]}}])
+ try{
+  expect(await f.runtime.generate(f.input)).toEqual({content:'Completed synthetic report.'})
+  expect(f.diagnostic).toHaveBeenCalledOnce()
+  expect(f.diagnostic.mock.calls[0][0]).toMatchObject({exitCode:0,completed:true,category:'completed',lastEvent:'response.completed',outputChars:27})
+  expect(f.diagnostic.mock.calls[0][0].receivedBytes).toBeGreaterThan(2_000_000)
+  expect(JSON.stringify(f.diagnostic.mock.calls)).not.toContain('Completed synthetic report.')
+ }finally{await f.runtime.shutdown()}
+})
+
+it('does not turn a confirmed provider response into a successful job when the native worker fails',async()=>{
+ const f=streamJobFixture([{type:'response.completed',response:{status:'completed',output:[{type:'message',content:[{type:'output_text',text:'Synthetic answer'}]}]}}],1)
+ try{
+  await expect(f.runtime.generate(f.input)).rejects.toThrow(CODEX_FAILURE_REASONS.worker)
+  expect(f.diagnostic).toHaveBeenCalledOnce()
+  expect(f.diagnostic.mock.calls[0][0]).toMatchObject({category:'worker',exitCode:1,completed:false,providerCompleted:true})
+  expect(f.forward).toHaveBeenCalledOnce()
+ }finally{await f.runtime.shutdown()}
+})
+
+it.each([
+ ['stream_ended',[{type:'response.output_text.delta',delta:'private partial answer'}]],
+ ['context_limit',[{type:'response.failed',response:{error:{code:'context_length_exceeded',message:'private provider detail'}}}]],
+ ['usage_limit',[{type:'error',code:'rate_limit_exceeded',message:'private provider detail'}]],
+ ['provider_output_limit',[{type:'response.incomplete',response:{incomplete_details:{reason:'max_output_tokens'}}}]],
+] as const)('reports %s through the native job boundary, preserving exit facts and never retrying',async(category,events)=>{
+ const f=streamJobFixture([...events])
+ try{
+  await expect(f.runtime.generate(f.input)).rejects.toThrow(CODEX_FAILURE_REASONS[category])
+  expect(f.forward).toHaveBeenCalledOnce();expect(f.run.mock.calls.filter(([args])=>args[0]==='exec')).toHaveLength(1)
+  expect(f.diagnostic).toHaveBeenCalledOnce()
+  expect(f.diagnostic.mock.calls[0][0]).toMatchObject({exitCode:1,completed:false,category,failure:category,captureCategory:'cancelled',requests:1})
+  expect(JSON.stringify(f.diagnostic.mock.calls)).not.toMatch(/private|fixture-token|Synthetic task/)
+ }finally{await f.runtime.shutdown()}
+})

@@ -1,3 +1,13 @@
+# ChatGPT response-stream correction — 15 November 2026
+
+The latest saved task has a completed Claude proposal and an unconfirmed ChatGPT response after 138 seconds. The old diagnostic cannot prove its precise trigger. Local source removes a reproducible hidden 2 MB cumulative protocol-traffic cutoff, drains unused CLI logs without retaining them, handles confirmed completion promptly and reports specific failure reasons with private numeric/protocol diagnostics. Partial responses remain Not finished; interrupted coding requests are not replayed. See CHATGPT_RESPONSE_STREAMS.md for evidence and verification limits.
+
+Save/copy unsent text, close Hadron and reopen through the existing Desktop shortcut to load the local renderer and host. The original task and the user's open window were not touched. The previously delivered 6.0.6 installer is unchanged and does not include these later source corrections.
+
+Earlier checkpoints below are historical.
+
+---
+
 # Shared Claude task-deadline correction — 15 November 2026
 
 The reported failure was a five-minute Claude tool-runner cutoff inside an admitted ten-minute shared task. Claude was still completing reads/searches one second before cancellation; the other agent's answer was saved. No provider context, usage or sign-in rejection was recorded. Local source now propagates the coordinator deadline, requests a final report near expiry, fences late operations and explains host timeouts clearly. See SHARED_TOOL_DEADLINES.md for read-only evidence, 128 automated checks, build and isolated desktop validation.

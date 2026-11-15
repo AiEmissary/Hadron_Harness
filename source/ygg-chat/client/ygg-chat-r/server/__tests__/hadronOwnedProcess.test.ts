@@ -67,6 +67,21 @@ it('keeps JSON stdout separate from configuration warnings',async()=>{
  f.child.emit('close',0)
  expect(await result).toEqual({code:0,text:'{"answer":"ok"}\n',category:'configuration'})
 })
+it('drains unneeded CLI logs without retaining them or imposing a cumulative output cutoff',async()=>{
+ const f=fixture(),observer=vi.fn(),result=f.capture({jsonOutput:true,discardOutput:true,maxBytes:4,onText:observer})
+ for(let n=0;n<40;n++)f.child.stdout.emit('data',Buffer.alloc(65536,120))
+ f.child.stderr.emit('data',Buffer.from('invalid config private diagnostic'))
+ expect(f.child.kill).not.toHaveBeenCalled();expect(observer).not.toHaveBeenCalled()
+ f.child.emit('close',0)
+ expect(await result).toEqual({code:0,text:'',category:'configuration'})
+})
+it('still cancels and joins a process when CLI output is being discarded',async()=>{
+ const f=fixture(),controller=new AbortController();let settled=false
+ const result=f.capture({discardOutput:true,signal:controller.signal}).finally(()=>{settled=true})
+ f.child.stdout.emit('data',Buffer.from('private CLI detail'));controller.abort();await tick()
+ expect(f.child.kill).toHaveBeenCalledOnce();expect(settled).toBe(false)
+ f.child.emit('close',0);expect(await result).toEqual({code:null,text:'',category:'cancelled'})
+})
 it('joins a real local process after cancellation triggered by its output',async()=>{
  const controller=new AbortController(),child=spawn(process.execPath,['-e','process.stdout.write("ready");setInterval(()=>{},1000)'],{windowsHide:true,shell:false,stdio:'pipe'})
  let closed=false;child.once('close',()=>{closed=true})

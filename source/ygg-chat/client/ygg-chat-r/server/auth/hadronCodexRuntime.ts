@@ -3,7 +3,7 @@ import { spawn,type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { mkdirSync, readFileSync, realpathSync } from 'node:fs'
 import path from 'node:path'
 import { isHadronToolSession, runHadronToolConversation } from '../hadronTools/types.js'
-import { startCodexRequestGuard } from './hadronCodexRequestGuard.js'
+import { startCodexRequestGuard, type CodexGuardFailure } from './hadronCodexRequestGuard.js'
 import { captureOwnedProcess, type OwnedProcessCapture, type OwnedProcessCaptureOptions } from './hadronOwnedProcess.js'
 import {executionStartup} from '../hadronTools/executionStartup.js'
 import {providerSearchEvidence,providerSearchFailure} from '../hadronTools/providerWebSearch.js'
@@ -21,7 +21,28 @@ export const CODEX_FAILURE_REASONS = Object.freeze({
  output_limit:'ChatGPT returned more output than this request allows.',
  connection:'The ChatGPT connection changed during this request.',
  incomplete:'ChatGPT ended its response before a complete answer was received.',
+ stream_ended:'The ChatGPT response stream closed before its completion message arrived.',
+ invalid_stream:'Hadron could not read the ChatGPT response stream correctly.',
+ frame_limit:'A ChatGPT response frame exceeded Hadron’s processing limit.',
+ text_limit:'ChatGPT’s answer exceeded Hadron’s saved-answer limit.',
+ unsupported_tool:'ChatGPT returned a native tool operation that this connection does not allow.',
+ context_limit:'ChatGPT rejected this request because its context was too large.',
+ usage_limit:'ChatGPT reported a provider usage or rate limit.',
+ provider_output_limit:'ChatGPT reached the provider’s output-token limit before finishing.',
+ provider_failed:'ChatGPT reported a failed response.',
+ provider_incomplete:'ChatGPT reported an incomplete response.',
+ empty_answer:'ChatGPT completed its response without a final answer.',
+ network:'The ChatGPT network connection failed while receiving this response.',
+ request_policy:'Hadron could not admit or forward this ChatGPT request.',
+ worker:'Hadron’s ChatGPT worker exited before the request finished.',
+ configuration:'Hadron’s ChatGPT worker rejected its configuration.',
 })
+export interface HadronCodexJobDiagnostic {
+ exitCode:number|null;requests:number;completed:boolean;stage:string;category?:string
+ elapsedMs?:number;captureCategory?:string;failure?:CodexGuardFailure
+ receivedBytes?:number;eventCount?:number;lastEvent?:string;lastItem?:string;outputChars?:number
+ providerCompleted?:boolean
+}
 export const CODEX_DEVICE_URL = 'https://auth.openai.com/codex/device'
 export const CODEX_CONNECTION_PROMPT = 'Reply with exactly: Hadron connection OK. Do not use tools, inspect files, or perform any other action.'
 // This is a fixed connection check, not the general job execution policy.
@@ -76,7 +97,7 @@ export class HadronCodexRuntime {
   constructor(private readonly options: { runtimeDirectory: string; profileDirectory: string; nativeHostDirectory?:string;
     openBrowser(url: string): Promise<unknown>; onChanged?(): void;
     onTestDiagnostic?(value: { exitCode: number | null; completed: boolean; failed: boolean; answerLength: number; category: string }): void;
-    onJobDiagnostic?(value: { exitCode: number | null; requests: number; completed: boolean; stage: string; category?: string }): void;
+    onJobDiagnostic?(value: HadronCodexJobDiagnostic): void;
     fetch?: typeof fetch;
     run?(args: string[], options: RunOptions): Promise<Capture> }) {
     this.environment = hadronCodexEnvironment(options.profileDirectory)
@@ -352,7 +373,18 @@ export class HadronCodexRuntime {
     const deadline=AbortSignal.timeout(HADRON_CODEX_JOB_TIMEOUT_MS)
     const signal = AbortSignal.any([controller.signal, deadline, ...(input.signal ? [input.signal] : [])])
     let guard: Awaited<ReturnType<typeof startCodexRequestGuard>> | undefined
-    let captureCategory:string|undefined,lastProgress=0
+    let captureResult:Capture|undefined,lastProgress=0
+    const startedAt=Date.now()
+    const record=(category:string)=>{
+      const result=guard?.result()
+      // Whitelist numeric counters/protocol enums only; no prompts, responses,
+      // provider error bodies or CLI logs. Record once so exit facts survive.
+      try{this.options.onJobDiagnostic?.({exitCode:captureResult?.code??null,requests:result?.requests??0,
+        completed:category==='completed',providerCompleted:result?.completed??false,stage:result?.stage??'preparing',
+        category,captureCategory:captureResult?.category,elapsedMs:Date.now()-startedAt,failure:result?.failure,
+        receivedBytes:result?.receivedBytes,eventCount:result?.eventCount,lastEvent:result?.lastEvent,
+        lastItem:result?.lastItem,outputChars:result?.outputChars})}catch{}
+    }
     try {
       if (!(await this.status()).connected || epoch !== this.epoch) throw new Error('ChatGPT connection changed')
       guard = await startCodexRequestGuard({ model: input.modelName, instructions: input.systemPrompt ?? '', messages, images:input.images,
@@ -365,21 +397,20 @@ export class HadronCodexRuntime {
         '-c', 'features.responses_websockets=false', '-c', 'features.responses_websockets_v2=false',
         '-c', 'model_provider="hadron"', '-c', `model_providers.hadron={name="Hadron subscription",base_url=${JSON.stringify(guard.baseUrl + '/backend-api/codex')},wire_api="responses",requires_openai_auth=true,supports_websockets=false,request_max_retries=0,stream_max_retries=0}`,
         '-c', 'features.enable_request_compression=false', '-m', input.modelName, '-']
-      const result = await this.capture(args, { signal, timeout: HADRON_CODEX_JOB_TIMEOUT_MS, jsonOutput: true, maxBytes: 2_000_000, input: input.userContent })
-      captureCategory=result.category
+      const result = captureResult = await this.capture(args, { signal, timeout: HADRON_CODEX_JOB_TIMEOUT_MS, jsonOutput: true, discardOutput:true, input: input.userContent })
       const guarded = guard.result()
-      try { this.options.onJobDiagnostic?.({ exitCode: result.code, requests: guarded.requests, completed: guarded.completed, stage: guarded.stage, category: deadline.aborted?'timeout':result.category }) } catch {}
       signal.throwIfAborted()
       if (epoch !== this.epoch || result.code !== 0 || !guarded.completed || guarded.requests !== 1 || !guarded.text.trim()) throw new Error('Hadron job did not complete')
+      record('completed')
       return { content: guarded.text, ...(webSearch?{raw:{webSources:guarded.webSources}}:{}) }
     } catch {
       // Only an explicit upstream rejection is eligible for host-scheduled recovery.
       // Never expose response bodies, credentials or arbitrary provider error text.
       const rejected=guard?.result(),stage=rejected?.stage
-      if(webSearch&&stage?.startsWith('search_receipt_missing'))throw Error('ChatGPT did not execute web search with this model. Select a search-capable model and try again.')
-      if(rejected?.requests===1&&!rejected.completed&&!rejected.text&&(stage==='upstream_http_503'||stage==='upstream_http_429'))throw new Error(`Hadron ChatGPT temporarily unavailable [${stage}]`)
-      const reason=deadline.aborted||captureCategory==='timeout'?'timeout':captureCategory==='output_limit'?'output_limit':input.signal?.aborted||this.closing?'cancelled':epoch!==this.epoch?'connection':'incomplete'
-      try{this.options.onJobDiagnostic?.({exitCode:null,requests:rejected?.requests??0,completed:false,stage:stage??'preparing',category:reason})}catch{}
+      if(webSearch&&stage?.startsWith('search_receipt_missing')){record('search_receipt_missing');throw Error('ChatGPT did not execute web search with this model. Select a search-capable model and try again.')}
+      if(rejected?.requests===1&&!rejected.completed&&!rejected.text&&(stage==='upstream_http_503'||stage==='upstream_http_429')){record(stage);throw new Error(`Hadron ChatGPT temporarily unavailable [${stage}]`)}
+      const reason=deadline.aborted||captureResult?.category==='timeout'?'timeout':captureResult?.category==='output_limit'?'output_limit':input.signal?.aborted||this.closing?'cancelled':epoch!==this.epoch?'connection':rejected?.failure??(captureResult?.category==='configuration'?'configuration':captureResult&&captureResult.code!==0?'worker':'incomplete')
+      record(reason)
       throw new Error(CODEX_FAILURE_REASONS[reason]+' No automatic retry was made.')
     }
     finally { controller.abort(); guard?.close(); this.jobs.delete(controller); this.jobCompletions.delete(done); finish() }

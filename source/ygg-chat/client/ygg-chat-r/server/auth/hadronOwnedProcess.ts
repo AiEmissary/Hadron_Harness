@@ -3,6 +3,9 @@ import type {ChildProcess} from 'node:child_process'
 export interface OwnedProcessCapture {code:number|null;text:string;category?:string}
 export interface OwnedProcessCaptureOptions {
  signal?:AbortSignal;timeout:number;jsonOutput?:boolean;input?:string;maxBytes?:number;onText?(text:string):void
+ /** Drain without retaining CLI logs when a separate guarded transport owns the
+  * answer. No cumulative log-byte cutoff; deadlines and process joins remain. */
+ discardOutput?:boolean
 }
 
 /** Join the actual child and its pipes. An error/exit/kill request alone is not
@@ -21,6 +24,10 @@ export function captureOwnedProcess(child:ChildProcess,options:OwnedProcessCaptu
   const timer=setTimeout(()=>{timedOut=true;stop()},options.timeout)
   const receive=(chunk:Buffer,stdout=true)=>{
    if(closed||failed||size>maxBytes)return
+   if(options.discardOutput){
+    if(!stdout&&/missing field|invalid.*config|error.*config|unrecognized/i.test(chunk.toString('utf8')))category='configuration'
+    return
+   }
    size+=chunk.length
    if(size>maxBytes){stop();return}
    if(options.jsonOutput&&!stdout){

@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { startCodexRequestGuard } from '../auth/hadronCodexRequestGuard.js'
+import { CODEX_STREAM_FRAME_MAX_BYTES, CODEX_TEXT_MAX_CHARS, startCodexRequestGuard } from '../auth/hadronCodexRequestGuard.js'
 import {fixtureImage} from '../../../../shared/__fixtures__/hadronImage.js'
 const cleanups: Array<() => void> = []
 it('delivers actual image content through the host guard without granting native tools',async()=>{
@@ -113,4 +113,60 @@ it('retains a completed streamed search receipt when the terminal output contain
  await(await f.send()).text()
  expect(f.guard.result()).toMatchObject({completed:true,webSearchCalls:1})
  expect(JSON.stringify(f.guard.result().webSources)).toContain('example.com')
+})
+
+it('accepts more than 2 MB of valid reasoning traffic with a short confirmed final answer',async()=>{
+ const f=await fixture([...Array.from({length:1100},()=>({type:'response.reasoning_summary_text.delta',delta:'r'.repeat(2048)})),delta,completed])
+ await(await f.send()).text()
+ expect(f.guard.result()).toMatchObject({completed:true,text:'12',eventCount:1102,lastEvent:'response.completed',outputChars:2})
+ expect(f.guard.result().receivedBytes).toBeGreaterThan(2_000_000)
+ expect(f.violation).not.toHaveBeenCalled()
+})
+
+it('finishes at the validated terminal event without waiting for the upstream connection to close',async()=>{
+ const f=await fixture(),cancel=vi.fn()
+ f.forward.mockImplementation(async()=>new Response(new ReadableStream({start(controller){controller.enqueue(new TextEncoder().encode(frame(completed)))},cancel}),{headers:{'content-type':'text/event-stream'}}))
+ expect(await(await f.send()).text()).toContain('response.completed')
+ expect(f.guard.result().completed).toBe(true);expect(cancel).toHaveBeenCalledOnce()
+})
+
+it('decodes split UTF-8 characters and CRLF frames without corrupting the canonical answer',async()=>{
+ const f=await fixture(),answer='Finished — 牛 🐄',bytes=new TextEncoder().encode(frame({type:'response.completed',response:{status:'completed',output:[{type:'message',content:[{type:'output_text',text:answer}]}]}}).replace(/\n/g,'\r\n'))
+ let index=0
+ f.forward.mockImplementation(async()=>new Response(new ReadableStream({pull(controller){if(index===bytes.length)controller.close();else controller.enqueue(bytes.slice(index,index+=1))}})))
+ await(await f.send()).text()
+ expect(f.guard.result()).toMatchObject({completed:true,text:answer})
+})
+
+it.each([
+ ['stream_ended',[delta]],
+ ['unsupported_tool',[{type:'response.output_item.added',item:{type:'function_call',name:'shell'}}]],
+ ['context_limit',[{type:'response.failed',response:{error:{code:'context_length_exceeded',message:'private provider text'}}}]],
+ ['usage_limit',[{type:'error',code:'rate_limit_exceeded',message:'private provider text'}]],
+ ['provider_output_limit',[{type:'response.incomplete',response:{incomplete_details:{reason:'max_output_tokens'}}}]],
+ ['provider_incomplete',[{type:'response.incomplete',response:{incomplete_details:{reason:'private-code'}}}]],
+ ['provider_failed',[{type:'response.failed',response:{error:{code:'private-code',message:'private provider text'}}}]],
+ ['text_limit',[{type:'response.output_text.delta',delta:'x'.repeat(CODEX_TEXT_MAX_CHARS+1)}]],
+ ['empty_answer',[{type:'response.output_text.delta',delta:'commentary is not a final answer'},{type:'response.completed',response:{status:'completed',output:[{type:'message',phase:'commentary',content:[{type:'output_text',text:'commentary is not a final answer'}]}]}}]],
+] as const)('identifies %s without treating partial text as completed or leaking provider error bodies',async(failure,events)=>{
+ const f=await fixture([...events])
+ await f.send().then(response=>response.text()).catch(()=>{})
+ const {text,...diagnostic}=f.guard.result()
+ expect(diagnostic).toMatchObject({completed:false,failure,requests:1})
+ expect(JSON.stringify(diagnostic)).not.toMatch(/private-code|private provider text/)
+ expect(f.violation).toHaveBeenCalledOnce();expect(f.forward).toHaveBeenCalledOnce()
+})
+
+it('bounds one unfinished frame even though cumulative stream traffic is not limited',async()=>{
+ const f=await fixture()
+ f.forward.mockImplementation(async()=>new Response('data: '+ 'x'.repeat(CODEX_STREAM_FRAME_MAX_BYTES)))
+ await f.send().then(response=>response.text()).catch(()=>{})
+ expect(f.guard.result()).toMatchObject({completed:false,failure:'frame_limit'})
+})
+
+it('identifies malformed JSON separately from a clean stream that ended too early',async()=>{
+ const f=await fixture()
+ f.forward.mockImplementation(async()=>new Response('data: {broken}\n\n'))
+ await f.send().then(response=>response.text()).catch(()=>{})
+ expect(f.guard.result()).toMatchObject({completed:false,failure:'invalid_stream'})
 })
