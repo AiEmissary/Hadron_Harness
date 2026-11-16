@@ -9,6 +9,8 @@ export interface HadronToolSession {
   execution?:'agent'
   /** Native coding admission requires an explicit outcome, not just answer text. */
   requireCompletionStatus?:boolean
+  /** Trusted coordinator: this stage reports an assessment, not implementation. */
+  assessmentOnly?:boolean
   acceptStructuredAnswer?:boolean
   maxRequests?:number
   /** Absolute coordinator deadline, supplied only by trusted host admission. */
@@ -25,6 +27,10 @@ export interface HadronToolSession {
 const trusted = new WeakSet<object>()
 export function admitHadronToolSession(session: HadronToolSession): HadronToolSession { trusted.add(session); return session }
 export function isHadronToolSession(value: unknown): value is HadronToolSession { return !!value && typeof value === 'object' && trusted.has(value) }
+export function withHadronAssessment(session:HadronToolSession):HadronToolSession{
+ if(!isHadronToolSession(session)||session.execution==='agent'||session.requireCompletionStatus)throw Error('Assessment requires a read-only admitted session')
+ return admitHadronToolSession({...session,assessmentOnly:true,instructions:session.instructions+'\nASSESSMENT SCOPE: Complete your assigned read-only assessment using available evidence. Report missing evidence, blockers and outstanding implementation plainly. You are not assigned to perform the implementer\'s remaining edits or tests. A report that the overall project is unfinished does not mean this assessment failed. Never claim that unfinished implementation or unavailable verification was completed.'})
+}
 export function withHadronToolDeadline(session:HadronToolSession,deadlineAt:number):HadronToolSession{
  if(!isHadronToolSession(session)||!Number.isSafeInteger(deadlineAt)||deadlineAt<=0)throw Error('Invalid host tool deadline')
  return admitHadronToolSession({...session,deadlineAt:Math.min(session.deadlineAt??deadlineAt,deadlineAt)})
@@ -79,7 +85,7 @@ export async function runHadronToolConversation(input: {
         return undefined
       }
       outcome.incompleteReason='completion_unconfirmed'
-    } else if (finished===false) outcome.incompleteReason='agent_incomplete'
+    } else if (finished===false&&!input.session.assessmentOnly) outcome.incompleteReason='agent_incomplete'
     return answer
   }
   const maximum=input.session.maxRequests??8

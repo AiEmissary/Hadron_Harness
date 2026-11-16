@@ -1,3 +1,13 @@
+# Reviewer assessment scope correction — 16 November 2026
+
+A read-only participant reporting outstanding implementation no longer aborts the entire shared workflow. Trusted assessment scope carries the report into review and synthesis, which must list remaining work honestly. Implementer completion checks and actual provider/evidence/budget failures remain enforced. See REVIEWER_ASSESSMENT_SCOPE.md.
+
+Save/copy any draft, close Hadron and reopen through the desktop shortcut to load the updated host. The original task was not replayed. Installer 6.0.6 is unchanged.
+
+Earlier checkpoints below are historical.
+
+---
+
 # Agent task persistence and Claude adapter correction — 16 November 2026
 
 Claude's own formatter now declares the completion outcome required by the Agent broker. Agent work continues across progressive partial reports in the same task, with explicit blockers, stalled-progress detection and existing Stop/request/deadline controls. The implementer's instructions no longer describe that stage as read-only. See AGENT_TASK_PERSISTENCE.md for the verified schema gap, 265 automated checks, isolated desktop completion after two partial reports, and an actual Claude Haiku edit plus passing Node test.

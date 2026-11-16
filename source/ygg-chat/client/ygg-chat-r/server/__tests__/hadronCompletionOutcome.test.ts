@@ -1,7 +1,15 @@
 import {expect,it,vi} from 'vitest'
-import {runHadronToolConversation,type HadronToolSession} from '../hadronTools/types.js'
+import {runHadronToolConversation,admitHadronToolSession,withHadronAssessment,type HadronToolSession} from '../hadronTools/types.js'
 
 const controller=()=>new AbortController().signal
+it('keeps an assessment limitation without converting it to an implementation failure or weakening evidence requirements',async()=>{
+ const current=withHadronAssessment(admitHadronToolSession({instructions:'Read only',requireEvidenceAttempt:true,evidenceAttempted:()=>true,invoke:vi.fn()}))
+ const answer='Assessment complete; implementation and tests remain outstanding.'
+ expect(await runHadronToolConversation({session:current,task:'Assess',signal:controller(),generate:async()=>JSON.stringify({answer,finished:false})})).toBe(answer)
+ expect(current.outcome?.incompleteReason).toBeUndefined()
+ expect(()=>withHadronAssessment(admitHadronToolSession({execution:'agent',instructions:'Implement',invoke:vi.fn()}))).toThrow('read-only')
+ expect(()=>withHadronAssessment({...current})).toThrow('admitted')
+})
 const session=(extra:Partial<HadronToolSession>={}):HadronToolSession=>({execution:'agent',requireCompletionStatus:true,maxRequests:5,instructions:'Complete only the assigned request',invoke:vi.fn(async()=>({success:true,path:'fixture.ts'})),...extra})
 
 it('asks once for an omitted outcome while retaining evidence and never repeating the completed edit',async()=>{

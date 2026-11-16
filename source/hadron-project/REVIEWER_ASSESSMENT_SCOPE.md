@@ -1,0 +1,13 @@
+# Reviewer assessment scope — 16 November 2026
+
+The monitored 10:43 shared task failed at 10:47 because the read-only ChatGPT participant returned a useful assessment with `finished:false` referring to the wider audit/implementation. The broker treated that as an unfinished implementation, even though that participant was not the implementer. Claude's initial response had completed. No provider error or timeout was recorded. Review and synthesis therefore never ran.
+
+The coordinator now brands the read-only secondary proposal in shared Agent work, plus subsequent review/verification tool sessions, as assessment-only. Helper decoration preserves that scope. For these sessions, an answer describing outstanding work remains a usable assessment and its text is passed unchanged to cross-review/synthesis. The synthesizer is explicitly instructed to list unfinished requested work and blockers without claiming the whole project, audit or tests are complete.
+
+The marker requires a trusted admitted read-only session; applying it to an Agent implementation session is rejected. The implementer's completion requirement is unchanged. Required evidence attempts, real tool/request/context/time limits, provider failures, ownership, folder permissions and Stop retain their existing enforcement. The change does not grant writes to reviewers, silently restart the original job, or independently verify the reported findings.
+
+82 focused checks passed: 61 shared-workflow/folder/status tests and 21 completion/helper tests. The new SQLite/worker integration regression carries a secondary proposal and both reviews reporting wider unfinished work through all five requests to a combined answer, preserving the outstanding audit in its input/output. The older shared-folder fixture incorrectly granted writing to every stage; it was corrected to use the production single-implementer/read-only-review policy. The initial failing fixture result is not counted as a pass.
+
+Main/mobile builds and TypeScript checks passed. Isolated desktop regression evidence is in `test-results/assessment-desktop.log`; it uses synthetic providers and a disposable project. The user's open window, saved chat, unsent draft, sign-ins and actual trading task are preserved. No paid provider task was replayed for this change. Checked source is backed up using the curated private GitHub export.
+
+Save/copy any draft, close Hadron and reopen through the existing desktop shortcut to load the updated host. Previously failed saved tasks remain unchanged and can be continued explicitly. The 6.0.6 installer and release assets are unchanged; no installer rebuild was requested.

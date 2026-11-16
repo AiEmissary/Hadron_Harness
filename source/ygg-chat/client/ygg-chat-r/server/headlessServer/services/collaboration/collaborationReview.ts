@@ -4,7 +4,7 @@ import type { ProposalSessionDeps } from './proposalSessionService.js'
 import { buildCommittedReviewPacket } from './reviewPacket.js'
 import { buildHadronWorkerPrompt } from './hadronWorkerPrompt.js'
 import {withProjectVerification} from '../../../hadronTools/projectVerification.js'
-import {withHadronToolDeadline} from '../../../hadronTools/types.js'
+import {withHadronToolDeadline,withHadronAssessment} from '../../../hadronTools/types.js'
 
 /** One review round, optional tool verification and one synthesis, with durable stage bindings.
  * No retries, automatic resumption or direct peer messaging. Synthesis uses the recorded evidence. */
@@ -44,11 +44,12 @@ export class CollaborationReview {
       toolSession=toolSession?withProjectVerification(toolSession,folder,(tool,result)=>{this.check();this.deps.sessions.recordVerificationEvidence(this.input.sessionId,this.owner,tool,result)},()=>{this.check();this.deps.sessions.recordVerificationAttempt(this.input.sessionId,this.owner)}):folder
     }
     if(!toolSession&&role==='review')toolSession=this.deps.researchSession?.(this.owner,this.input,stage,()=>this.check())
+    if(toolSession&&role!=='synthesis')toolSession=withHadronAssessment(toolSession)
     if(toolSession&&this.deadlineAt!==undefined)toolSession=withHadronToolDeadline(toolSession,this.deadlineAt)
     const child = await this.deps.agents.spawnDetached({
       conversationId: this.input.conversationId, parentMessageId: this.input.anchorMessageId,
       lineageId: null, rootPath: null, fullAccess: false,
-      images:this.input.images, prompt, systemPrompt: buildHadronWorkerPrompt(role), provider,
+      images:this.input.images, prompt, systemPrompt: buildHadronWorkerPrompt(role)+(role==='synthesis'?'\nASSESSMENT AND IMPLEMENTATION: A read-only assessment can finish while reporting missing evidence or unfinished implementation. Preserve those limitations in the combined answer. Explicitly list outstanding requested work and any blocker; never imply that the whole job, audit, edits or tests were completed merely because the assessment stages returned replies.':''), provider,
       modelName: selection.model_name, userId: this.owner, autoApprove: false,
       operationMode: 'plan', tools: [], maxTurns: 1, autoCompactionEnabled: false,
     }, { signal: this.controller.signal, toolPolicy: 'none', toolSession,helpers:{jobId:this.input.sessionId,role:selection.participant_id}, onPrepared: binding => {

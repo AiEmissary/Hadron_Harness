@@ -6,7 +6,7 @@ import { createCollaborationSchema, createCollaborationDeletionGuards } from '..
 import { CollaborationRepo } from '../../persistence/collaborationRepo.js'
 import { ProposalSessionService } from '../collaboration/proposalSessionService.js'
 import { createHadronToolSession } from '../../../hadronTools/toolSession.js'
-import { isHadronToolSession } from '../../../hadronTools/types.js'
+import { isHadronToolSession,admitHadronToolSession,runHadronToolConversation } from '../../../hadronTools/types.js'
 import { AgentJobJournal } from '../collaboration/agentJobJournal.js'
 import { mkdtempSync, rmSync } from 'node:fs'
 import os from 'node:os'
@@ -46,6 +46,23 @@ function fixture(verify = false,largeImage=false,research=false) {
 }
 const observe = <T>(promise: Promise<T>) => promise.then(value => ({ value, error: null }), error => ({ value: null, error }))
 const count = async (f: ReturnType<typeof fixture>, n: number) => vi.waitFor(() => expect(f.pending).toHaveLength(n))
+it('combines completed assessments reporting unfinished wider work without aborting the coding workflow',async()=>{
+ const f=fixture(),requests:any[]=[]
+ const service=new ProposalSessionService({...f.deps,projectSession:(_owner,_input,stage)=>admitHadronToolSession({...(stage==='proposal_a'?{execution:'agent' as const,requireCompletionStatus:true}:{}),instructions:'Fixture scoped tools',invoke:vi.fn()})})
+ f.generate.mockImplementation(async(_provider,request:any)=>{
+  requests.push(request)
+  if(!request.hadronToolSession){expect(request.userContent).toContain('runtime audit remains outstanding');return{content:'Combined findings. The runtime audit remains outstanding; no audit or repair is claimed complete.'}}
+  return{content:await runHadronToolConversation({session:request.hadronToolSession,task:request.userContent,signal:request.signal,generate:async()=>JSON.stringify({answer:request.hadronToolSession.assessmentOnly?'Assessment finished: runtime audit remains outstanding and needs additional evidence.':'The current requested implementation step is complete.',finished:!request.hadronToolSession.assessmentOnly})})}
+ })
+ try{
+  await service.start('owner',{...f.input,projectGrantId:'fixture-grant',projectMode:'agent'})
+  expect(service.status('owner','full')).toMatchObject({status:'completed',collaboration:{phase:'finished'}})
+  expect(requests).toHaveLength(5)
+  expect(requests[0].hadronToolSession.assessmentOnly).toBeUndefined()
+  expect(requests.slice(1,4).every(request=>request.hadronToolSession.assessmentOnly)).toBe(true)
+  expect(f.sessions.workflowRuns('full','owner').map(stage=>f.runs.getRunById(stage.run_id!)?.status)).toEqual(['completed','completed','completed'])
+ }finally{service.stop('owner','full');f.cleanup()}
+})
 it('propagates one absolute task deadline through both proposals and reviews without granting synthesis tools',async()=>{
  const f=fixture(false,false,true),service=new ProposalSessionService({...f.deps,deadlineMs:600000}),started=Date.now(),result=observe(service.start('owner',f.input))
  try{

@@ -12,7 +12,7 @@ import { proposalHash, publishProposalCheckpoints, type ProposalCheckpoint } fro
 import type { AgentJobJournal } from './agentJobJournal.js'
 import { freezeSharedContinuation, readProposalConfig } from './sharedContinuation.js'
 import { CollaborationReview } from './collaborationReview.js'
-import {withHadronToolDeadline} from '../../../hadronTools/types.js'
+import {withHadronToolDeadline,withHadronAssessment} from '../../../hadronTools/types.js'
 import {hadronTimeFailure} from './timeFailure.js'
 import {hadronAgentOutcomeFailure} from '../../../../../../shared/hadronWorkOutcome.js'
 
@@ -253,7 +253,7 @@ export class ProposalSessionService {
       toolSession:(participantId:string)=>{
         const authorize=()=>{checkDeadline();this.deps.sessions.assertRunning(input.sessionId,ownerId);this.authorize(ownerId,input)}
         const session=input.projectGrantId ? this.deps.projectSession!(ownerId,executionInput,'proposal_'+participantId,authorize) : this.deps.researchSession?.(ownerId,executionInput,'proposal_'+participantId,authorize)
-        return session?withHadronToolDeadline(session,deadlineAt):undefined
+        return session?withHadronToolDeadline(input.projectMode==='agent'&&participantId!=='a'?withHadronAssessment(session):session,deadlineAt):undefined
       },
       validateAnchor: () => { this.deps.sessions.assertRunning(input.sessionId, ownerId); validateAnchor() },
       onPrepared: (participantId, child) => {

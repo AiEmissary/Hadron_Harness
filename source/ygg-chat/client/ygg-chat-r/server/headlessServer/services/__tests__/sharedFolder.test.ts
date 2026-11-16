@@ -20,9 +20,9 @@ it('performs shared coding through explicit native Agent permission with no sepa
   const packet=JSON.parse(request.userContent)
   if(packet.kind==='combined_answer_packet')return {content:'Changed value.cjs to 2. Tests were not run.'}
   const session=request.hadronToolSession
-  expect(session.execution).toBe('agent')
+  expect(session.execution).toBe(request.systemPrompt.includes('sole implementer')?'agent':undefined)
   await session.invoke('project_read',{path:'value.cjs'},request.signal)
-  if(!changed){
+  if(session.execution==='agent'&&!changed){
    changed=true
    const result=await session.invoke('edit_file',{path:'value.cjs',operation:'replace',searchPattern:'= 1',replacement:'= 2'},request.signal)
    expect(result.success).toBe(true)
@@ -33,7 +33,7 @@ it('performs shared coding through explicit native Agent permission with no sepa
  const authorize=(owner:string)=>{if(owner!=='owner')throw Error('Denied')}
  const service=new ProposalSessionService({...f,sessions:new CollaborationRepo({db:f.db}),allowedModels:new Set(['a','b']),authorize,authorizeConversation:authorize,
   projectSession:(owner,input,_stage,check)=>input.projectMode==='agent'?agents.session({owner,workspace:input.conversationId,slot:'shared',grantId:input.projectGrantId!,conversationId:input.conversationId,anchorMessageId:input.anchorMessageId,
-   definitions:[{name:'read_file',inputSchema:{}},{name:'edit_file',inputSchema:{}}],authorize:check,
+   definitions:[{name:'read_file',inputSchema:{}},{name:'edit_file',inputSchema:{}}],authorize:check,readOnly:_stage==='proposal_b'||_stage.startsWith('review_')||_stage==='verification',
    execute:async(call,context)=>{const args=JSON.parse(String(call.arguments));return editFile(args.path,args.operation,{...args,cwd:context.rootPath!,operationMode:'execute'})},
   }):reads.session(owner,input.projectGrantId!,input.conversationId,'shared',check),
  })
