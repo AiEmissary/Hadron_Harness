@@ -40,6 +40,7 @@ it('allows real source reading, editing and a real passing test after native Age
   return runPowerShellCommand(args.command,{cwd:context.rootPath,signal:context.signal,timeoutMs:15000,maxOutputChars:8000})
  })
  const session=agents.session({...config(grant.id,execute),activity})
+ expect(session.requireCompletionStatus).toBe(true)
  const signal=new AbortController().signal
  await session.invoke('read_file',{path:'calculator.cjs'},signal)
  const edit=await session.invoke('edit_file',{path:'calculator.cjs',operation:'replace',searchPattern:'a-b',replacement:'a+b',createBackup:false},signal) as any
@@ -84,6 +85,7 @@ it('gives shared reviewers reads but no write or command capability, and respect
  const grant=agents.grant('owner','workspace','a',read.id),execute=vi.fn()
  const session=agents.session({...config(grant.id,execute),readOnly:true}),signal=new AbortController().signal
  expect(session.execution).toBeUndefined()
+ expect(session.requireCompletionStatus).toBeUndefined()
  expect(JSON.stringify(await session.invoke('project_read',{path:'calculator.cjs'},signal))).toContain('a+b')
  await expect(session.invoke('edit_file',{},signal)).rejects.toThrow()
  await expect(session.invoke('powershell',{},signal)).rejects.toThrow()

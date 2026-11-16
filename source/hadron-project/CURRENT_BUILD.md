@@ -1,3 +1,13 @@
+# Assigned-work completion correction — 16 November 2026
+
+Agent-mode final replies now require an explicit assigned-work outcome. One bounded outcome check can continue still-possible authorized work or confirm a real blocker; incomplete or unconfirmed work stays Not finished with its report retained. Reply-finished labels and failed-operation labels are distinct. Helper decoration preserves the outcome requirement and inherited deadline. See WORK_COMPLETION_OUTCOMES.md for scope and verification.
+
+Save/copy unsent text, close Hadron and reopen through the existing Desktop shortcut to load the local update. New requests receive the correction; old saved replies are unchanged. Installer 6.0.6 and its release assets remain unchanged.
+
+Earlier checkpoints below are historical.
+
+---
+
 # ChatGPT response-stream correction — 15 November 2026
 
 The latest saved task has a completed Claude proposal and an unconfirmed ChatGPT response after 138 seconds. The old diagnostic cannot prove its precise trigger. Local source removes a reproducible hidden 2 MB cumulative protocol-traffic cutoff, drains unused CLI logs without retaining them, handles confirmed completion promptly and reports specific failure reasons with private numeric/protocol diagnostics. Partial responses remain Not finished; interrupted coding requests are not replayed. See CHATGPT_RESPONSE_STREAMS.md for evidence and verification limits.

@@ -7,13 +7,15 @@ export interface HadronToolSession {
   bindWebSearch?(search: typeof import('../tools/braveSearch.js').braveSearch): void
   /** Set only by native Agent-mode admission; ordinary read/review sessions retain their existing budget. */
   execution?:'agent'
+  /** Native coding admission requires an explicit outcome, not just answer text. */
+  requireCompletionStatus?:boolean
   acceptStructuredAnswer?:boolean
   maxRequests?:number
   /** Absolute coordinator deadline, supplied only by trusted host admission. */
   deadlineAt?:number
   /** Trusted optional same-provider helper; shares the existing helper quota and cancellation. */
   condense?(text:string,signal:AbortSignal):Promise<string>
-  outcome?:{incompleteReason?:'context_limit'|'request_limit'|'time_limit'|'agent_incomplete'}
+  outcome?:{incompleteReason?:'context_limit'|'request_limit'|'time_limit'|'agent_incomplete'|'completion_unconfirmed'}
   requireEvidenceAttempt?: boolean
   evidenceAttempted?(): boolean
   evidenceInstruction?:string
@@ -49,13 +51,23 @@ export async function runHadronToolConversation(input: {
   const outcome:NonNullable<HadronToolSession['outcome']>=input.session.outcome={}
   let budget=toolContextBudget(input.contextLength),contextRetries=0,condensations=0
   const condense=async(aggressive=false)=>{transcript=await compactToolTranscript({transcript,signal:input.signal,aggressive,condense:condensations++<2?input.session.condense:undefined})}
-  let correctedNoCheck = false, correctedToolMarkup = false
-  const finish = (answer: string): string | undefined => {
-    if (!input.session.requireEvidenceAttempt || input.session.evidenceAttempted?.()) return answer
-    if (correctedNoCheck) throw new Error('An answer was returned without attempting the required evidence check; no check completed')
-    correctedNoCheck = true
-    transcript.push({ role: 'assistant', content: answer }, { role: 'user', content: 'HOST PROTOCOL CORRECTION: The required evidence operation has not been attempted. '+(input.session.evidenceInstruction??'Use the supplied JSON host tool protocol now to attempt a relevant web_read, web_search or enabled tool. Native tools being disabled does not disable this protocol. tool_list alone is not evidence. If an operation is unavailable its actual host error can establish that limitation. Return a final report only after the attempt.')+' This correction uses the existing request budget; do not invent results.' })
-    return undefined
+  let correctedNoCheck = false, correctedToolMarkup = false, correctedCompletion = false
+  const finish = (answer: string,finished?:boolean,canCorrect=false): string | undefined => {
+    if (input.session.requireEvidenceAttempt && !input.session.evidenceAttempted?.()) {
+      if (correctedNoCheck) throw new Error('An answer was returned without attempting the required evidence check; no check completed')
+      correctedNoCheck = true
+      transcript.push({ role: 'assistant', content: answer }, { role: 'user', content: 'HOST PROTOCOL CORRECTION: The required evidence operation has not been attempted. '+(input.session.evidenceInstruction??'Use the supplied JSON host tool protocol now to attempt a relevant web_read, web_search or enabled tool. Native tools being disabled does not disable this protocol. tool_list alone is not evidence. If an operation is unavailable its actual host error can establish that limitation. Return a final report only after the attempt.')+' This correction uses the existing request budget; do not invent results.' })
+      return undefined
+    }
+    if (input.session.requireCompletionStatus && finished!==true) {
+      if (!correctedCompletion && canCorrect) {
+        correctedCompletion=true
+        transcript.push({role:'assistant',content:answer},{role:'user',content:'HOST OUTCOME CORRECTION: '+(finished===false?'You reported that the assigned work is unfinished. Before ending, continue any remaining work that is possible with the current authorized tools and existing budget. If you are blocked, report the concrete blocker instead of inventing progress.':'Your reply did not confirm whether the assigned work is finished.')+' Return {"answer":"your report","finished":true} only when the current user request is fulfilled, or {"answer":"available findings, remaining work and the actual blocker","finished":false}. A partial investigation is not a finished repair. Answering a question can be complete without editing files or running tests. Do not broaden the request, invent completion or repeat completed file operations. This correction uses the existing request/time budget.'})
+        return undefined
+      }
+      outcome.incompleteReason=finished===false?'agent_incomplete':'completion_unconfirmed'
+    } else if (finished===false) outcome.incompleteReason='agent_incomplete'
+    return answer
   }
   const maximum=input.session.maxRequests??8
   if(!Number.isSafeInteger(maximum)||maximum<1||maximum>(input.session.execution==='agent'?100:8))throw Error('Invalid host protocol budget')
@@ -86,7 +98,7 @@ export async function runHadronToolConversation(input: {
       if(toolContextTokens(input.session.instructions+packet)>budget)return partial('context_limit')
     }
     let text:string
-    try{text=await input.generate(packet, input.session.instructions+'\nHOST FORMAT: Return one JSON object: {"tool":"name","arguments":{...}} or {"answer":"your final answer"}. If this assigned work could not be finished, return {"answer":"available findings and why the work is unfinished","finished":false}. Ordinary uncertainty in a completed analysis does not by itself mean unfinished work. Native XML/invoke markup is never executed and is not a final answer.'+(finalAnswerRequired?'\nHOST BUDGET: This is the final allowed response. Tools are now closed. Return the final answer from existing evidence, with explicit limitations.':''))}
+    try{text=await input.generate(packet, input.session.instructions+'\nHOST FORMAT: Return one JSON object: {"tool":"name","arguments":{...}} or '+(input.session.requireCompletionStatus?'{"answer":"your final answer","finished":true}. The boolean finished is REQUIRED for a final answer; it refers to fulfilling the current user request, not merely writing a reply.':'{"answer":"your final answer"}.')+' If this assigned work could not be finished, return {"answer":"available findings and why the work is unfinished","finished":false}. Ordinary uncertainty in a completed analysis does not by itself mean unfinished work. Native XML/invoke markup is never executed and is not a final answer.'+(finalAnswerRequired?'\nHOST BUDGET: This is the final allowed response. Tools are now closed. Return the final answer from existing evidence, with explicit limitations.':''))}
     catch(error){
       input.signal.throwIfAborted()
       // Only retry a rejected text-generation request. No prior tool operation is repeated.
@@ -104,10 +116,10 @@ export async function runHadronToolConversation(input: {
       transcript.push({role:'assistant',content:text.slice(0,4000)},{role:'user',content:'HOST PROTOCOL CORRECTION: The preceding XML/native tool request was not executed. Do not present it as an answer or claim it ran. Return exactly one JSON object using the supplied host protocol: {"tool":"name","arguments":{...}} for an allowed operation, or {"answer":"final answer based on actual evidence"}. This correction uses the remaining existing request budget. Do not invent tool results.'})
       continue
     }
-    if (!parsed) { if (text.trim() && !text.trim().startsWith('{')) { const answer = finish(text); if (answer !== undefined) return answer; continue }; throw new Error('Invalid tool response; no tool was run') }
+    if (!parsed) { if (text.trim() && !text.trim().startsWith('{')) { const answer = finish(text,undefined,!finalAnswerRequired); if (answer !== undefined) return answer; continue }; throw new Error('Invalid tool response; no tool was run') }
     if (value && Object.keys(value).every(key=>key==='answer'||key==='finished')&&(!Object.hasOwn(value,'finished')||typeof value.finished==='boolean')&&typeof value.answer === 'string' && value.answer.trim()) {
-      const answer = finish(value.answer)
-      if (answer !== undefined){if(value.finished===false)outcome.incompleteReason='agent_incomplete';return answer}
+      const answer = finish(value.answer,value.finished,!finalAnswerRequired)
+      if (answer !== undefined)return answer
       continue
     }
     if(input.session.acceptStructuredAnswer&&value&&typeof value==='object'&&!Array.isArray(value)&&!('tool' in value)&&!('arguments' in value)){const answer=finish(JSON.stringify(value));if(answer!==undefined)return answer;continue}

@@ -14,6 +14,7 @@ import { freezeSharedContinuation, readProposalConfig } from './sharedContinuati
 import { CollaborationReview } from './collaborationReview.js'
 import {withHadronToolDeadline} from '../../../hadronTools/types.js'
 import {hadronTimeFailure} from './timeFailure.js'
+import {hadronAgentOutcomeFailure} from '../../../../../../shared/hadronWorkOutcome.js'
 
 export interface ProposalSessionDeps {
   sessions: CollaborationRepo
@@ -145,10 +146,11 @@ export class ProposalSessionService {
     const claudeSignIn=failedSelection?.provider==='claudecode'&&failedParticipant?.run_id&&this.deps.runs.getRunById(failedParticipant.run_id)?.error?.startsWith('Claude sign-in has expired or could not be refreshed.')
     const failedRun=failedParticipant?.run_id?this.deps.runs.getRunById(failedParticipant.run_id):null
     const failedRunError=failedRun?.error??''
-    const failureReason=hadronTimeFailure(failedRunError,failedRun?.created_at,failedRun?.updated_at)??Object.values(failedSelection?.provider==='claudecode'?CLAUDE_FAILURE_REASONS:CODEX_FAILURE_REASONS).find(reason=>failedRunError.startsWith(reason))
+    const workIncomplete=hadronAgentOutcomeFailure(failedRunError)
+    const failureReason=workIncomplete??hadronTimeFailure(failedRunError,failedRun?.created_at,failedRun?.updated_at)??Object.values(failedSelection?.provider==='claudecode'?CLAUDE_FAILURE_REASONS:CODEX_FAILURE_REASONS).find(reason=>failedRunError.startsWith(reason))
     const failedPhase=failedStage?.stage_id.startsWith('review_')?'review':failedStage?.stage_id==='verification'?'verification':failedStage?.stage_id==='final'?'combined answer':'reply'
     const stoppedPeers=participants.filter(participant=>participant.participant_id!==failedParticipant?.participant_id&&participant.run_id&&this.deps.runs.getRunById(participant.run_id)?.status==='aborted')
-    const participantFailure=failedSelection?`Agent ${failedSelection.id.toUpperCase()} (${failedSelection.provider==='claudecode'?'Claude':'ChatGPT'}) ${claudeSignIn?'needs you to reconnect Claude because its sign-in expired or could not be refreshed. Open the chat setup pop-up and reconnect Claude.':`could not complete its ${failedPhase}.`}${failureReason?' Reason: '+failureReason:''}${stoppedPeers.length?' '+stoppedPeers.map(peer=>'Agent '+peer.participant_id.toUpperCase()).join(' and ')+' was stopped when the shared task failed.':''} Your question is saved; no combined answer was produced.`:undefined
+    const participantFailure=failedSelection?`Agent ${failedSelection.id.toUpperCase()} (${failedSelection.provider==='claudecode'?'Claude':'ChatGPT'}) ${workIncomplete?'has not finished its assigned work.':claudeSignIn?'needs you to reconnect Claude because its sign-in expired or could not be refreshed. Open the chat setup pop-up and reconnect Claude.':`could not complete its ${failedPhase}.`}${failureReason?' Reason: '+failureReason:''}${stoppedPeers.length?' '+stoppedPeers.map(peer=>'Agent '+peer.participant_id.toUpperCase()).join(' and ')+' was stopped when the shared task failed.':''} Your question is saved; no combined answer was produced.`:undefined
     return { schemaVersion: 1, sessionId, conversationId: row.conversation_id,
       ...(input.parentSessionId ? { parentSessionId: input.parentSessionId } : {}),
       phase: 'independent_proposals', status: workflow?.status ?? row.status, revision: row.revision + (workflow?.revision ?? 0),

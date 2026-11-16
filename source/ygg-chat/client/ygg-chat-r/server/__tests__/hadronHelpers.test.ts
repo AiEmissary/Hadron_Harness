@@ -89,8 +89,9 @@ it('delegates a granted focused search to the lightweight same-provider helper w
 })
 it('condenses earlier Agent evidence using the same bounded helper quota, with no filesystem or tool access in the child',async()=>{
  const f=fixture();try{
-  const base={execution:'agent' as const,maxRequests:100,instructions:'Agent tools',invoke:vi.fn(async()=>({success:true}))}
+  const base={execution:'agent' as const,requireCompletionStatus:true,deadlineAt:Date.now()+600000,maxRequests:100,instructions:'Agent tools',invoke:vi.fn(async()=>({success:true}))}
   const session=f.service.decorate(base,f.input)!
+  expect(session.requireCompletionStatus).toBe(true);expect(session.deadlineAt).toBe(base.deadlineAt)
   expect(await session.condense!('Observed src/example.ts:14, read succeeded; no edits.',f.controller.signal)).toBe('Extracted supplied facts only.')
   expect(f.agents.spawnDetached.mock.calls[0][0]).toMatchObject({provider:'openaichatgpt',modelName:'gpt-6-luna',tools:[],maxTurns:1})
   expect(f.agents.spawnDetached.mock.calls[0][0].prompt).toContain('src/example.ts:14')

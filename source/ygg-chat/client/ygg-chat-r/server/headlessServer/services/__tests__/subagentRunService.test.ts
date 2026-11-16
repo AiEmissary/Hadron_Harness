@@ -246,6 +246,19 @@ async function waitFor(condition: () => boolean, timeoutMs = 1000): Promise<void
 }
 
 describe('SubagentRunService', () => {
+  it.each([false,undefined])('retains available work with an unfinished outcome (%s) through the real worker service',async finished=>{
+    const providerRouter=new FakeProviderRouter(),runRepo=new FakeRunRepo(),streamingRunRepo=new FakeStreamingRunRepo()
+    const generate=vi.fn(async()=>JSON.stringify({answer:'Saved partial findings; assigned work remains.',...(finished!==undefined?{finished}:{})}))
+    vi.spyOn(providerRouter,'generate').mockImplementation(async(_provider,input)=>({content:await runHadronToolConversation({session:input.hadronToolSession,task:input.userContent,signal:input.signal,generate})}))
+    const service=buildService({providerRouter,runRepo,streamingRunRepo})
+    const toolSession=admitHadronToolSession({execution:'agent',requireCompletionStatus:true,maxRequests:3,instructions:'Fixture tools',invoke:vi.fn()})
+    const child=await service.spawnDetached(baseRequest({tools:[],autoApprove:false,operationMode:'plan',lineageId:null,rootPath:null}),{signal:new AbortController().signal,toolPolicy:'none',toolSession,onPrepared:()=>{}})
+    expect((await service.waitForTerminal(child.handle!))?.status).toBe('error')
+    expect(runRepo.runs.get(child.runId)).toMatchObject({status:'error',final_response:'Saved partial findings; assigned work remains.'})
+    expect(runRepo.runs.get(child.runId).error).toContain(finished===false?'agent reported':'did not confirm')
+    expect(streamingRunRepo.finishCalls.at(-1)).toMatchObject({status:'error',metadata:{hadronIncompleteReason:finished===false?'agent_incomplete':'completion_unconfirmed'}})
+    expect(generate).toHaveBeenCalledTimes(2)
+  })
   it('persists a host-limited partial report as unfinished while retaining its text',async()=>{
     const providerRouter=new FakeProviderRouter(),runRepo=new FakeRunRepo(),streamingRunRepo=new FakeStreamingRunRepo()
     vi.spyOn(providerRouter,'generate').mockImplementation(async(_provider,input)=>{

@@ -16,6 +16,7 @@ fs.writeFileSync(path.join(root,'calculator.test.cjs'),"const {test}=require('no
 dialog.showOpenDialog=(async()=>({canceled:false,filePaths:[root]})) as typeof dialog.showOpenDialog
 let requests=0
 const longInputReceipts={attached:0,pasted:0,memory:0}
+const outcomeReceipts={partial:0,unconfirmed:0,reportAttempts:0}
 let claudeConnected=true
 HadronCodexRuntime.prototype.status=async()=>({installed:true,connected:true,reason:'ready',loginState:'idle'})
 HadronCodexRuntime.prototype.models=async function(){this.allowedModels.add('fixture-model');return [{id:'fixture-model',label:'Fixture model'}]}
@@ -43,13 +44,16 @@ HadronCodexRuntime.prototype.generate=async function(input,emit){
  }
  if(input.hadronToolSession){
   const agent=input.hadronToolSession.execution==='agent';let step=0
+  const outcome=agent&&packet.task==='OUTCOME_PARTIAL_SENTINEL'?'partial':agent&&packet.task==='OUTCOME_UNCONFIRMED_SENTINEL'?'unconfirmed':null
+  if(outcome)outcomeReceipts[outcome]++
   const content=await runHadronToolConversation({session:input.hadronToolSession,signal:input.signal!,task:input.userContent,generate:async protocol=>{
    const transcript=JSON.parse(protocol).transcript
    if(step++===0)return JSON.stringify({tool:agent?'read_file':'project_read',arguments:{path:'calculator.cjs'}})
+   if(outcome){outcomeReceipts.reportAttempts++;return JSON.stringify({answer:outcome==='partial'?'Partial fixture findings: a required dependency is unavailable.':'Unconfirmed fixture findings: completion has not been established.',...(outcome==='partial'?{finished:false}:{})})}
    if(agent&&step===2)return JSON.stringify({tool:'edit_file',arguments:{path:'calculator.cjs',operation:'replace',searchPattern:'a-b',replacement:'a+b'}})
    if(agent&&step===3)return JSON.stringify({tool:'powershell',arguments:{command:'node --test calculator.test.cjs',description:'Run the disposable calculator test'}})
    if(agent&&!JSON.stringify(transcript).includes('negative operand'))throw Error('The actual fixture test result is missing')
-   return JSON.stringify({answer:agent?'Fixed calculator.cjs and ran the negative operand test.':'Read calculator.cjs from the selected folder.'})
+   return JSON.stringify({answer:agent?'Fixed calculator.cjs and ran the negative operand test.':'Read calculator.cjs from the selected folder.',finished:true})
   }})
   emit?.({type:'chunk',part:'text',delta:content});return {content}
  }
@@ -71,7 +75,7 @@ app.on('browser-window-created',(_event,window)=>{
  window.webContents.once('did-finish-load',()=>{
   void (async()=>{
    const run=(code:string)=>window.webContents.executeJavaScript(code)
-   const audit=async(consensus=false,longInput=false)=>{
+   const audit=async(consensus=false,longInput=false,outcomes=false)=>{
     const continuousEnd=consensus?'Consensus reached — both agents agree on this conclusion.':'Agent b turn 100: fixture peer reply.'
     const wait=async(test:()=>boolean)=>{for(let i=0;i<1200;i++){if(test())return;await new Promise(resolve=>setTimeout(resolve,50))}throw Error('Timed out: '+test)}
     const button=(label:string)=>Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(element=>element.textContent?.trim()===label)
@@ -91,6 +95,13 @@ app.on('browser-window-created',(_event,window)=>{
     await setup();if(button('Agent')?.getAttribute('aria-pressed')!=='true')throw Error('Attaching the folder changed Agent permission');document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))
     await send('FIX_CALCULATOR');await wait(()=>document.querySelector('.hadron-v2-transcript')!.textContent!.includes('Fixed calculator.cjs and ran the negative operand test.'));await wait(()=>!!document.querySelector('button[aria-label="Send"]'))
     await wait(()=>!!document.querySelector('.hadron-v2-activity')?.textContent?.includes('Run PowerShell command'))
+    if(outcomes){
+     for(const [task,text] of [['OUTCOME_PARTIAL_SENTINEL','Partial fixture findings'],['OUTCOME_UNCONFIRMED_SENTINEL','Unconfirmed fixture findings']]){
+      await send(task);await wait(()=>Array.from(document.querySelectorAll('article[data-message-id]')).at(-1)?.textContent?.includes(text)===true)
+      await wait(()=>!!document.querySelector('button[aria-label="Send"]'))
+      if(!Array.from(document.querySelectorAll('article[data-message-id]')).at(-1)?.querySelector('.hadron-v2-not-finished'))throw Error('Unfinished fixture was presented as completed')
+     }
+    }
     await setup();set('Work type','together');button('Chat')!.click();await wait(()=>!!document.querySelector('select[aria-label="Agent B provider"]'))
     set('Agent B provider','claudecode');await wait(()=>!!document.querySelector('select[aria-label="Agent B model"] option[value="fixture-claude"]'));set('Agent B model','fixture-claude');document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))
     await send('SHARED_WORKSPACE_FIXTURE');await wait(()=>document.querySelector('.hadron-v2-transcript')!.textContent!.includes('Combined fixture answer from Agents A and B.'));await wait(()=>!!document.querySelector('button[aria-label="Send"]'))
@@ -130,7 +141,7 @@ app.on('browser-window-created',(_event,window)=>{
     const project=Array.from(document.querySelector<HTMLSelectElement>('select[aria-label="Destination project"]')!.options).find(option=>option.text==='Workspace transfer test')!;set('Destination project',project.value);await wait(()=>!!document.querySelector('select[aria-label="Destination chat"]'))
     const chat=Array.from(document.querySelector<HTMLSelectElement>('select[aria-label="Destination chat"]')!.options).find(option=>option.text==='Copied conclusions')!;set('Destination chat',chat.value);await new Promise(resolve=>setTimeout(resolve,100));button('Copy and open')!.click();await wait(()=>location.hash===copiedRoute&&!document.querySelector('dialog[open]'))
     await wait(()=>document.querySelectorAll('article[data-message-id]').length===2)
-    return {route,copiedRoute,oneComposer:true,twoPanes:true,providerAllowanceVisible:true,activityDropdown:true,sharedToSingleBContinues:true,directSingleAgentChoice:true,realNativeAgentEditAndTest:true,sharedAnswer:true,...(longInput?{longAttachmentContinuation:true,longPastedContinuation:true}:{}),...(consensus?{continuousConsensus:true}:{continuous100Turns:true}),copyToNewNamedProject:true,secondCopyAppended:true,importCanContinueWithB:true}
+    return {route,copiedRoute,oneComposer:true,twoPanes:true,providerAllowanceVisible:true,activityDropdown:true,sharedToSingleBContinues:true,directSingleAgentChoice:true,realNativeAgentEditAndTest:true,sharedAnswer:true,...(outcomes?{partialWorkMarkedUnfinished:true,unconfirmedWorkMarkedUnfinished:true}:{}),...(longInput?{longAttachmentContinuation:true,longPastedContinuation:true}:{}),...(consensus?{continuousConsensus:true}:{continuous100Turns:true}),copyToNewNamedProject:true,secondCopyAppended:true,importCanContinueWithB:true}
    }
    if(process.env.HADRON_WORKSPACE_HISTORY_ONLY==='1'){
     const target=JSON.parse(fs.readFileSync(path.join(profile,'history-target.json'),'utf8'))
@@ -140,9 +151,10 @@ app.on('browser-window-created',(_event,window)=>{
     if(!result.oneComposer||!result.treeNodes||requests)throw Error('Cloned history or inference-free opening failed')
     fs.writeFileSync(path.join(profile,'workspace-result.json'),JSON.stringify({success:true,clonedSavedHistory:true,...result,syntheticProviderRequests:requests,realProviderRequests:0,isolatedProfile:profile},null,2));clearTimeout(watchdog);app.exit(0);return
    }
-   const result=await run(`(${audit.toString()})(${process.env.HADRON_WORKSPACE_CONSENSUS_ONLY==='1'},${process.env.HADRON_WORKSPACE_LONG_INPUT==='1'})`)
+   const result=await run(`(${audit.toString()})(${process.env.HADRON_WORKSPACE_CONSENSUS_ONLY==='1'},${process.env.HADRON_WORKSPACE_LONG_INPUT==='1'},${process.env.HADRON_WORKSPACE_OUTCOME==='1'})`)
    if(result.continuousConsensus&&process.env.HADRON_WORKSPACE_LONG_INPUT!=='1'&&requests!==9)throw Error('Consensus did not stop after two replies')
    if(process.env.HADRON_WORKSPACE_LONG_INPUT==='1'&&(longInputReceipts.attached!==2||longInputReceipts.pasted!==2||!longInputReceipts.memory))throw Error('Missing long input provider receipts: '+JSON.stringify(longInputReceipts))
+   if(process.env.HADRON_WORKSPACE_OUTCOME==='1'&&(outcomeReceipts.partial!==1||outcomeReceipts.unconfirmed!==1||outcomeReceipts.reportAttempts!==4))throw Error('Missing outcome receipts: '+JSON.stringify(outcomeReceipts))
    if(!fs.readFileSync(path.join(root,'calculator.cjs'),'utf8').includes('a+b'))throw Error('The actual source file was not changed')
    await new Promise(resolve=>setTimeout(resolve,500))
    const bookmarks=JSON.parse(fs.readFileSync(path.join(profile,'remembered-project-folders.json'),'utf8'))
@@ -160,7 +172,7 @@ app.on('browser-window-created',(_event,window)=>{
    await run(`(async()=>{window.dispatchEvent(new Event('focus'));for(let i=0;i<200;i++){const card=Array.from(document.querySelectorAll('h3')).find(el=>el.textContent==='Claude')?.parentElement;const choice=document.querySelector('option[value="claudecode"]');if(card?.textContent.includes('Connected using your')&&choice&&!choice.disabled){document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));return}await new Promise(r=>setTimeout(r,50))}throw Error('Claude reconnect did not refresh controls')})()`)
    await run(`(async()=>{for(let i=0;i<100;i++){if(document.querySelector('.titlebar-project-name')?.textContent.trim()==='Workspace transfer test')break;await new Promise(r=>setTimeout(r,50))}for(const el of document.querySelectorAll('.hadron-desktop-workspace button,.hadron-desktop-workspace textarea')){if(parseFloat(getComputedStyle(el).borderTopWidth)>0)throw Error('A decorative border remains in the live workspace')}await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));await new Promise(r=>setTimeout(r,100))})()`)
    fs.writeFileSync(path.join(profile,'workspace.png'),(await window.webContents.capturePage()).toPNG())
-   fs.writeFileSync(path.join(profile,'workspace-result.json'),JSON.stringify({...result,...(process.env.HADRON_WORKSPACE_LONG_INPUT==='1'?{longInputReceipts}:{}),success:true,reloadWithoutInference:true,connectionStatusRefresh:true,nativeFolderRestored:true,syntheticProviderRequests:requests,realProviderRequests:0,isolatedProfile:profile,fixtureProject:root,rendererErrors:errors},null,2))
+   fs.writeFileSync(path.join(profile,'workspace-result.json'),JSON.stringify({...result,...(process.env.HADRON_WORKSPACE_LONG_INPUT==='1'?{longInputReceipts}:{}),...(process.env.HADRON_WORKSPACE_OUTCOME==='1'?{outcomeReceipts}:{}),success:true,reloadWithoutInference:true,connectionStatusRefresh:true,nativeFolderRestored:true,syntheticProviderRequests:requests,realProviderRequests:0,isolatedProfile:profile,fixtureProject:root,rendererErrors:errors},null,2))
    clearTimeout(watchdog);app.exit(0)
   })().catch(async error=>{
    fs.writeFileSync(path.join(profile,'workspace-failure.json'),JSON.stringify({error:String(error),stack:error.stack,rendererErrors:errors,requests},null,2))
