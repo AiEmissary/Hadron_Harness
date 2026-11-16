@@ -13,10 +13,12 @@ if(!profile||!path.basename(profile).startsWith('hadron-desktop-smoke-'))throw E
 const root=fs.mkdtempSync(path.join(os.tmpdir(),'hadron-workspace-code-'))
 fs.writeFileSync(path.join(root,'calculator.cjs'),'exports.add=(a,b)=>a-b;\n')
 fs.writeFileSync(path.join(root,'calculator.test.cjs'),"const {test}=require('node:test');const assert=require('node:assert/strict');const {add}=require('./calculator.cjs');test('negative operand',()=>assert.equal(add(-2,3),1));\n")
+fs.writeFileSync(path.join(root,'progress.cjs'),'exports.add=(a,b)=>a-b;\n')
+fs.writeFileSync(path.join(root,'progress.test.cjs'),"const {test}=require('node:test');const assert=require('node:assert/strict');const {add}=require('./progress.cjs');test('negative operand',()=>assert.equal(add(-2,3),1));\n")
 dialog.showOpenDialog=(async()=>({canceled:false,filePaths:[root]})) as typeof dialog.showOpenDialog
 let requests=0
 const longInputReceipts={attached:0,pasted:0,memory:0}
-const outcomeReceipts={partial:0,unconfirmed:0,reportAttempts:0}
+const outcomeReceipts={partial:0,unconfirmed:0,reportAttempts:0,progress:0,progressReports:0}
 let claudeConnected=true
 HadronCodexRuntime.prototype.status=async()=>({installed:true,connected:true,reason:'ready',loginState:'idle'})
 HadronCodexRuntime.prototype.models=async function(){this.allowedModels.add('fixture-model');return [{id:'fixture-model',label:'Fixture model'}]}
@@ -45,11 +47,21 @@ HadronCodexRuntime.prototype.generate=async function(input,emit){
  if(input.hadronToolSession){
   const agent=input.hadronToolSession.execution==='agent';let step=0
   const outcome=agent&&packet.task==='OUTCOME_PARTIAL_SENTINEL'?'partial':agent&&packet.task==='OUTCOME_UNCONFIRMED_SENTINEL'?'unconfirmed':null
+  const progressive=agent&&packet.task==='OUTCOME_PROGRESS_SENTINEL';if(progressive)outcomeReceipts.progress++
   if(outcome)outcomeReceipts[outcome]++
   const content=await runHadronToolConversation({session:input.hadronToolSession,signal:input.signal!,task:input.userContent,generate:async protocol=>{
    const transcript=JSON.parse(protocol).transcript
+   if(progressive){
+    step++
+    if(step===1)return JSON.stringify({tool:'read_file',arguments:{path:'progress.cjs'}})
+    if(step===2||step===4){outcomeReceipts.progressReports++;return JSON.stringify({answer:step===2?'Read completed; the edit remains.':'Edit applied; the test remains.',finished:false})}
+    if(step===3)return JSON.stringify({tool:'edit_file',arguments:{path:'progress.cjs',operation:'replace',searchPattern:'a-b',replacement:'a+b'}})
+    if(step===5)return JSON.stringify({tool:'powershell',arguments:{command:'node --test progress.test.cjs',description:'Run the progressive fixture test'}})
+    if(!JSON.stringify(transcript).includes('negative operand'))throw Error('Progressive fixture test evidence is missing')
+    return JSON.stringify({answer:'Progressive fixture repair and test completed.',finished:true})
+   }
    if(step++===0)return JSON.stringify({tool:agent?'read_file':'project_read',arguments:{path:'calculator.cjs'}})
-   if(outcome){outcomeReceipts.reportAttempts++;return JSON.stringify({answer:outcome==='partial'?'Partial fixture findings: a required dependency is unavailable.':'Unconfirmed fixture findings: completion has not been established.',...(outcome==='partial'?{finished:false}:{})})}
+   if(outcome){outcomeReceipts.reportAttempts++;return JSON.stringify({answer:outcome==='partial'?'Partial fixture findings: a required dependency is unavailable.':'Unconfirmed fixture findings: completion has not been established.',...(outcome==='partial'?{finished:false,blocked:true,blocker:'A fixture dependency requires user input.'}:{})})}
    if(agent&&step===2)return JSON.stringify({tool:'edit_file',arguments:{path:'calculator.cjs',operation:'replace',searchPattern:'a-b',replacement:'a+b'}})
    if(agent&&step===3)return JSON.stringify({tool:'powershell',arguments:{command:'node --test calculator.test.cjs',description:'Run the disposable calculator test'}})
    if(agent&&!JSON.stringify(transcript).includes('negative operand'))throw Error('The actual fixture test result is missing')
@@ -101,6 +113,9 @@ app.on('browser-window-created',(_event,window)=>{
       await wait(()=>!!document.querySelector('button[aria-label="Send"]'))
       if(!Array.from(document.querySelectorAll('article[data-message-id]')).at(-1)?.querySelector('.hadron-v2-not-finished'))throw Error('Unfinished fixture was presented as completed')
      }
+     await send('OUTCOME_PROGRESS_SENTINEL');await wait(()=>Array.from(document.querySelectorAll('article[data-message-id]')).at(-1)?.textContent?.includes('Progressive fixture repair and test completed.')===true)
+     await wait(()=>!!document.querySelector('button[aria-label="Send"]'))
+     if(Array.from(document.querySelectorAll('article[data-message-id]')).at(-1)?.querySelector('.hadron-v2-not-finished'))throw Error('Progressive completed work was marked unfinished')
     }
     await setup();set('Work type','together');button('Chat')!.click();await wait(()=>!!document.querySelector('select[aria-label="Agent B provider"]'))
     set('Agent B provider','claudecode');await wait(()=>!!document.querySelector('select[aria-label="Agent B model"] option[value="fixture-claude"]'));set('Agent B model','fixture-claude');document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))
@@ -141,7 +156,7 @@ app.on('browser-window-created',(_event,window)=>{
     const project=Array.from(document.querySelector<HTMLSelectElement>('select[aria-label="Destination project"]')!.options).find(option=>option.text==='Workspace transfer test')!;set('Destination project',project.value);await wait(()=>!!document.querySelector('select[aria-label="Destination chat"]'))
     const chat=Array.from(document.querySelector<HTMLSelectElement>('select[aria-label="Destination chat"]')!.options).find(option=>option.text==='Copied conclusions')!;set('Destination chat',chat.value);await new Promise(resolve=>setTimeout(resolve,100));button('Copy and open')!.click();await wait(()=>location.hash===copiedRoute&&!document.querySelector('dialog[open]'))
     await wait(()=>document.querySelectorAll('article[data-message-id]').length===2)
-    return {route,copiedRoute,oneComposer:true,twoPanes:true,providerAllowanceVisible:true,activityDropdown:true,sharedToSingleBContinues:true,directSingleAgentChoice:true,realNativeAgentEditAndTest:true,sharedAnswer:true,...(outcomes?{partialWorkMarkedUnfinished:true,unconfirmedWorkMarkedUnfinished:true}:{}),...(longInput?{longAttachmentContinuation:true,longPastedContinuation:true}:{}),...(consensus?{continuousConsensus:true}:{continuous100Turns:true}),copyToNewNamedProject:true,secondCopyAppended:true,importCanContinueWithB:true}
+    return {route,copiedRoute,oneComposer:true,twoPanes:true,providerAllowanceVisible:true,activityDropdown:true,sharedToSingleBContinues:true,directSingleAgentChoice:true,realNativeAgentEditAndTest:true,sharedAnswer:true,...(outcomes?{partialWorkMarkedUnfinished:true,unconfirmedWorkMarkedUnfinished:true,progressiveRepairCompleted:true}:{}),...(longInput?{longAttachmentContinuation:true,longPastedContinuation:true}:{}),...(consensus?{continuousConsensus:true}:{continuous100Turns:true}),copyToNewNamedProject:true,secondCopyAppended:true,importCanContinueWithB:true}
    }
    if(process.env.HADRON_WORKSPACE_HISTORY_ONLY==='1'){
     const target=JSON.parse(fs.readFileSync(path.join(profile,'history-target.json'),'utf8'))
@@ -154,7 +169,8 @@ app.on('browser-window-created',(_event,window)=>{
    const result=await run(`(${audit.toString()})(${process.env.HADRON_WORKSPACE_CONSENSUS_ONLY==='1'},${process.env.HADRON_WORKSPACE_LONG_INPUT==='1'},${process.env.HADRON_WORKSPACE_OUTCOME==='1'})`)
    if(result.continuousConsensus&&process.env.HADRON_WORKSPACE_LONG_INPUT!=='1'&&requests!==9)throw Error('Consensus did not stop after two replies')
    if(process.env.HADRON_WORKSPACE_LONG_INPUT==='1'&&(longInputReceipts.attached!==2||longInputReceipts.pasted!==2||!longInputReceipts.memory))throw Error('Missing long input provider receipts: '+JSON.stringify(longInputReceipts))
-   if(process.env.HADRON_WORKSPACE_OUTCOME==='1'&&(outcomeReceipts.partial!==1||outcomeReceipts.unconfirmed!==1||outcomeReceipts.reportAttempts!==4))throw Error('Missing outcome receipts: '+JSON.stringify(outcomeReceipts))
+   if(process.env.HADRON_WORKSPACE_OUTCOME==='1'&&(outcomeReceipts.partial!==1||outcomeReceipts.unconfirmed!==1||outcomeReceipts.reportAttempts!==3||outcomeReceipts.progress!==1||outcomeReceipts.progressReports!==2))throw Error('Missing outcome receipts: '+JSON.stringify(outcomeReceipts))
+   if(process.env.HADRON_WORKSPACE_OUTCOME==='1'&&!fs.readFileSync(path.join(root,'progress.cjs'),'utf8').includes('a+b'))throw Error('The progressive fixture was not actually repaired')
    if(!fs.readFileSync(path.join(root,'calculator.cjs'),'utf8').includes('a+b'))throw Error('The actual source file was not changed')
    await new Promise(resolve=>setTimeout(resolve,500))
    const bookmarks=JSON.parse(fs.readFileSync(path.join(profile,'remembered-project-folders.json'),'utf8'))

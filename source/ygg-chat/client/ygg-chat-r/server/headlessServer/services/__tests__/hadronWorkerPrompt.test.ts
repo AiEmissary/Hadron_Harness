@@ -3,7 +3,7 @@ import { buildHadronWorkerPrompt, HADRON_WORKER_PROMPT_VERSION } from '../collab
 
 describe('Hadron stage-specific worker instructions', () => {
   it('reserves comparison for review instead of declaring an initial proposal a failed consensus', () => {
-    expect(HADRON_WORKER_PROMPT_VERSION).toBe(7)
+    expect(HADRON_WORKER_PROMPT_VERSION).toBe(8)
     const proposal = buildHadronWorkerPrompt('proposal')
     expect(proposal).toContain('Do not add a Remaining disagreements section')
     expect(proposal).toContain('The coordinator will perform the comparison after both proposals finish')
@@ -25,6 +25,7 @@ describe('Hadron stage-specific worker instructions', () => {
 it('appoints a single implementer and keeps review assignments separate',()=>{
  expect(buildHadronWorkerPrompt('implementation')).toContain('sole implementer')
  expect(buildHadronWorkerPrompt('implementation')).toContain('If the user asked only a question')
+ expect(buildHadronWorkerPrompt('implementation')).not.toContain('This attempt is read-only.')
  expect(buildHadronWorkerPrompt('implementation')).toContain('Do not stop at a partial investigation')
  expect(buildHadronWorkerPrompt('implementation')).toContain('finished:false')
  expect(buildHadronWorkerPrompt('synthesis')).toContain('does not establish that the appointed implementer lacked coding tools')

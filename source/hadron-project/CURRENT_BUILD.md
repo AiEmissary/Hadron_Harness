@@ -1,3 +1,13 @@
+# Agent task persistence and Claude adapter correction — 16 November 2026
+
+Claude's own formatter now declares the completion outcome required by the Agent broker. Agent work continues across progressive partial reports in the same task, with explicit blockers, stalled-progress detection and existing Stop/request/deadline controls. The implementer's instructions no longer describe that stage as read-only. See AGENT_TASK_PERSISTENCE.md for the verified schema gap, 265 automated checks, isolated desktop completion after two partial reports, and an actual Claude Haiku edit plus passing Node test.
+
+Save/copy unsent text, close Hadron and reopen through the existing Desktop shortcut to load the local update. The user's original task/project and open window were not replayed or changed. Installer 6.0.6 and its release assets remain unchanged.
+
+Earlier checkpoints below are historical.
+
+---
+
 # Assigned-work completion correction — 16 November 2026
 
 Agent-mode final replies now require an explicit assigned-work outcome. One bounded outcome check can continue still-possible authorized work or confirm a real blocker; incomplete or unconfirmed work stays Not finished with its report retained. Reply-finished labels and failed-operation labels are distinct. Helper decoration preserves the outcome requirement and inherited deadline. See WORK_COMPLETION_OUTCOMES.md for scope and verification.

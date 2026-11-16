@@ -11,7 +11,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import {CODEX_FAILURE_REASONS} from '../../../auth/hadronCodexRuntime.js'
-import {HADRON_AGENT_INCOMPLETE,HADRON_COMPLETION_UNCONFIRMED} from '../../../../../../shared/hadronWorkOutcome.js'
+import {HADRON_AGENT_INCOMPLETE,HADRON_COMPLETION_UNCONFIRMED,HADRON_AGENT_STALLED} from '../../../../../../shared/hadronWorkOutcome.js'
 
 function fixture(proposalText = 'Committed proposal') {
   const pending: Array<() => void> = []
@@ -34,7 +34,7 @@ function fixture(proposalText = 'Committed proposal') {
   return { ...f, dependencies, service, sessions, input, pending, generate }
 }
 const observe = <T>(promise: Promise<T>) => promise.then(value => ({ value, error: null }), error => ({ value: null, error }))
-it.each([HADRON_AGENT_INCOMPLETE,HADRON_COMPLETION_UNCONFIRMED])('explains an unfinished assignment without claiming that the provider failed or replaying saved work',async message=>{
+it.each([HADRON_AGENT_INCOMPLETE,HADRON_COMPLETION_UNCONFIRMED,HADRON_AGENT_STALLED])('explains an unfinished assignment without claiming that the provider failed or replaying saved work',async message=>{
  const f=fixture();f.generate.mockRejectedValueOnce(new Error(message))
  try{
   expect((await observe(f.service.start('owner',f.input))).error).toBeTruthy()

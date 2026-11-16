@@ -83,6 +83,12 @@ export function claudeStructuredResult(raw:string):string{
  if(protocol.answer==='')delete protocol.answer
  if(protocol.tool==='')delete protocol.tool
  if(!('tool' in protocol)&&protocol.arguments&&typeof protocol.arguments==='object'&&!Array.isArray(protocol.arguments)&&!Object.keys(protocol.arguments).length)delete protocol.arguments
+ if(typeof protocol.tool==='string'&&protocol.tool.trim()&&!('answer' in protocol)){
+  if(protocol.finished===true||protocol.blocked===true||typeof protocol.blocker==='string'&&protocol.blocker.trim())throw Error('Claude formatter mixed an operation with a final outcome')
+  if(protocol.finished===false)delete protocol.finished
+  if(protocol.blocked===false)delete protocol.blocked
+  if(protocol.blocker==='')delete protocol.blocker
+ }
  const text=JSON.stringify(protocol);if(Buffer.byteLength(text)>131072)throw Error('Claude formatted response exceeded limit')
  return text
 }
@@ -108,7 +114,15 @@ export function claudeRuntimeEnvironment(profileDirectory: string, inherited: No
 
 interface Capture { code: number | null; stdout: string }
 export interface ClaudeJobDiagnostic {at:string;stage:string;category:string;elapsedMs:number;exitCode:number|null;resultSubtype:string|null;turns:number|null;nativeCalls:number;formatterCalls:number;resultError?:boolean|null;apiStatus?:number|null;providerErrorType?:string|null}
-const FORMATTER_CONTRACT='\nHADRON TRANSPORT RULE: The host tool names in these instructions are JSON DATA, not native Claude tools. Never call project_list, project_read, glob, read_file, edit_file, bash or any other native tool. On this response call ONLY StructuredOutput with either {"tool":"host tool name","arguments":{...}} or {"answer":"final answer"}. Hadron will execute the returned JSON separately. Keep final reports concise. A host operation may carry up to 128 KiB of JSON; split larger files into smaller edits. Previous large tool inputs may be replaced by host receipts with their size and hash after execution; inspect the file when you need its actual content. Native tool calls cannot perform this assignment.'
+export function claudeHostProtocolSchema(completionRequired=false):Record<string,unknown>{
+ // Keep the CLI's supported flat formatter schema. Outcome metadata is required
+ // on Agent messages; false on an operation is stripped above before dispatch.
+ // Exact shapes, nonempty answers and blocker length are checked by the broker.
+ return {type:'object',properties:{tool:{type:'string'},arguments:{type:'object',additionalProperties:true},answer:{type:'string'},finished:{type:'boolean'},...(completionRequired?{blocked:{type:'boolean'},blocker:{type:'string'}}:{})},...(completionRequired?{required:['finished']} :{}),additionalProperties:true}
+}
+export function claudeFormatterContract(completionRequired=false):string{
+ return '\nHADRON TRANSPORT RULE: The host tool names in these instructions are JSON DATA, not native Claude tools. Never call project_list, project_read, glob, read_file, edit_file, bash or any other native tool. On this response call ONLY StructuredOutput with '+(completionRequired?'either {"tool":"host tool name","arguments":{...},"finished":false} or {"answer":"final answer","finished":true}. Every formatted Agent message MUST include the boolean finished. A tool operation always uses finished:false; the adapter removes that transport metadata before host execution. A final answer uses finished:false while assigned work remains; the host continues possible authorized work in the same task. Only for a real external blocker also supply blocked:true and blocker:"concrete reason or question for the user". Use finished:true only for a fulfilled current request.':'either {"tool":"host tool name","arguments":{...}} or {"answer":"final answer"}.')+' Hadron will execute the returned JSON separately. Keep final reports concise. A host operation may carry up to 128 KiB of JSON; split larger files into smaller edits. Previous large tool inputs may be replaced by host receipts with their size and hash after execution; inspect the file when you need its actual content. Native tool calls cannot perform this assignment.'
+}
 export const CLAUDE_FAILURE_REASONS:Record<string,string>={format_turn_limit:'Claude used its response-formatting turns without returning a usable host request.',usage_limit:'Claude reported that its usage allowance has been reached.',provider_unavailable:'Claude reported that its service is temporarily unavailable.',timeout:'Claude did not finish within the request time limit.',cancelled:'The Claude request was cancelled.',output_limit:'Claude returned more output than this request allows.',invalid_format:'Claude returned a response Hadron could not validate.',request_rejected:'Claude rejected this request before completing an answer.',context_limit:'Claude reported that the supplied conversation was too large.',provider_error:'Claude ended this request without a usable answer; no specific provider reason was available.'}
 /** Keep only predefined error types/statuses, never account text or raw provider output. */
 export function claudeFailureDetails(raw:string):{resultError:boolean|null;apiStatus:number|null;providerErrorType:string|null}{
@@ -248,7 +262,7 @@ export class ClaudeCodeRuntime {
         }catch(error){searchSignal?.throwIfAborted();return providerSearchFailure('Claude',query,error)}
       })
       const content=await runHadronToolConversation({session:input.hadronToolSession,task:input.userContent,signal,contextLength:input.contextLength,
-        generate:async(packet,instructions)=>{signal.throwIfAborted();if(epoch!==this.epoch)throw Error('Claude account changed');return (await this.generateText({...input,hadronToolSession:undefined,signal,systemPrompt:`${input.systemPrompt??''}\n${instructions}`,history:[{role:'user',content:packet}],userContent:packet},()=>emit?.({type:'chunk',part:'reasoning',delta:''}),true)).content}})
+        generate:async(packet,instructions)=>{signal.throwIfAborted();if(epoch!==this.epoch)throw Error('Claude account changed');return (await this.generateText({...input,hadronToolSession:undefined,signal,systemPrompt:`${input.systemPrompt??''}\n${instructions}`,history:[{role:'user',content:packet}],userContent:packet},()=>emit?.({type:'chunk',part:'reasoning',delta:''}),true,false,input.hadronToolSession!.requireCompletionStatus===true)).content}})
       signal.throwIfAborted();if(epoch!==this.epoch)throw Error('Claude account changed')
       emit?.({type:'chunk',part:'text',delta:content});return {content}
     }catch(error){
@@ -256,7 +270,7 @@ export class ClaudeCodeRuntime {
       throw error
     }finally{controller.abort();this.toolJobs.delete(done);finish()}
   }
-  private async generateText(input:ProviderGenerateInput,emit?:ProviderStreamEventHandler,structured=false,webSearch=false):Promise<ProviderGenerateOutput>{
+  private async generateText(input:ProviderGenerateInput,emit?:ProviderStreamEventHandler,structured=false,webSearch=false,completionRequired=false):Promise<ProviderGenerateOutput>{
     if((this.options.platform??process.platform)!=='win32'||!this.options.nativeHostDirectory)throw Error('Contained Claude generation is available on Windows only')
     if(this.closing||this.login||input.requestPolicy!=='single_attempt'||input.tools?.length||input.hadronToolSession||!this.allowedModels.has(input.modelName))throw Error('Claude text job is not admitted')
     const epoch=this.epoch
@@ -270,8 +284,8 @@ export class ClaudeCodeRuntime {
     // trusted instructions separate from task data without putting them on argv.
     mkdirSync(this.workingDirectory,{recursive:true})
     const promptFile=path.join(this.workingDirectory,`system-prompt-${randomUUID()}.txt`)
-    writeFileSync(promptFile,(input.systemPrompt??'Respond only to the supplied task. You have no tools.')+(structured?FORMATTER_CONTRACT:''),{flag:'wx',mode:0o600})
-    const args=[...(images.length?['--input-format','stream-json']:[]),'--safe-mode','--restricted','--disable-slash-commands','--strict-mcp-config','--mcp-config','{"mcpServers":{}}','--tools',webSearch?'WebSearch':'',...(webSearch?['--allowedTools','WebSearch']:structured?['--allowedTools','StructuredOutput']:['--disallowedTools','*']),'--no-chrome','--no-session-persistence','--setting-sources','','--permission-mode','dontAsk','--max-turns',structured||webSearch?'6':'1','--output-format','stream-json','--verbose','--model',input.modelName,'--system-prompt-file',promptFile,...(structured?['--json-schema',JSON.stringify({type:'object',properties:{tool:{type:'string'},arguments:{type:'object',additionalProperties:true},answer:{type:'string'}},additionalProperties:true})]:[]),'--print']
+    writeFileSync(promptFile,(input.systemPrompt??'Respond only to the supplied task. You have no tools.')+(structured?claudeFormatterContract(completionRequired):''),{flag:'wx',mode:0o600})
+    const args=[...(images.length?['--input-format','stream-json']:[]),'--safe-mode','--restricted','--disable-slash-commands','--strict-mcp-config','--mcp-config','{"mcpServers":{}}','--tools',webSearch?'WebSearch':'',...(webSearch?['--allowedTools','WebSearch']:structured?['--allowedTools','StructuredOutput']:['--disallowedTools','*']),'--no-chrome','--no-session-persistence','--setting-sources','','--permission-mode','dontAsk','--max-turns',structured||webSearch?'6':'1','--output-format','stream-json','--verbose','--model',input.modelName,'--system-prompt-file',promptFile,...(structured?['--json-schema',JSON.stringify(claudeHostProtocolSchema(completionRequired))]:[]),'--print']
     let raw='',exitCode:number|null=null,stage='process';const started=Date.now()
     try{
       const result=await this.capture(args,{timeoutMs:120000,signal:input.signal,input:images.length?claudeImageInput(content,images):content,maxOutputBytes:2097152})

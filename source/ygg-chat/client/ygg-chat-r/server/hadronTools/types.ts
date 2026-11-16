@@ -15,7 +15,7 @@ export interface HadronToolSession {
   deadlineAt?:number
   /** Trusted optional same-provider helper; shares the existing helper quota and cancellation. */
   condense?(text:string,signal:AbortSignal):Promise<string>
-  outcome?:{incompleteReason?:'context_limit'|'request_limit'|'time_limit'|'agent_incomplete'|'completion_unconfirmed'}
+  outcome?:{incompleteReason?:'context_limit'|'request_limit'|'time_limit'|'agent_incomplete'|'completion_unconfirmed'|'agent_stalled'}
   requireEvidenceAttempt?: boolean
   evidenceAttempted?(): boolean
   evidenceInstruction?:string
@@ -52,7 +52,9 @@ export async function runHadronToolConversation(input: {
   let budget=toolContextBudget(input.contextLength),contextRetries=0,condensations=0
   const condense=async(aggressive=false)=>{transcript=await compactToolTranscript({transcript,signal:input.signal,aggressive,condense:condensations++<2?input.session.condense:undefined})}
   let correctedNoCheck = false, correctedToolMarkup = false, correctedCompletion = false
-  const finish = (answer: string,finished?:boolean,canCorrect=false): string | undefined => {
+  const progress=new Set<string>()
+  let partialProgress=-1,stalledReports=0
+  const finish = (answer: string,finished?:boolean,canCorrect=false,blocker?:string,stopReason?:'time_limit'|'request_limit'): string | undefined => {
     if (input.session.requireEvidenceAttempt && !input.session.evidenceAttempted?.()) {
       if (correctedNoCheck) throw new Error('An answer was returned without attempting the required evidence check; no check completed')
       correctedNoCheck = true
@@ -60,12 +62,23 @@ export async function runHadronToolConversation(input: {
       return undefined
     }
     if (input.session.requireCompletionStatus && finished!==true) {
+      if(finished===false){
+        if(blocker){outcome.incompleteReason='agent_incomplete';return answer+'\n\nAgent-reported blocker: '+blocker}
+        stalledReports=progress.size===partialProgress?stalledReports+1:0
+        partialProgress=progress.size
+        if(canCorrect&&stalledReports<2){
+          transcript.push({role:'assistant',content:answer},{role:'user',content:'HOST CONTINUE ASSIGNED WORK: The current request remains unfinished, and no external blocker was reported. Continue the remaining authorized work using the granted host tools and actual recorded results. Keep the same task and scope; do not merely repeat recommendations or claim completion. Do not repeat completed file-changing operations. Narrow truncated searches and correct failed inputs. When the current request is fulfilled return {"answer":"report of actual work and checks","finished":true}. Only if a real external blocker prevents further work, return {"answer":"available findings and remaining work","finished":false,"blocked":true,"blocker":"the concrete blocker or question for the user"}. This stays within the existing request/time budget.'})
+          return undefined
+        }
+        outcome.incompleteReason=outcome.incompleteReason??stopReason??(stalledReports>=2?'agent_stalled':'agent_incomplete')
+        return answer
+      }
       if (!correctedCompletion && canCorrect) {
         correctedCompletion=true
-        transcript.push({role:'assistant',content:answer},{role:'user',content:'HOST OUTCOME CORRECTION: '+(finished===false?'You reported that the assigned work is unfinished. Before ending, continue any remaining work that is possible with the current authorized tools and existing budget. If you are blocked, report the concrete blocker instead of inventing progress.':'Your reply did not confirm whether the assigned work is finished.')+' Return {"answer":"your report","finished":true} only when the current user request is fulfilled, or {"answer":"available findings, remaining work and the actual blocker","finished":false}. A partial investigation is not a finished repair. Answering a question can be complete without editing files or running tests. Do not broaden the request, invent completion or repeat completed file operations. This correction uses the existing request/time budget.'})
+        transcript.push({role:'assistant',content:answer},{role:'user',content:'HOST OUTCOME CORRECTION: Your reply did not confirm whether the assigned work is finished. Return {"answer":"your report","finished":true} only when the current request is fulfilled, or {"answer":"available findings and remaining work","finished":false} to continue possible authorized work. For a genuine external blocker also supply blocked:true and a concise blocker string. A partial investigation is not a finished repair. Answering a question can be complete without edits or tests. Do not broaden the request, invent completion or repeat completed file operations. This correction uses the existing request/time budget.'})
         return undefined
       }
-      outcome.incompleteReason=finished===false?'agent_incomplete':'completion_unconfirmed'
+      outcome.incompleteReason='completion_unconfirmed'
     } else if (finished===false) outcome.incompleteReason='agent_incomplete'
     return answer
   }
@@ -98,7 +111,7 @@ export async function runHadronToolConversation(input: {
       if(toolContextTokens(input.session.instructions+packet)>budget)return partial('context_limit')
     }
     let text:string
-    try{text=await input.generate(packet, input.session.instructions+'\nHOST FORMAT: Return one JSON object: {"tool":"name","arguments":{...}} or '+(input.session.requireCompletionStatus?'{"answer":"your final answer","finished":true}. The boolean finished is REQUIRED for a final answer; it refers to fulfilling the current user request, not merely writing a reply.':'{"answer":"your final answer"}.')+' If this assigned work could not be finished, return {"answer":"available findings and why the work is unfinished","finished":false}. Ordinary uncertainty in a completed analysis does not by itself mean unfinished work. Native XML/invoke markup is never executed and is not a final answer.'+(finalAnswerRequired?'\nHOST BUDGET: This is the final allowed response. Tools are now closed. Return the final answer from existing evidence, with explicit limitations.':''))}
+    try{text=await input.generate(packet, input.session.instructions+'\nHOST FORMAT: Return one JSON object: {"tool":"name","arguments":{...}} or '+(input.session.requireCompletionStatus?'{"answer":"your final answer","finished":true}. The boolean finished is REQUIRED for a final answer; it refers to fulfilling the current user request, not merely writing a reply.':'{"answer":"your final answer"}.')+' If assigned work remains, return {"answer":"available findings and remaining work","finished":false}. Continue through granted tool requests while useful authorized work remains. Only a real external blocker, unavailable required permission/resource or question requiring the user should end unfinished work early: add "blocked":true and "blocker":"concise concrete reason" to that unfinished answer. A recoverable failed search or partial investigation is not an external blocker. Ordinary uncertainty in a completed analysis does not by itself mean unfinished work. Native XML/invoke markup is never executed and is not a final answer.'+(finalAnswerRequired?'\nHOST BUDGET: This is the final allowed response. Tools are now closed. Return the final answer from existing evidence, with explicit limitations.':''))}
     catch(error){
       input.signal.throwIfAborted()
       // Only retry a rejected text-generation request. No prior tool operation is repeated.
@@ -117,8 +130,8 @@ export async function runHadronToolConversation(input: {
       continue
     }
     if (!parsed) { if (text.trim() && !text.trim().startsWith('{')) { const answer = finish(text,undefined,!finalAnswerRequired); if (answer !== undefined) return answer; continue }; throw new Error('Invalid tool response; no tool was run') }
-    if (value && Object.keys(value).every(key=>key==='answer'||key==='finished')&&(!Object.hasOwn(value,'finished')||typeof value.finished==='boolean')&&typeof value.answer === 'string' && value.answer.trim()) {
-      const answer = finish(value.answer,value.finished,!finalAnswerRequired)
+    if (value && Object.keys(value).every(key=>['answer','finished','blocked','blocker'].includes(key))&&(!Object.hasOwn(value,'finished')||typeof value.finished==='boolean')&&(!Object.hasOwn(value,'blocked')||typeof value.blocked==='boolean')&&(!Object.hasOwn(value,'blocker')||typeof value.blocker==='string'&&value.blocker.length<=2000)&&(!value.blocked||value.finished===false&&value.blocker?.trim())&&typeof value.answer === 'string' && value.answer.trim()) {
+      const answer = finish(value.answer,value.finished,!finalAnswerRequired,value.blocked?value.blocker.trim():undefined,finalForTime?'time_limit':finalAnswerRequired?'request_limit':undefined)
       if (answer !== undefined)return answer
       continue
     }
@@ -129,7 +142,8 @@ export async function runHadronToolConversation(input: {
     let result: unknown
     try { result = await input.session.invoke(value.tool, value.arguments, input.signal) }
     catch { input.signal.throwIfAborted(); result = { error: 'Tool request failed or was denied. Check its name, inputs and granted mode; do not claim success.' } }
-    const serialized=JSON.stringify(result)
+    const serialized=JSON.stringify(result)??'null'
+    if(result!==undefined&&!(result&&typeof result==='object'&&((result as any).success===false||(result as any).error)))progress.add(createHash('sha256').update(JSON.stringify([value.tool,value.arguments,result])).digest('hex'))
     if(serialized.length>20000){
       let summary:string|undefined
       if(input.session.condense&&condensations++<2){

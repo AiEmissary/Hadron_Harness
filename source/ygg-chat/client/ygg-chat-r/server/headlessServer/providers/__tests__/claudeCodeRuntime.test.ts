@@ -16,7 +16,7 @@ it('uses print streaming input to send JPEG bytes through the existing Claude ac
 })
 import {readFileSync,existsSync} from 'node:fs'
 import {claudeWebSearchResult} from '../../../hadronTools/providerWebSearch.js'
-import { ClaudeCodeRuntime, claudeConversationText, claudeNativePackage, claudeRuntimeEnvironment,claudeTextResult,claudeStructuredResult,claudeNeedsSignIn,CLAUDE_SIGN_IN_REQUIRED,claudeFailureDetails,claudeFailureCategory } from '../claudeCodeRuntime.js'
+import { ClaudeCodeRuntime, claudeConversationText, claudeNativePackage, claudeRuntimeEnvironment,claudeTextResult,claudeStructuredResult,claudeNeedsSignIn,CLAUDE_SIGN_IN_REQUIRED,claudeFailureDetails,claudeFailureCategory,claudeHostProtocolSchema,claudeFormatterContract } from '../claudeCodeRuntime.js'
 it('uses the coordinator deadline for tool work rather than cutting a ten-minute task off at five minutes',async()=>{
  let now=1700000000000,step=0;const clock=vi.spyOn(Date,'now').mockImplementation(()=>now),durations:number[]=[]
  const timeout=vi.spyOn(AbortSignal,'timeout').mockImplementation(ms=>{durations.push(ms);return new AbortController().signal})
@@ -61,12 +61,50 @@ it('preserves task and tool JSON verbatim without nested envelopes or a duplicat
  expect(text).toContain('Assistant:\nPeer-independent answer')
  expect(text.split(task)).toHaveLength(2)
 })
-const structuredFrames=()=>[
+const structuredFrames=(output:any={tool:'create_file',arguments:{path:'game.txt',content:'Test game'}})=>[
  {type:'system',subtype:'init',tools:['StructuredOutput'],mcp_servers:[]},
- {type:'assistant',message:{content:[{type:'tool_use',id:'formatter',name:'StructuredOutput',input:{tool:'create_file',arguments:{path:'game.txt',content:'Test game'}}}]}},
+ {type:'assistant',message:{content:[{type:'tool_use',id:'formatter',name:'StructuredOutput',input:output}]}},
  {type:'user',message:{content:[{type:'tool_result',tool_use_id:'formatter',content:'Formatted.'}]}},
- {type:'result',subtype:'success',is_error:false,num_turns:2,permission_denials:[],structured_output:{tool:'create_file',arguments:{path:'game.txt',content:'Test game'}}},
+ {type:'result',subtype:'success',is_error:false,num_turns:2,permission_denials:[],structured_output:output},
 ].map(frame=>JSON.stringify(frame)).join('\n')
+it.each([true,false])('preserves the explicit %s outcome through the acknowledged Claude formatter',finished=>{
+ const output={answer:'Available report.',finished,...(!finished?{blocked:true,blocker:'Missing user-supplied fixture dependency.'}:{})}
+ expect(JSON.parse(claudeStructuredResult(structuredFrames(output)))).toEqual(output)
+})
+it('normalizes only false operation metadata and rejects a tool mixed with a completed or blocked outcome',()=>{
+ const operation={tool:'edit_file',arguments:{path:'fixture.cjs'},finished:false,blocked:false,blocker:''}
+ expect(JSON.parse(claudeStructuredResult(structuredFrames(operation)))).toEqual({tool:'edit_file',arguments:{path:'fixture.cjs'}})
+ for(const invalid of [{...operation,finished:true},{...operation,blocked:true,blocker:'Blocked.'}])expect(()=>claudeStructuredResult(structuredFrames(invalid))).toThrow('mixed an operation')
+})
+
+it('carries the Agent outcome schema through the actual Claude adapter and continues progressive partial reports to completion',async()=>{
+ const runtime=new ClaudeCodeRuntime({runtimeDirectory:os.tmpdir(),profileDirectory:path.join(os.tmpdir(),'hadron-claude-completion-adapter'),platform:'win32',nativeHostDirectory:os.tmpdir()})
+ vi.spyOn(runtime,'status').mockResolvedValue({installed:true,version:'2.1.318',connected:true,reason:'ready'});await runtime.models()
+ const plan=[{tool:'read_file',arguments:{path:'fixture.cjs'}},{answer:'Inspection complete; the assigned repair remains.',finished:false},{tool:'edit_file',arguments:{path:'fixture.cjs'}},{answer:'The edit is applied; the assigned test remains.',finished:false},{tool:'test_fixture',arguments:{}},{answer:'The assigned repair and test are complete.',finished:true}]
+ let index=0
+ const capture=vi.spyOn(runtime as any,'capture').mockImplementation(async(args:any,options:any)=>{
+  const schema=JSON.parse(args[args.indexOf('--json-schema')+1])
+  expect(schema).toEqual(claudeHostProtocolSchema(true))
+  expect(schema.required).toContain('finished');expect(schema.properties.finished.type).toBe('boolean')
+  expect(readFileSync(args[args.indexOf('--system-prompt-file')+1],'utf8')).toContain('Every formatted Agent message MUST include the boolean finished')
+  expect(args[args.indexOf('--tools')+1]).toBe('');expect(args[args.indexOf('--allowedTools')+1]).toBe('StructuredOutput')
+  if(index===2||index===4)expect(options.input).toContain('HOST CONTINUE ASSIGNED WORK')
+  const output=plan[index++];return{code:0,stdout:structuredFrames('tool' in output?{...output,finished:false}:output)}
+ })
+ const invoke=vi.fn(async(name:string)=>({success:true,operation:name})),session=admitHadronToolSession({execution:'agent',requireCompletionStatus:true,maxRequests:10,instructions:'Use the granted host tools for this fixture only.',invoke})
+ try{
+  expect(await runtime.generate({modelName:'haiku',requestPolicy:'single_attempt',history:[],userContent:'Repair the fixture and run its test.',hadronToolSession:session})).toEqual({content:'The assigned repair and test are complete.'})
+  expect(session.outcome?.incompleteReason).toBeUndefined();expect(capture).toHaveBeenCalledTimes(6)
+  expect(invoke.mock.calls.map(([name])=>name)).toEqual(['read_file','edit_file','test_fixture'])
+ }finally{await runtime.shutdown()}
+})
+
+it('keeps legacy structured proposal fields available without weakening the Agent final-outcome schema',()=>{
+ expect(claudeHostProtocolSchema(false)).toMatchObject({additionalProperties:true})
+ expect(claudeHostProtocolSchema(true)).toMatchObject({required:['finished'],properties:{finished:{type:'boolean'}}})
+ expect(JSON.stringify(claudeHostProtocolSchema(true))).not.toMatch(/oneOf|minLength|maxLength/)
+ expect(claudeFormatterContract(true)).toContain('blocked:true')
+})
 it('accepts only the completed internal JSON formatter, rejecting native execution tools and forged results',()=>{
  const raw=structuredFrames()
  expect(JSON.parse(claudeStructuredResult(raw)).tool).toBe('create_file')

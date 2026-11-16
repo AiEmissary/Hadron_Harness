@@ -1,5 +1,7 @@
 # Assigned-work completion and reply status — 16 November 2026
 
+Follow-up: AGENT_TASK_PERSISTENCE.md supersedes the one-check continuation policy below and corrects the missing Claude-specific schema integration. This document records the preceding checkpoint.
+
 ## Problem
 
 The reported shared run completed both proposals, both reviews and its combined answer. Its appointed implementer described only a partial investigation. Coding permission was present, while later review/summary stages were deliberately read-only. Two early failed searches were followed by successful operations. This was distinct from the earlier transport/time-limit failures.
