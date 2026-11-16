@@ -49,7 +49,7 @@ export class CollaborationReview {
     const child = await this.deps.agents.spawnDetached({
       conversationId: this.input.conversationId, parentMessageId: this.input.anchorMessageId,
       lineageId: null, rootPath: null, fullAccess: false,
-      images:this.input.images, prompt, systemPrompt: buildHadronWorkerPrompt(role)+(role==='synthesis'?'\nASSESSMENT AND IMPLEMENTATION: A read-only assessment can finish while reporting missing evidence or unfinished implementation. Preserve those limitations in the combined answer. Explicitly list outstanding requested work and any blocker; never imply that the whole job, audit, edits or tests were completed merely because the assessment stages returned replies.':''), provider,
+      images:this.input.images, prompt, systemPrompt: buildHadronWorkerPrompt(role)+(role==='synthesis'?'\nASSESSMENT AND IMPLEMENTATION: A read-only assessment can finish while reporting missing evidence or unfinished implementation. Preserve those limitations in the combined answer. Explain outstanding requested work and any blocker in plain language; never imply that the whole job, audit, edits or tests were completed merely because the assessment stages returned replies.':''), provider,
       modelName: selection.model_name, userId: this.owner, autoApprove: false,
       operationMode: 'plan', tools: [], maxTurns: 1, autoCompactionEnabled: false,
     }, { signal: this.controller.signal, toolPolicy: 'none', toolSession,helpers:{jobId:this.input.sessionId,role:selection.participant_id}, onPrepared: binding => {

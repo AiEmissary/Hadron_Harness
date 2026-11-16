@@ -1,3 +1,13 @@
+# Natural summaries and practical next steps — 16 November 2026
+
+Worker contract v9 uses natural user-facing summaries, explains findings and offers grounded next actions. Compulsory handoff sections, uncertainty headings and routine confidence grades are removed; material limitations and truthful work/check reports remain. See NATURAL_REPLIES.md for scope and validation.
+
+Save/copy any draft and reopen through the desktop shortcut to load the local update for future replies. Saved conversations and the installer are unchanged. Context handover summarization is separate from this wording update.
+
+Earlier checkpoints below are historical.
+
+---
+
 # Reviewer assessment scope correction — 16 November 2026
 
 A read-only participant reporting outstanding implementation no longer aborts the entire shared workflow. Trusted assessment scope carries the report into review and synthesis, which must list remaining work honestly. Implementer completion checks and actual provider/evidence/budget failures remain enforced. See REVIEWER_ASSESSMENT_SCOPE.md.
