@@ -125,3 +125,20 @@ it('admits Claude separately and retains the provider on independent jobs',async
   expect(f.service.status('owner','a')).toMatchObject({provider:'claudecode',status:'completed'})
  }finally{f.close()}
 })
+it('gives tool jobs an agent deadline before the hard stop so a final or partial report can be saved', async () => {
+  const { admitHadronToolSession } = await import('../../../hadronTools/types.js')
+  const { independentJobReportMarginMs } = await import('../collaboration/independentJobService.js')
+  const f = fixture(300000)
+  const sessions: any[] = []
+  const service = new IndependentJobService({ ...f.deps, toolSession: () => admitHadronToolSession({ instructions: 'x', invoke: async () => null }) })
+  f.generate.mockImplementation(async (_provider: unknown, input: any) => { sessions.push(input.hadronToolSession); return { content: 'Tool job output' } })
+  const before = Date.now()
+  try {
+    await service.start('owner', { ...f.a, toolMode: 'web' })
+    expect(independentJobReportMarginMs(300000)).toBe(30000)
+    expect(independentJobReportMarginMs(1000)).toBe(250)
+    expect(sessions).toHaveLength(1)
+    expect(sessions[0].deadlineAt).toBeGreaterThanOrEqual(before + 270000)
+    expect(sessions[0].deadlineAt).toBeLessThanOrEqual(Date.now() + 270000)
+  } finally { f.close() }
+})

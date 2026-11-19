@@ -16,7 +16,7 @@ it('uses print streaming input to send JPEG bytes through the existing Claude ac
 })
 import {readFileSync,existsSync} from 'node:fs'
 import {claudeWebSearchResult} from '../../../hadronTools/providerWebSearch.js'
-import { ClaudeCodeRuntime, claudeConversationText, claudeNativePackage, claudeRuntimeEnvironment,claudeTextResult,claudeStructuredResult,claudeNeedsSignIn,CLAUDE_SIGN_IN_REQUIRED,claudeFailureDetails,claudeFailureCategory,claudeHostProtocolSchema,claudeFormatterContract } from '../claudeCodeRuntime.js'
+import { ClaudeCodeRuntime, CLAUDE_TOOL_DEADLINE_GRACE_MS, claudeConversationText, claudeNativePackage, claudeRuntimeEnvironment,claudeTextResult,claudeStructuredResult,claudeNeedsSignIn,CLAUDE_SIGN_IN_REQUIRED,claudeFailureDetails,claudeFailureCategory,claudeHostProtocolSchema,claudeFormatterContract } from '../claudeCodeRuntime.js'
 it('uses the coordinator deadline for tool work rather than cutting a ten-minute task off at five minutes',async()=>{
  let now=1700000000000,step=0;const clock=vi.spyOn(Date,'now').mockImplementation(()=>now),durations:number[]=[]
  const timeout=vi.spyOn(AbortSignal,'timeout').mockImplementation(ms=>{durations.push(ms);return new AbortController().signal})
@@ -28,8 +28,9 @@ it('uses the coordinator deadline for tool work rather than cutting a ten-minute
   expect(durations).toEqual([600000]);expect(session.invoke).toHaveBeenCalledTimes(1)
  }finally{await runtime.shutdown();timeout.mockRestore();clock.mockRestore()}
 })
+it('gives the tool loop a default grace past its deadline before stopping Claude',()=>expect(CLAUDE_TOOL_DEADLINE_GRACE_MS).toBe(15000))
 it('reports an actual host tool deadline without hiding it as an unclassified timeout',async()=>{
- const runtime=new ClaudeCodeRuntime({runtimeDirectory:os.tmpdir(),profileDirectory:path.join(os.tmpdir(),'hadron-deadline-expiry-fixture'),platform:'win32',nativeHostDirectory:os.tmpdir()});runtime.allowedModels.add('haiku')
+ const runtime=new ClaudeCodeRuntime({runtimeDirectory:os.tmpdir(),profileDirectory:path.join(os.tmpdir(),'hadron-deadline-expiry-fixture'),platform:'win32',nativeHostDirectory:os.tmpdir(),toolDeadlineGraceMs:40});runtime.allowedModels.add('haiku')
  const session=admitHadronToolSession({instructions:'Read',deadlineAt:Date.now()+40,invoke:vi.fn()})
  vi.spyOn(runtime as any,'generateText').mockImplementation(async(input:any)=>new Promise((_resolve,reject)=>{const fail=()=>reject(input.signal.reason);if(input.signal.aborted)fail();else input.signal.addEventListener('abort',fail,{once:true})}))
  try{await expect(runtime.generate({modelName:'haiku',requestPolicy:'single_attempt',history:[],userContent:'Read',hadronToolSession:session})).rejects.toThrow('Hadron stopped Claude at its tool-work time limit')}

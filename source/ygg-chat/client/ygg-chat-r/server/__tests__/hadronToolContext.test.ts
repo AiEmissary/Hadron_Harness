@@ -37,14 +37,14 @@ it('dispatches no generation or operation once the task deadline has already exp
 
 it('continues beyond the old 90,000-character cutoff and produces a report with the supplied model budget',async()=>{
  let calls=0;const sizes:number[]=[],invoke=vi.fn(async()=>({text:'source line and observed evidence. '.repeat(450)}))
- const answer=await runHadronToolConversation({session:{execution:'agent',maxRequests:30,instructions:'Inspect and report',invoke},contextLength:200000,task:'Keep the original task and constraints.',signal:new AbortController().signal,generate:async packet=>{sizes.push(packet.length);return ++calls<=12?JSON.stringify({tool:'project_read',arguments:{path:'fixture.md'}}):JSON.stringify({answer:'Report from the actual returned evidence.'})}})
+ const answer=await runHadronToolConversation({session:{execution:'agent',maxRequests:30,instructions:'Inspect and report',invoke},contextLength:200000,task:'Keep the original task and constraints.',signal:new AbortController().signal,generate:async packet=>{sizes.push(packet.length);return ++calls<=12?JSON.stringify({tool:'project_read',arguments:{path:'fixture.md',startLine:calls}}):JSON.stringify({answer:'Report from the actual returned evidence.'})}})
  expect(answer).toContain('Report');expect(Math.max(...sizes)).toBeGreaterThan(90000);expect(invoke).toHaveBeenCalledTimes(12)
 })
 it('uses a helper summary as untrusted evidence and preserves the task and recent results while keeping packets bounded',async()=>{
  let calls=0;const packets:any[]=[],condense=vi.fn(async()=> 'Observed file.ts:12. Reads succeeded. Investigation remains incomplete; check the recent results.')
  const task='Investigate only the last two weeks. Do not change files.'
  const session:HadronToolSession={execution:'agent',maxRequests:30,instructions:'Use the evidence',condense,invoke:vi.fn(async()=>({path:'file.ts',success:true,text:'line of actual source evidence. '.repeat(450)}))}
- const answer=await runHadronToolConversation({session,contextLength:24000,task,signal:new AbortController().signal,generate:async packet=>{packets.push(JSON.parse(packet));return ++calls<=14?JSON.stringify({tool:'project_read',arguments:{path:'file.ts'}}):JSON.stringify({answer:'Investigation report; original files unchanged.'})}})
+ const answer=await runHadronToolConversation({session,contextLength:24000,task,signal:new AbortController().signal,generate:async packet=>{packets.push(JSON.parse(packet));return ++calls<=14?JSON.stringify({tool:'project_read',arguments:{path:'file.ts',startLine:calls}}):JSON.stringify({answer:'Investigation report; original files unchanged.'})}})
  expect(answer).toContain('report');expect(condense).toHaveBeenCalled();expect(condense.mock.calls.length).toBeLessThanOrEqual(2)
  expect(packets.some(packet=>packet.transcript.some((entry:any)=>entry.role==='host_memory'&&entry.content.untrustedContent===true))).toBe(true)
  for(const packet of packets){expect(packet.transcript[0]).toEqual({role:'user',content:task});expect(toolContextTokens(JSON.stringify(packet)+session.instructions)).toBeLessThanOrEqual(toolContextBudget(24000))}
@@ -52,7 +52,7 @@ it('uses a helper summary as untrusted evidence and preserves the task and recen
 })
 it('falls back to bounded receipts if a summary helper fails, without re-executing operations',async()=>{
  let calls=0;const invoke=vi.fn(async()=>({path:'file.ts',success:true,text:'observed fact '.repeat(900)}))
- const answer=await runHadronToolConversation({session:{execution:'agent',maxRequests:20,instructions:'Inspect',invoke,condense:async()=>{throw Error('Helper allowance unavailable')}},contextLength:20000,task:'Investigate',signal:new AbortController().signal,generate:async()=>++calls<=10?JSON.stringify({tool:'project_read',arguments:{path:'file.ts'}}):JSON.stringify({answer:'Bounded report with limitations.'})})
+ const answer=await runHadronToolConversation({session:{execution:'agent',maxRequests:20,instructions:'Inspect',invoke,condense:async()=>{throw Error('Helper allowance unavailable')}},contextLength:20000,task:'Investigate',signal:new AbortController().signal,generate:async()=>++calls<=10?JSON.stringify({tool:'project_read',arguments:{path:'file.ts',startLine:calls}}):JSON.stringify({answer:'Bounded report with limitations.'})})
  expect(answer).toContain('report');expect(invoke).toHaveBeenCalledTimes(10)
 })
 it.each(['maximum context length exceeded',CODEX_FAILURE_REASONS.context_limit])('reduces an explicitly rejected context (%s) without repeating the completed edit',async message=>{
@@ -81,7 +81,7 @@ it('records an incomplete outcome when the request cap is exhausted and the agen
 it('honours Stop during summarisation without a later request or operation',async()=>{
  const controller=new AbortController();let calls=0
  const invoke=vi.fn(async()=>({text:'some evidence '.repeat(1000)}))
- await expect(runHadronToolConversation({session:{execution:'agent',maxRequests:20,instructions:'Inspect',invoke,condense:async()=>{controller.abort();return 'summary'}},contextLength:16000,task:'Inspect',signal:controller.signal,generate:async()=>{calls++;return JSON.stringify({tool:'project_read',arguments:{path:'file.ts'}})}})).rejects.toThrow()
+ await expect(runHadronToolConversation({session:{execution:'agent',maxRequests:20,instructions:'Inspect',invoke,condense:async()=>{controller.abort();return 'summary'}},contextLength:16000,task:'Inspect',signal:controller.signal,generate:async()=>{calls++;return JSON.stringify({tool:'project_read',arguments:{path:'file.ts',startLine:calls}})}})).rejects.toThrow()
  expect(calls).toBeLessThan(20);expect(invoke).toHaveBeenCalledTimes(calls)
 })
 it('retains an explicitly unfinished answer while exposing its outcome to job status',async()=>{
@@ -94,7 +94,7 @@ it('retains an explicitly unfinished answer while exposing its outcome to job st
 it('bounds large arrays of results as well as individual strings during repeated compactions',async()=>{
  let calls=0
  const session:HadronToolSession={execution:'agent',maxRequests:30,instructions:'Inspect',invoke:async()=>({matches:Array.from({length:16},(_,i)=>({path:'file-'+i+'.ts',line:i,text:'observed line '.repeat(45)}))})}
- const result=await runHadronToolConversation({session,contextLength:16000,task:'Keep investigating',signal:new AbortController().signal,generate:async()=>++calls<20?JSON.stringify({tool:'project_search',arguments:{query:'needle'}}):JSON.stringify({answer:'Bounded search report.'})})
+ const result=await runHadronToolConversation({session,contextLength:16000,task:'Keep investigating',signal:new AbortController().signal,generate:async()=>++calls<20?JSON.stringify({tool:'project_search',arguments:{query:'needle'+calls}}):JSON.stringify({answer:'Bounded search report.'})})
  expect(result).toBe('Bounded search report.');expect(session.outcome?.incompleteReason).toBeUndefined()
 })
 it('condenses a single oversized tool result instead of failing after an operation already ran',async()=>{
@@ -103,4 +103,15 @@ it('condenses a single oversized tool result instead of failing after an operati
  const answer=await runHadronToolConversation({session:{execution:'agent',instructions:'Create once',invoke,condense},contextLength:200000,task:'Create the file once and report.',signal:new AbortController().signal,generate:async packet=>{packets.push(packet);return ++calls===1?JSON.stringify({tool:'create_file',arguments:{path:'created.ts',content:'fixture'}}):JSON.stringify({answer:'File created; diagnostic output was condensed.'})}})
  expect(answer).toContain('File created');expect(invoke).toHaveBeenCalledTimes(1);expect(condense).toHaveBeenCalledTimes(1)
  expect(packets[1]).toContain('toolResultShortened');expect(packets[1]).toContain('created.ts');expect(packets[1].length).toBeLessThan(12000)
+})
+it('keeps an index of completed operations across repeated condensations',async()=>{
+ const {compactToolTranscript}=await import('../hadronTools/toolContext.js')
+ const op=(query:string)=>[{role:'assistant',content:{tool:'project_search',arguments:{query}}},{role:'tool_evidence',content:{name:'project_search',result:{matches:[]}}}]
+ let transcript=[{role:'user',content:'task'},...op('a'),...op('b'),...op('c')]
+ transcript=await compactToolTranscript({transcript,signal:new AbortController().signal})
+ transcript=[...transcript,...op('d'),...op('e'),...op('f')]
+ transcript=await compactToolTranscript({transcript,signal:new AbortController().signal})
+ const memory=transcript.find(entry=>entry.role==='host_memory')!.content as {completedOperations:Array<{arguments:{query:string}}>}
+ expect(transcript[0]).toEqual({role:'user',content:'task'})
+ expect(memory.completedOperations.map(item=>item.arguments.query)).toEqual(['a','b','c','d'])
 })

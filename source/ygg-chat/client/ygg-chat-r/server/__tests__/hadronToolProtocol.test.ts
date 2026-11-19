@@ -25,7 +25,8 @@ describe('Coordinator tool conversation', () => {
     const invoke = vi.fn().mockResolvedValue({}), session = { instructions: 'x', invoke }, signal = new AbortController().signal
     await expect(runHadronToolConversation({ session, task: 'x', signal, generate: async () => '{"tool":"x","arguments":{},"extra":true}' })).rejects.toThrow()
     expect(invoke).not.toHaveBeenCalled()
-    const generate = vi.fn().mockResolvedValue('{"tool":"web_read","arguments":{}}')
+    let call = 0
+    const generate = vi.fn(async () => JSON.stringify({ tool: 'web_read', arguments: { url: 'https://example.com/' + call++ } }))
     expect(await runHadronToolConversation({ session, task: 'x', signal, generate })).toContain('Partial research — limit reached')
     expect(generate).toHaveBeenCalledTimes(8); expect(invoke).toHaveBeenCalledTimes(7)
     expect(JSON.parse(generate.mock.calls[7][0]).finalAnswerRequired).toBe(true)
@@ -51,7 +52,7 @@ it('requires a real evidence attempt in verification, with at most one bounded c
 })
 it('reserves the last request for synthesis without increasing the configured budget',async()=>{
  const invoke=vi.fn(async()=>({text:'observed file evidence'}))
- const generate=vi.fn(async(packet:string,instructions:string)=>JSON.parse(packet).finalAnswerRequired?JSON.stringify({answer:'Limited conclusion based on the inspected excerpt; the rest remains unknown.'}):JSON.stringify({tool:'project_read',arguments:{path:'sample.md'}}))
+ const generate=vi.fn(async(packet:string,instructions:string)=>JSON.parse(packet).finalAnswerRequired?JSON.stringify({answer:'Limited conclusion based on the inspected excerpt; the rest remains unknown.'}):JSON.stringify({tool:'project_read',arguments:{path:'sample.md',startLine:generate.mock.calls.length}}))
  const answer=await runHadronToolConversation({session:{instructions:'Read only',invoke,maxRequests:3},task:'Inspect a large project',signal:new AbortController().signal,generate})
  expect(answer).toContain('Limited conclusion');expect(generate).toHaveBeenCalledTimes(3);expect(invoke).toHaveBeenCalledTimes(2)
 })
@@ -92,4 +93,45 @@ it('executes the complete large coding payload and retains a bounded receipt in 
  const input=JSON.parse(packets[1]).transcript[1].content.arguments.content
  expect(input.characters).toBe(source.length);expect(input.sha256).toMatch(/^[a-f0-9]{64}$/)
  expect(packets[1]).toContain('tool_evidence')
+})
+describe('Repeated read-only requests', () => {
+  it('returns the earlier result for an identical read-only request instead of running it again', async () => {
+    const invoke = vi.fn().mockResolvedValue({ matches: ['budgetStage.js:42'] })
+    const generate = vi.fn()
+      .mockResolvedValueOnce('{"tool":"project_search","arguments":{"query":"lane_open_cap","path":"src"}}')
+      .mockResolvedValueOnce('{"tool":"project_search","arguments":{"path":"src","query":"lane_open_cap"}}')
+      .mockResolvedValueOnce('{"answer":"Found it."}')
+    expect(await runHadronToolConversation({ session: { instructions: 'x', invoke }, task: 'x', signal: new AbortController().signal, generate })).toBe('Found it.')
+    expect(invoke).toHaveBeenCalledTimes(1)
+    const packet = JSON.parse(generate.mock.calls[2][0])
+    const reused = packet.transcript.at(-1).content
+    expect(reused).toMatchObject({ repeatedRequest: true, notRunAgain: true, firstOperation: 1, result: { matches: ['budgetStage.js:42'] } })
+    expect(packet.repeatedRequests).toBe(1)
+  })
+  it('runs a read again after a file-changing operation, and never reuses file-changing operations', async () => {
+    const invoke = vi.fn().mockResolvedValue({ ok: true })
+    const read = '{"tool":"project_read","arguments":{"path":"a.js"}}', write = '{"tool":"project_write","arguments":{"path":"a.js","content":"x"}}'
+    const generate = vi.fn().mockResolvedValueOnce(read).mockResolvedValueOnce(write).mockResolvedValueOnce(read).mockResolvedValueOnce(write).mockResolvedValueOnce('{"answer":"Done."}')
+    await runHadronToolConversation({ session: { instructions: 'x', invoke }, task: 'x', signal: new AbortController().signal, generate })
+    expect(invoke).toHaveBeenCalledTimes(4)
+  })
+  it('requires a final answer after repeated identical requests and reports an agent stall', async () => {
+    const invoke = vi.fn().mockResolvedValue({ matches: [] })
+    const session = admitHadronToolSession({ instructions: 'x', invoke, execution: 'agent', requireCompletionStatus: true, maxRequests: 30 })
+    const generate = vi.fn().mockResolvedValue('{"tool":"project_search","arguments":{"query":"lane_open_cap"}}')
+    const text = await runHadronToolConversation({ session, task: 'x', signal: new AbortController().signal, generate })
+    expect(invoke).toHaveBeenCalledTimes(1)
+    expect(generate).toHaveBeenCalledTimes(6)
+    expect(JSON.parse(generate.mock.calls[5][0]).finalAnswerRequired).toBe(true)
+    expect(JSON.parse(generate.mock.calls[5][0]).hostInstruction).toContain('repeatedly requested operations that already ran')
+    expect(text).toContain('kept repeating the same read-only requests')
+    expect(session.outcome?.incompleteReason).toBe('agent_stalled')
+  })
+  it('records an unfinished stalled answer as agent_stalled', async () => {
+    const invoke = vi.fn().mockResolvedValue({ matches: [] })
+    const session = admitHadronToolSession({ instructions: 'x', invoke, execution: 'agent', requireCompletionStatus: true, maxRequests: 30 })
+    const generate = vi.fn().mockImplementation(async () => generate.mock.calls.length === 6 ? '{"answer":"Partial findings.","finished":false}' : '{"tool":"project_search","arguments":{"query":"q"}}')
+    expect(await runHadronToolConversation({ session, task: 'x', signal: new AbortController().signal, generate })).toBe('Partial findings.')
+    expect(session.outcome?.incompleteReason).toBe('agent_stalled')
+  })
 })

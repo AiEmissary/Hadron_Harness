@@ -8,6 +8,10 @@ import { ProposalAccessDenied } from './proposalSessionService.js'
 import { proposalHash } from './proposalCheckpoints.js'
 import type { AgentJobJournal } from './agentJobJournal.js'
 import { buildJobContinuity } from './jobContinuity.js'
+import { isHadronToolSession, withHadronToolDeadline } from '../../../hadronTools/types.js'
+
+/** Time reserved between the agent's own deadline and the hard stop, so a final or partial report can still be saved. */
+export function independentJobReportMarginMs(deadlineMs: number): number { return Math.min(30_000, Math.floor(deadlineMs / 4)) }
 
 interface ActiveJob { controller: AbortController; promise: Promise<void>; handle?: string }
 /** One job owns exactly one protected provider attempt. No shared task, context or cancellation. */
@@ -100,12 +104,16 @@ export class IndependentJobService {
   private async execute(ownerId: string, input: IndependentJobInput, deadlineMs: number, entry: ActiveJob, conversationHistory: Array<{ role: 'user' | 'assistant'; content: string; status?: string }>): Promise<void> {
     const { signal } = entry.controller
     let timedOut = false, completed = false
+    const startedAt = Date.now()
     const timer = setTimeout(() => { timedOut = true; entry.controller.abort(); if (entry.handle) this.deps.agents.cancel(entry.handle) }, deadlineMs)
     const journalTimer = this.deps.journal ? setInterval(() => { try { this.checkpoint(ownerId, input.id) } catch { /* Explicit journal read reports storage failure; inference is not relaunched. */ } }, 5000) : undefined
     try {
       this.checkpoint(ownerId, input.id)
       signal.throwIfAborted(); this.authorize(ownerId, input)
-      const toolSession = input.toolMode ? this.deps.toolSession!(ownerId, input) : undefined
+      // Tell the tool loop about the job deadline so it asks for a final answer before the hard stop below aborts it.
+      const baseSession = input.toolMode ? this.deps.toolSession!(ownerId, input) : undefined
+      const toolSession = baseSession && isHadronToolSession(baseSession)
+        ? withHadronToolDeadline(baseSession, startedAt + deadlineMs - independentJobReportMarginMs(deadlineMs)) : baseSession
       const child = await this.deps.agents.spawnDetached({ conversationId: input.conversationId, parentMessageId: input.anchorMessageId,
         images:input.images, prompt: JSON.stringify({ schemaVersion: 1, task: input.task, context: input.context, ...(conversationHistory.length ? { conversationHistory } : {}) }),
         systemPrompt: buildHadronWorkerPrompt('independent_job'),

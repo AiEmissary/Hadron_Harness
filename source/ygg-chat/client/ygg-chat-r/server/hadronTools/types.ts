@@ -48,6 +48,17 @@ export function compactHostRequest(value:unknown):unknown{
  return visit(value,0)
 }
 
+/** Tools that never change files. An identical repeat can safely reuse the earlier result while no other tool has run since. */
+export const HADRON_READ_ONLY_TOOLS:ReadonlySet<string>=new Set(['project_read','project_search','project_list','web_search','web_read','tool_list','helper_search','helper_read'])
+/** Identical repeats (after the earlier result is handed back) before the agent must give its answer. */
+export const HADRON_REPEATED_REQUEST_LIMIT=4
+function canonicalJson(value:unknown):string{
+ if(Array.isArray(value))return '['+value.map(canonicalJson).join(',')+']'
+ if(value&&typeof value==='object')return '{'+Object.keys(value).sort().map(key=>JSON.stringify(key)+':'+canonicalJson((value as Record<string,unknown>)[key])).join(',')+'}'
+ return JSON.stringify(value)??'null'
+}
+export function hadronToolRequestKey(tool:string,args:unknown):string{return createHash('sha256').update(tool+'\u0000'+canonicalJson(args)).digest('hex')}
+
 export async function runHadronToolConversation(input: {
   session: HadronToolSession; task: string; signal: AbortSignal
   contextLength?:number
@@ -60,7 +71,10 @@ export async function runHadronToolConversation(input: {
   let correctedNoCheck = false, correctedToolMarkup = false, correctedCompletion = false
   const progress=new Set<string>()
   let partialProgress=-1,stalledReports=0
-  const finish = (answer: string,finished?:boolean,canCorrect=false,blocker?:string,stopReason?:'time_limit'|'request_limit'): string | undefined => {
+  // Earlier read-only results by request; cleared whenever any other tool runs, because that may have changed files.
+  const readResults=new Map<string,{operation:number;result:unknown}>()
+  let operations=0,repeatedRequests=0,forceFinal=false
+  const finish = (answer: string,finished?:boolean,canCorrect=false,blocker?:string,stopReason?:'time_limit'|'request_limit'|'agent_stalled'): string | undefined => {
     if (input.session.requireEvidenceAttempt && !input.session.evidenceAttempted?.()) {
       if (correctedNoCheck) throw new Error('An answer was returned without attempting the required evidence check; no check completed')
       correctedNoCheck = true
@@ -90,13 +104,14 @@ export async function runHadronToolConversation(input: {
   }
   const maximum=input.session.maxRequests??8
   if(!Number.isSafeInteger(maximum)||maximum<1||maximum>(input.session.execution==='agent'?100:8))throw Error('Invalid host protocol budget')
-  const partial = (reason:'context_limit'|'request_limit'|'time_limit'='request_limit'):string => {
+  const partial = (reason:'context_limit'|'request_limit'|'time_limit'|'agent_stalled'='request_limit'):string => {
     outcome.incompleteReason=reason
     const timedOut='Not finished — the task time limit was reached before a final answer. Saved work is available.'
     if(input.session.acceptStructuredAnswer)throw Error(reason==='time_limit'?timedOut:'Research budget reached before a usable structured proposal. No changes were prepared.')
     const evidence=transcript.filter(item=>item.role==='tool_evidence'||item.role==='host_memory')
     if(!evidence.length||input.session.requireEvidenceAttempt&&!input.session.evidenceAttempted?.())throw Error(reason==='time_limit'?timedOut:'Research budget reached without the required evidence check')
     if(reason==='time_limit')return 'Not finished — Hadron stopped before a final answer was produced.\nThe task time limit was approaching. The agent requested another operation instead of returning its final answer; that operation was not run. Earlier operations may already have changed files. Saved evidence follows; it does not establish completion.\n\n'+evidence.slice(-8).map((item,index)=>'Operation '+(index+1)+':\n```json\n'+JSON.stringify(item.content).slice(0,1200)+'\n```').join('\n\n')
+    if(reason==='agent_stalled')return 'Not finished — Hadron stopped the agent because it kept repeating the same read-only requests without new results, and it requested another operation instead of its final answer. That operation was not run. Earlier operations may already have changed files. Saved evidence follows; it does not establish completion. A narrower follow-up request may help.\n\n'+evidence.slice(-8).map((item,index)=>'Operation '+(index+1)+':\n```json\n'+JSON.stringify(item.content).slice(0,1200)+'\n```').join('\n\n')
     if(input.session.execution==='agent')return 'Work stopped at the request or context limit before a final answer was produced. Some operations may already have changed files. The recorded results below show what ran; they do not establish that the task is finished.\n\n'+evidence.slice(-8).map((item,index)=>'Operation '+(index+1)+':\n```json\n'+JSON.stringify(item.content).slice(0,1200)+'\n```').join('\n\n')
     return '### Partial research — limit reached\nHadron stopped further research at the configured request or context limit. The agent did not supply a final assessment. This is a host-saved evidence record, not a completed recommendation or verification. No additional request or tool operation was started.\n\n'+evidence.slice(-8).map((item,index)=>'Evidence '+(index+1)+' (untrusted tool result; may be incomplete):\n```json\n'+JSON.stringify(item.content).slice(0,1200)+'\n```').join('\n\n')+'\n\n### Remaining uncertainty\nOnly the recorded excerpts were inspected. Missing or truncated evidence cannot establish the wider project state. Further focused research may be needed; do not treat this limit as consensus.'
   }
@@ -105,9 +120,11 @@ export async function runHadronToolConversation(input: {
     const timeRemainingMs=input.session.deadlineAt===undefined?undefined:Math.max(0,input.session.deadlineAt-Date.now())
     if(timeRemainingMs===0)return partial('time_limit')
     const finalForTime=timeRemainingMs!==undefined&&timeRemainingMs<=60_000
-    let finalAnswerRequired=turn===maximum-1||finalForTime
+    let finalAnswerRequired=turn===maximum-1||finalForTime||forceFinal
+    const stopReason=finalForTime?'time_limit' as const:forceFinal?'agent_stalled' as const:'request_limit' as const
     const makePacket=()=>JSON.stringify({ kind: 'hadron_tool_conversation', transcript, remainingRequests: maximum - turn,finalAnswerRequired,...(timeRemainingMs!==undefined?{timeRemainingMs}:{}),
-      ...(finalAnswerRequired?{hostInstruction:'FINAL RESPONSE REQUIRED. No more tool calls are allowed. Return your final answer now, using only evidence already returned. State incomplete research and uncertainty explicitly. If a structured proposal is required, return that schema only when supported; never invent file changes.'}:{}) })
+      ...(repeatedRequests?{repeatedRequests}:{}),
+      ...(finalAnswerRequired?{hostInstruction:'FINAL RESPONSE REQUIRED. No more tool calls are allowed. '+(stopReason==='agent_stalled'?'You have repeatedly requested operations that already ran. ':'')+'Return your final answer now, using only evidence already returned. State incomplete research and uncertainty explicitly. If a structured proposal is required, return that schema only when supported; never invent file changes.'}:{}) })
     let packet=makePacket()
     if(toolContextTokens(input.session.instructions+packet)>budget){await condense();packet=makePacket()}
     if(toolContextTokens(input.session.instructions+packet)>budget){await condense(true);packet=makePacket()}
@@ -137,14 +154,24 @@ export async function runHadronToolConversation(input: {
     }
     if (!parsed) { if (text.trim() && !text.trim().startsWith('{')) { const answer = finish(text,undefined,!finalAnswerRequired); if (answer !== undefined) return answer; continue }; throw new Error('Invalid tool response; no tool was run') }
     if (value && Object.keys(value).every(key=>['answer','finished','blocked','blocker'].includes(key))&&(!Object.hasOwn(value,'finished')||typeof value.finished==='boolean')&&(!Object.hasOwn(value,'blocked')||typeof value.blocked==='boolean')&&(!Object.hasOwn(value,'blocker')||typeof value.blocker==='string'&&value.blocker.length<=2000)&&(!value.blocked||value.finished===false&&value.blocker?.trim())&&typeof value.answer === 'string' && value.answer.trim()) {
-      const answer = finish(value.answer,value.finished,!finalAnswerRequired,value.blocked?value.blocker.trim():undefined,finalForTime?'time_limit':finalAnswerRequired?'request_limit':undefined)
+      const answer = finish(value.answer,value.finished,!finalAnswerRequired,value.blocked?value.blocker.trim():undefined,finalAnswerRequired?stopReason:undefined)
       if (answer !== undefined)return answer
       continue
     }
     if(input.session.acceptStructuredAnswer&&value&&typeof value==='object'&&!Array.isArray(value)&&!('tool' in value)&&!('arguments' in value)){const answer=finish(JSON.stringify(value));if(answer!==undefined)return answer;continue}
     if (!value || Object.keys(value).sort().join(',') !== 'arguments,tool' || typeof value.tool !== 'string') throw new Error('Expected a tool request or final answer within the request budget')
-    if(finalAnswerRequired)return partial(finalForTime?'time_limit':'request_limit')
+    if(finalAnswerRequired)return partial(stopReason)
+    const requestKey=hadronToolRequestKey(value.tool,value.arguments),readOnly=HADRON_READ_ONLY_TOOLS.has(value.tool)
+    const earlier=readOnly?readResults.get(requestKey):undefined
     transcript.push({ role: 'assistant', content: compactHostRequest(value) })
+    if(earlier){
+      // Do not run it again: hand back the earlier result (which condensation may have dropped) and count the repeat.
+      repeatedRequests++
+      if(repeatedRequests>=HADRON_REPEATED_REQUEST_LIMIT)forceFinal=true
+      transcript.push({role:'tool_evidence',content:{name:value.tool,repeatedRequest:true,notRunAgain:true,firstOperation:earlier.operation,result:earlier.result,
+        notice:'This exact read-only request already ran as operation '+earlier.operation+' and no other operation has run since, so Hadron returned that earlier result instead of running it again. Repeated requests so far: '+repeatedRequests+' of '+HADRON_REPEATED_REQUEST_LIMIT+' before a final answer is required. Use this result, make a different request, or return your answer.'}})
+      continue
+    }
     let result: unknown
     try { result = await input.session.invoke(value.tool, value.arguments, input.signal) }
     catch { input.signal.throwIfAborted(); result = { error: 'Tool request failed or was denied. Check its name, inputs and granted mode; do not claim success.' } }
@@ -162,6 +189,10 @@ export async function runHadronToolConversation(input: {
       }
       result={toolResultShortened:true,untrustedContent:true,summary,receipt:boundedToolReceipt({name:value.tool,result}),originalCharacters:serialized.length,sha256:createHash('sha256').update(serialized).digest('hex'),omitted:true,notice:'The operation already ran. This is shortened evidence, not a complete result. Read a relevant source excerpt if necessary; do not repeat a file-changing operation to recover output.'}
     }
+    operations++
+    const failed=result===undefined||!!(result&&typeof result==='object'&&((result as any).success===false||(result as any).error))
+    if(!readOnly)readResults.clear()
+    else if(!failed)readResults.set(requestKey,{operation:operations,result})
     transcript.push({ role: 'tool_evidence', content: { name: value.tool, result } })
   }
   throw new Error('Hadron tool request limit reached')

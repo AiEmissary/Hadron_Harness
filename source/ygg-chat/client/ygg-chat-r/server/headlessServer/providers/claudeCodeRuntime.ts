@@ -1,6 +1,8 @@
 import {parseHadronImages,claudeImageInput} from '../../../../../shared/hadronImages.js'
 import {claudeAllowance,type ProviderAllowance} from '../../hadronTools/providerAllowance.js'
 import {isHadronToolSession,runHadronToolConversation} from '../../hadronTools/types.js'
+/** Lets the tool loop save its time-limit report at the deadline before Claude itself is stopped. */
+export const CLAUDE_TOOL_DEADLINE_GRACE_MS=15000
 import { spawn,type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { mkdirSync, readFileSync, realpathSync, writeFileSync, unlinkSync } from 'node:fs'
 import {randomUUID} from 'node:crypto'
@@ -179,7 +181,7 @@ export class ClaudeCodeRuntime {
   private readonly toolJobs=new Map<Promise<void>,AbortController>()
   private readonly captures=new Map<Promise<Capture>,AbortController>()
   get generation(): number { return this.epoch }
-  constructor(private readonly options: { runtimeDirectory: string; profileDirectory: string; platform?: NodeJS.Platform; arch?: string;nativeHostDirectory?:string;reuseExistingLogin?:boolean;onJobDiagnostic?(value:ClaudeJobDiagnostic):void }) {
+  constructor(private readonly options: { runtimeDirectory: string; profileDirectory: string; platform?: NodeJS.Platform; arch?: string;nativeHostDirectory?:string;reuseExistingLogin?:boolean;onJobDiagnostic?(value:ClaudeJobDiagnostic):void;toolDeadlineGraceMs?:number }) {
     const hadron=claudeRuntimeEnvironment(options.profileDirectory)
     let local=hadron
     try{local=claudeRuntimeEnvironment(options.profileDirectory,process.env,'claude_code')}catch{this.localConfigurationValid=false}
@@ -250,7 +252,8 @@ export class ClaudeCodeRuntime {
     const controller=new AbortController(),epoch=this.epoch
     const deadline=input.hadronToolSession.deadlineAt
     if(deadline!==undefined&&(!Number.isSafeInteger(deadline)||deadline<=0))throw Error('Invalid Claude tool deadline')
-    const remaining=deadline===undefined?300000:Math.max(1,Math.min(600000,deadline-Date.now()))
+    // The tool loop returns its time-limit report at the deadline; a short grace keeps that report from being aborted mid-save.
+    const remaining=deadline===undefined?300000:Math.max(1,Math.min(600000,deadline-Date.now()+(this.options.toolDeadlineGraceMs??CLAUDE_TOOL_DEADLINE_GRACE_MS)))
     const timeoutSignal=AbortSignal.timeout(remaining)
     const signal=AbortSignal.any([controller.signal,timeoutSignal,...(input.signal?[input.signal]:[])])
     let finish!:()=>void;const done=new Promise<void>(resolve=>{finish=resolve});this.toolJobs.set(done,controller)
