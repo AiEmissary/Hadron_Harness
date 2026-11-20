@@ -16,7 +16,7 @@ it('uses print streaming input to send JPEG bytes through the existing Claude ac
 })
 import {readFileSync,existsSync} from 'node:fs'
 import {claudeWebSearchResult} from '../../../hadronTools/providerWebSearch.js'
-import { ClaudeCodeRuntime, CLAUDE_TOOL_DEADLINE_GRACE_MS, claudeConversationText, claudeNativePackage, claudeRuntimeEnvironment,claudeTextResult,claudeStructuredResult,claudeNeedsSignIn,CLAUDE_SIGN_IN_REQUIRED,claudeFailureDetails,claudeFailureCategory,claudeHostProtocolSchema,claudeFormatterContract } from '../claudeCodeRuntime.js'
+import { ClaudeCodeRuntime, CLAUDE_TOOL_HEARTBEAT_MS, CLAUDE_TOOL_DEADLINE_GRACE_MS, CLAUDE_TOOL_CONTEXT_TOKENS, CLAUDE_TOOL_REQUEST_BYTES, claudeConversationText, claudeNativePackage, claudeRuntimeEnvironment,claudeTextResult,claudeStructuredResult,claudeNeedsSignIn,CLAUDE_SIGN_IN_REQUIRED,claudeFailureDetails,claudeFailureCategory,claudeHostProtocolSchema,claudeFormatterContract } from '../claudeCodeRuntime.js'
 it('uses the coordinator deadline for tool work rather than cutting a ten-minute task off at five minutes',async()=>{
  let now=1700000000000,step=0;const clock=vi.spyOn(Date,'now').mockImplementation(()=>now),durations:number[]=[]
  const timeout=vi.spyOn(AbortSignal,'timeout').mockImplementation(ms=>{durations.push(ms);return new AbortController().signal})
@@ -413,4 +413,47 @@ it('uses the existing Claude login with only WebSearch for provider-backed resea
  expect(args[args.indexOf('--allowedTools')+1]).toBe('WebSearch')
  expect(args).toContain('--print');expect(args).toContain('--strict-mcp-config')
  expect(args).not.toContain('--json-schema');expect(args).not.toContain('Read');expect(args).not.toContain('Bash')
+})
+
+it('gives Claude tool jobs a large default context so recent file reads are not condensed away',async()=>{
+ const {toolContextBudget}=await import('../../../hadronTools/toolContext.js')
+ expect(CLAUDE_TOOL_CONTEXT_TOKENS).toBe(128000)
+ expect(toolContextBudget(CLAUDE_TOOL_CONTEXT_TOKENS)).toBeGreaterThan(4*toolContextBudget(undefined))
+})
+
+it('keeps the Claude tool request cap above the largest packet the tool loop will build',async()=>{
+ const {toolContextBudget,toolContextTokens}=await import('../../../hadronTools/toolContext.js')
+ const budget=toolContextBudget(CLAUDE_TOOL_CONTEXT_TOKENS)
+ // toolContextTokens counts at least bytes/3, so any packet within budget is at most 3*budget bytes.
+ let text='x'.repeat(3*budget);expect(toolContextTokens(text)).toBeLessThanOrEqual(budget)
+ text+='xxxx';expect(toolContextTokens(text)).toBeGreaterThan(budget)
+ expect(3*budget+16384).toBeLessThan(CLAUDE_TOOL_REQUEST_BYTES)
+})
+it('sends an Agent tool step larger than the ordinary 128 KB text cap to Claude',async()=>{
+ const runtime=new ClaudeCodeRuntime({runtimeDirectory:os.tmpdir(),profileDirectory:path.join(os.tmpdir(),'hadron-tool-cap-fixture'),platform:'win32',nativeHostDirectory:os.tmpdir()});runtime.allowedModels.add('sonnet')
+ const caps:number[]=[]
+ vi.spyOn(runtime as any,'generateText').mockImplementation(async(...args:any[])=>{caps.push(args[5]);return {content:JSON.stringify({answer:'Done.',finished:true})}})
+ const session=admitHadronToolSession({instructions:'Read',requireCompletionStatus:true,invoke:vi.fn()})
+ try{await runtime.generate({modelName:'sonnet',requestPolicy:'single_attempt',history:[],userContent:'Read',hadronToolSession:session});expect(caps[0]).toBe(CLAUDE_TOOL_REQUEST_BYTES)}
+ finally{await runtime.shutdown()}
+})
+
+it('keeps sending progress while a long Agent command runs, and stops when the job ends',async()=>{
+ vi.useFakeTimers()
+ const runtime=new ClaudeCodeRuntime({runtimeDirectory:os.tmpdir(),profileDirectory:path.join(os.tmpdir(),'hadron-heartbeat-fixture'),platform:'win32',nativeHostDirectory:os.tmpdir()});runtime.allowedModels.add('sonnet')
+ let release!:()=>void;const slowCommand=new Promise<void>(resolve=>{release=resolve})
+ const session=admitHadronToolSession({instructions:'Run',invoke:vi.fn(async()=>{await slowCommand;return {success:true}})})
+ vi.spyOn(runtime as any,'generateText').mockResolvedValueOnce({content:'{"tool":"powershell","arguments":{"command":"slow"}}'}).mockResolvedValueOnce({content:'{"answer":"Done."}'})
+ const events:any[]=[]
+ try{
+  const pending=runtime.generate({modelName:'sonnet',requestPolicy:'single_attempt',history:[],userContent:'Run',hadronToolSession:session},event=>events.push(event))
+  await vi.advanceTimersByTimeAsync(CLAUDE_TOOL_HEARTBEAT_MS*6)
+  expect(events.filter(event=>event.part==='reasoning').length).toBeGreaterThanOrEqual(6)
+  release();await vi.advanceTimersByTimeAsync(0);expect((await pending).content).toBe('Done.')
+  const after=events.length;await vi.advanceTimersByTimeAsync(CLAUDE_TOOL_HEARTBEAT_MS*3);expect(events.length).toBe(after)
+ }finally{vi.useRealTimers();await runtime.shutdown()}
+})
+
+it('classifies a Claude connection failure as temporarily unavailable',()=>{
+ expect(claudeFailureCategory(JSON.stringify({type:'result',subtype:'success',is_error:true,result:'API Error: Connection error.'}),'Claude job stopped')).toBe('provider_unavailable')
 })

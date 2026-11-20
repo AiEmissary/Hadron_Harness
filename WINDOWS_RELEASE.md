@@ -1,6 +1,6 @@
-# Hadron Harness - Release 6.0.6
+# Hadron Harness - Release 6.0.7
 
-Install **Hadron-Harness-6.0.6-win-x64.exe** on Windows x64. The installer lets you choose a location and creates a desktop shortcut. Close the installed copy of Hadron before upgrading. Its saved chats, projects and account connections remain in `%APPDATA%\Hadron-Harness`; uninstall also preserves that data. The local test build uses this same profile, so close it before opening the installed app.
+Install **Hadron-Harness-6.0.7-win-x64.exe** on Windows x64. The installer lets you choose a location and creates a desktop shortcut. Close the installed copy of Hadron before upgrading. Its saved chats, projects and account connections remain in `%APPDATA%\Hadron-Harness`; uninstall also preserves that data. The local test build uses this same profile, so close it before opening the installed app.
 
 ## Using Hadron
 
@@ -20,7 +20,14 @@ ChatGPT defaults to the official Codex browser OAuth flow. Device-code sign-in i
 
 The custom Tool library is in **Settings > Agents and tools > Tool library**. The installed library is `%APPDATA%\Hadron-Harness\hadron-tools`. Normal file-reading, editing and coding tools are built in; they do not require you to add a custom tool. New custom tools are disabled until reviewed and enabled.
 
-## New in release 6.0.6
+## New in release 6.0.7
+
+- Large PDFs (up to 2,000 pages) and large Word or text files (up to 2,000,000 characters each, 5 per chat) are kept whole. Agents search and read the parts they need with document tools in single-agent chats, Work together and Continuous conversation. Large documents stay attached for follow-ups and branches.
+- Pictures can be JPEG, PNG, WebP, GIF or BMP (up to 20). Videos (MP4, WebM, MOV) are sent as up to 12 still frames.
+- Agent jobs can run for up to 10 minutes and return a Not finished report with saved work instead of stopping abruptly. Repeated searches, stalls, oversized requests, long commands and unusable replies are handled more reliably.
+- A clear Done mark shows when a reply has finished.
+
+## Included from release 6.0.6
 
 - Branch opens an editable box in place of the selected message on the left. Alternative questions create sibling branches on the right; an agent answer opens a blank follow-up. The original path and unsent bottom-composer draft/files stay intact. Hover and right-click actions use the same editor in all work types.
 - Selecting an earlier coloured tree message scrolls to it while retaining later questions and replies on that branch. The down arrow goes to the end of the displayed branch; siblings remain separate.

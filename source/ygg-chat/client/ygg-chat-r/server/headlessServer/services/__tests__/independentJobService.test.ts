@@ -142,3 +142,22 @@ it('gives tool jobs an agent deadline before the hard stop so a final or partial
     expect(sessions[0].deadlineAt).toBeLessThanOrEqual(Date.now() + 270000)
   } finally { f.close() }
 })
+it('starts a job carrying a large document and 20 pictures, and restores both from the saved job', async () => {
+  const { admitHadronToolSession } = await import('../../../hadronTools/types.js')
+  const f = fixture(300000)
+  const sessions: any[] = []
+  const service = new IndependentJobService({ ...f.deps, toolSession: (_owner: string, input: any) => { sessions.push(input); return admitHadronToolSession({ instructions: 'x', invoke: async () => null }) } })
+  f.generate.mockImplementation(async () => ({ content: 'Read the document.' }))
+  const text = ('Page 1\nThe printed edition text. ').repeat(25000)
+  const images = Array.from({ length: 20 }, (_, index) => ({ ...fixtureImage, id: `picture-${index}` }))
+  try {
+    await service.start('owner', { ...f.a, toolMode: 'web', images, documents: [{ name: 'Ist printed editionpdf.pdf', text }] })
+    expect(f.service.status('owner', 'a')?.status ?? f.jobs.get('a', 'owner')?.status).toBe('completed')
+    expect(sessions[0].documents[0].text).toHaveLength(text.length)
+    const saved = JSON.parse(f.jobs.get('a', 'owner')!.config_json)
+    expect(saved.documents[0]).toEqual({ name: 'Ist printed editionpdf.pdf', text })
+    expect(saved.images).toHaveLength(20)
+    const row = f.db.prepare("SELECT length(config_json) AS n FROM hadron_independent_jobs WHERE id='a'").get()
+    expect(row.n).toBeLessThan(65536)
+  } finally { f.close() }
+})

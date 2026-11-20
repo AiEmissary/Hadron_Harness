@@ -12,6 +12,17 @@ const bounded=(value:unknown,max:number)=>{if(typeof value!=='string'||!value.tr
  * explicit 429/503 rejections receive bounded fresh-attempt recovery. No
  * auto-resume on restart, shell, edits or model delegation. Explicit read grants may supply bounded host file tools. */
 import {parseHadronImages} from '../../../../shared/hadronImages.js'
+import {parseHadronDocuments,type HadronDocument} from '../../../../shared/hadronDocuments.js'
+import {admitHadronToolSession,type HadronToolSession} from './types.js'
+import {withDocumentTools} from './documentTools.js'
+/** Tools for one conversation turn. Keeps the document tool list in the instructions, and a turn that reports
+ * "finished":false is still a valid contribution: the discussion continues, so it must not fail the conversation. */
+export function continuousTurnToolSession(research:HadronToolSession,documents:readonly HadronDocument[]):HadronToolSession{
+ const session=withDocumentTools(research,[...documents])
+ const reading=documents.length?'\nAttached documents: when the discussion concerns them, read the relevant sections with document_search and document_read in this turn before relying on earlier summaries, memory or peer claims, and cite page numbers.':''
+ return admitHadronToolSession({...session,assessmentOnly:true,maxRequests:documents.length?24:4,requireEvidenceAttempt:false,
+  instructions:session.instructions+'\nFor this conversation turn, research only when new evidence is needed. Reuse prior quoted evidence when appropriate. You may answer without another operation.'+reading+' Each reply is one turn of an ongoing discussion: return {"answer":"your contribution","finished":true} when your contribution for this turn is ready, even though the discussion continues. Never claim edits, test execution or verification beyond recorded results.'})
+}
 export class ContinuousChatService {
  private readonly instance=randomUUID()
  private readonly controls=new Map<string,Control>()
@@ -39,6 +50,7 @@ export class ContinuousChatService {
    session_id TEXT PRIMARY KEY REFERENCES hadron_continuous_sessions(id),source_id TEXT NOT NULL REFERENCES hadron_continuous_sessions(id),context_json TEXT NOT NULL);
    CREATE TABLE IF NOT EXISTS hadron_continuous_memory (session_id TEXT PRIMARY KEY REFERENCES hadron_continuous_sessions(id),through_turn INTEGER NOT NULL,text TEXT NOT NULL);
    CREATE TABLE IF NOT EXISTS hadron_continuous_input_memory (session_id TEXT NOT NULL REFERENCES hadron_continuous_sessions(id) ON DELETE CASCADE,source_key TEXT NOT NULL,through_character INTEGER NOT NULL,text TEXT NOT NULL,PRIMARY KEY(session_id,source_key));
+   CREATE TABLE IF NOT EXISTS hadron_continuous_documents (session_id TEXT NOT NULL REFERENCES hadron_continuous_sessions(id) ON DELETE CASCADE,part INTEGER NOT NULL,name TEXT NOT NULL,text TEXT NOT NULL,PRIMARY KEY(session_id,part));
    CREATE TABLE IF NOT EXISTS hadron_continuous_folder_activity (session_id TEXT NOT NULL REFERENCES hadron_continuous_sessions(id),time TEXT NOT NULL,tool TEXT NOT NULL,state TEXT NOT NULL);
    UPDATE hadron_continuous_sessions SET state='needs_recovery',reason='interrupted_host',revision=revision+1 WHERE state IN ('running','pause_requested','stop_requested');`)
   if(!db.prepare('PRAGMA table_info(hadron_continuous_turns)').all().some((column:any)=>column.name==='kind'))db.exec("ALTER TABLE hadron_continuous_turns ADD COLUMN kind TEXT NOT NULL DEFAULT 'reply'")
@@ -61,7 +73,11 @@ export class ContinuousChatService {
  private state(id:string,state:string,reason:string|null=null){this.db.prepare('UPDATE hadron_continuous_sessions SET state=?,reason=?,revision=revision+1 WHERE id=?').run(state,reason,id)}
  start(owner:string,raw:ContinuousChatInput):ContinuousChatView{
   if(raw?.continuationOf||raw?.continuationInstruction)throw Error('Use the saved-conversation continuation action')
-  return this.create(owner,this.input(raw))
+  return this.create(owner,this.input(raw),undefined,raw.documents===undefined?[]:parseHadronDocuments(raw.documents))
+ }
+ /** Large attached documents for the conversation's document tools. Kept out of config_json so status polls stay small. */
+ documents(id:string):HadronDocument[]{
+  return this.db.prepare('SELECT name,text FROM hadron_continuous_documents WHERE session_id=? ORDER BY part').all(id).map((row:any)=>({name:row.name,text:row.text}))
  }
  private history(id:string):ContinuousChatHistory|undefined{
   const context=this.db.prepare('SELECT context_json FROM hadron_continuous_context WHERE session_id=?').get(id)
@@ -71,15 +87,16 @@ export class ContinuousChatService {
   const {row,input:source}=this.owned(owner,sourceId)
   const input=this.input({...source,images:raw.images??source.images,projectGrantId:raw.projectGrantId,id:raw.id,models:raw.models,providers:raw.providers??source.providers,maxTurns:raw.maxTurns,maxSeconds:raw.maxSeconds,continuationOf:sourceId,continuationInstruction:raw.instruction?.trim()||undefined})
   // A retried UI handoff checks the existing child; it never dispatches twice.
-  if(this.db.prepare('SELECT 1 FROM hadron_continuous_sessions WHERE id=?').get(input.id))return this.create(owner,input)
+  const documents=raw.documents===undefined?this.documents(sourceId):parseHadronDocuments(raw.documents)
+  if(this.db.prepare('SELECT 1 FROM hadron_continuous_sessions WHERE id=?').get(input.id))return this.create(owner,input,undefined,documents)
   if(['running','pause_requested','stop_requested'].includes(row.state)||this.controls.get(sourceId)?.ended===false)throw Error('Stop the source conversation and wait for its worker before continuing')
   const prior=this.status(owner,sourceId),completed=prior.turns.filter(turn=>turn.state==='completed'&&turn.kind!=='memory'&&turn.text!==null),base=prior.history
   const history:ContinuousChatHistory={sourceId,memory:prior.memory,turns:[...(base?.turns??[]),...completed.map(turn=>({role:turn.role,text:turn.text!}))],
    messages:[...(base?.messages??[]),...prior.messages.map(message=>({afterTurn:(base?.turns.length??0)+completed.filter(turn=>turn.ordinal<=message.afterTurn).length,text:message.text}))]}
   if(!history.turns.length)throw Error('There are no completed replies to continue. Start a new conversation instead.')
-  return this.create(owner,input,history)
+  return this.create(owner,input,history,documents)
  }
- private create(owner:string,input:ContinuousChatInput,history?:ContinuousChatHistory):ContinuousChatView{
+ private create(owner:string,input:ContinuousChatInput,history?:ContinuousChatHistory,documents:HadronDocument[]=[]):ContinuousChatView{
   if(this.closing)throw Error('Conversations are closing')
   this.deps.authorize(owner,input)
   if(!this.admitted(input,'a')||!this.admitted(input,'b'))throw Error('Choose connected supported models')
@@ -90,6 +107,7 @@ export class ContinuousChatService {
   this.db.exec('BEGIN IMMEDIATE')
   try{
    this.db.prepare("INSERT INTO hadron_continuous_sessions(id,owner_id,workspace_id,instance_id,config_json,state,deadline) VALUES (?,?,?,?,?,'running',?)").run(input.id,owner,input.workspaceId,this.instance,JSON.stringify(input),Date.now()+input.maxSeconds*1000)
+   documents.forEach((document,part)=>this.db.prepare('INSERT INTO hadron_continuous_documents(session_id,part,name,text) VALUES (?,?,?,?)').run(input.id,part,document.name,document.text))
    if(history)this.db.prepare('INSERT INTO hadron_continuous_context(session_id,source_id,context_json) VALUES (?,?,?)').run(input.id,history.sourceId,JSON.stringify(history))
    if(input.continuationInstruction)this.db.prepare('INSERT INTO hadron_continuous_messages(id,session_id,after_turn,text) VALUES (?,?,0,?)').run(input.id+':continuation',input.id,input.continuationInstruction)
    this.db.exec('COMMIT')

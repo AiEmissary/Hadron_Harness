@@ -115,3 +115,6 @@ it('keeps an index of completed operations across repeated condensations',async(
  expect(transcript[0]).toEqual({role:'user',content:'task'})
  expect(memory.completedOperations.map(item=>item.arguments.query)).toEqual(['a','b','c','d'])
 })
+it('treats the Claude request-size refusal as an oversized context so the loop condenses and retries',()=>{
+ expect(isOversizedContextError(new Error('Claude job context exceeded limit: request too large'))).toBe(true)
+})

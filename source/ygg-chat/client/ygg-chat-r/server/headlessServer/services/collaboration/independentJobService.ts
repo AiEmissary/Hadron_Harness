@@ -82,7 +82,7 @@ export class IndependentJobService {
     if (!ownerId || ownerId.length > 128) throw new Error('Invalid owner')
     const input = parseIndependentJob(raw); this.authorize(ownerId, input)
     if (!admittedHadronModel(this.deps,input.provider,input.modelName)) throw new Error('Model not admitted')
-    const deadlineMs = this.deps.deadlineMs ?? (input.toolMode ? 300000 : 120000)
+    const deadlineMs = this.deps.deadlineMs ?? (input.toolMode ? 600000 : 120000)
     if (input.toolMode && !this.deps.toolSession) throw new Error('Hadron tools are unavailable in this host')
     if (!Number.isSafeInteger(deadlineMs) || deadlineMs < 1 || deadlineMs > 600000) throw new Error('Invalid job deadline')
     const conversationHistory = this.deps.history?.(ownerId, input) ?? []

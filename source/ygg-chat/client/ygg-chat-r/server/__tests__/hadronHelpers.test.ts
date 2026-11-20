@@ -101,3 +101,14 @@ it('condenses earlier Agent evidence using the same bounded helper quota, with n
   expect(f.agents.spawnDetached).toHaveBeenCalledTimes(2)
  }finally{f.db.close()}
 })
+it('keeps the larger attached-document budget when helpers wrap a session',async()=>{
+ const f=fixture();try{
+  const {withDocumentTools}=await import('../hadronTools/documentTools.js'),{admitHadronToolSession,runHadronToolConversation}=await import('../hadronTools/types.js')
+  const base=withDocumentTools(admitHadronToolSession({maxRequests:8,instructions:'Web',invoke:vi.fn(async()=>'unused')}),[{name:'Book.pdf',text:'Page 1\nChapter one about eagles.'}])
+  const session=f.service.decorate(base,f.input)!
+  expect(session.readsDocuments).toBe(true);expect(session.maxRequests).toBe(base.maxRequests)
+  const replies=[JSON.stringify({tool:'document_search',arguments:{query:'eagles'}}),JSON.stringify({answer:'It is about eagles.',finished:true})]
+  const result=await runHadronToolConversation({session,task:'Summarise',signal:f.controller.signal,generate:async()=>replies.shift()!} as any)
+  expect(JSON.stringify(result)).toContain('It is about eagles.')
+ }finally{f.db.close()}
+})

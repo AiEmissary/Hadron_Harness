@@ -1,4 +1,5 @@
 import {parseHadronImages,type HadronImage} from './hadronImages.js'
+import {parseHadronDocuments,type HadronDocument} from './hadronDocuments.js'
 import { isHadronProvider, type HadronProvider } from './hadronProviders.js'
 /** Legacy proposal admission plus explicit bounded collaboration. No credentials or tool capabilities in input. */
 export const HADRON_LIVE_COLLABORATION_ENABLED = true
@@ -12,6 +13,8 @@ export interface ProposalSessionInput {
   anchorMessageId: string
   task: string
   images?:HadronImage[]
+  /** Large attached documents, read by both agents with document_search/document_read. */
+  documents?:HadronDocument[]
   context: string
   parentSessionId?: string
   includeParentContext?: boolean
@@ -64,7 +67,7 @@ const text = (value: unknown, name: string, max: number): string => {
 /** Strict runtime validation: unsupported providers/unknown authority-bearing fields reject. */
 export function parseProposalSession(value: unknown): ProposalSessionInput {
   const input = object(value)
-  exactKeys(input, ['schemaVersion', 'sessionId', 'conversationId', 'sourceLineageId', 'anchorMessageId', 'task', 'context', 'images', 'participants', 'workflow', 'parentSessionId', 'includeParentContext', 'projectGrantId', 'projectMode'])
+  exactKeys(input, ['schemaVersion', 'sessionId', 'conversationId', 'sourceLineageId', 'anchorMessageId', 'task', 'context', 'images', 'documents', 'participants', 'workflow', 'parentSessionId', 'includeParentContext', 'projectGrantId', 'projectMode'])
   if(input.projectMode!==undefined&&(input.projectMode!=='agent'||!input.projectGrantId))throw Error('Invalid Agent permission reference')
   if(input.projectGrantId!==undefined){text(input.projectGrantId,'folder selection',128);if(!input.workflow)throw Error('Folder access requires the collaboration workflow')}
   if (input.workflow !== undefined && !['review_and_synthesis', 'review_verify_and_synthesis'].includes(input.workflow as string)) throw new Error('Unsupported workflow')
@@ -89,7 +92,7 @@ export function parseProposalSession(value: unknown): ProposalSessionInput {
   return { schemaVersion: 1, sessionId: text(input.sessionId, 'session ID', 128),
     conversationId: text(input.conversationId, 'conversation', 128),
     sourceLineageId: text(input.sourceLineageId, 'lineage', 128), anchorMessageId: text(input.anchorMessageId, 'anchor', 128),
-    task, context: input.context, ...(input.images!==undefined?{images:parseHadronImages(input.images)}:{}), participants, ...(input.projectGrantId?{projectGrantId:input.projectGrantId as string}:{}), ...(input.projectMode==='agent'?{projectMode:'agent' as const}:{}), ...(input.parentSessionId ? { parentSessionId: input.parentSessionId as string, includeParentContext: input.includeParentContext !== false } : {}), ...(input.workflow ? { workflow: input.workflow as ProposalSessionInput['workflow'] } : {}) }
+    task, context: input.context, ...(input.images!==undefined?{images:parseHadronImages(input.images)}:{}), ...(input.documents!==undefined?{documents:parseHadronDocuments(input.documents)}:{}), participants, ...(input.projectGrantId?{projectGrantId:input.projectGrantId as string}:{}), ...(input.projectMode==='agent'?{projectMode:'agent' as const}:{}), ...(input.parentSessionId ? { parentSessionId: input.parentSessionId as string, includeParentContext: input.includeParentContext !== false } : {}), ...(input.workflow ? { workflow: input.workflow as ProposalSessionInput['workflow'] } : {}) }
 }
 
 

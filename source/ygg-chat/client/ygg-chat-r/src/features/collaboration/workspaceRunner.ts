@@ -3,11 +3,18 @@ import {composeSharedContext} from './attachmentContext'
 import {WORKSPACE_VISUAL_INSTRUCTION} from './workspaceVisuals'
 import {parseHadronImages,type HadronImage} from '../../../../../shared/hadronImages'
 
+/** Names of large documents listed in a saved shared context (see composeSharedContext). */
+export function largeDocumentNames(context:string):string[]{
+ try{const files=JSON.parse(context)?.files;return Array.isArray(files)?files.filter((file:any)=>typeof file?.name==='string'&&typeof file.kind==='string'&&file.kind.startsWith('Large document')).map((file:any)=>file.name):[]}
+ catch{return []}
+}
 export interface WorkspaceRunRequest {
  id:string;chatId:string;projectId:string;nativeWorkspaceId?:string;workType:WorkspaceChat['workType'];permission:WorkspaceChat['permission'];agent:WorkspaceChat['agent'];
  models:WorkspaceChat['models'];maxTurns:number;folder:WorkspaceChat['folder'];
  question:WorkspaceMessage;answerId:string;path:WorkspaceMessage[];
  images?:HadronImage[];
+ /** Large attached documents for the agents' document tools. */
+ documents?:import('../../../../../shared/hadronDocuments').HadronDocument[];
 }
 export interface WorkspaceRunEvent {
  text:string;state:'running'|'completed'|'failed'|'stopped'|'unknown';error?:string;origin?:WorkspaceMessage['origin'];
@@ -39,15 +46,23 @@ export class WorkspaceRunner {
   const agents=chat.workType==='individual'?[chat.agent]:['a','b'] as const
   if(agents.some(agent=>!chat.models[agent]?.provider||!chat.models[agent]?.modelName))throw Error('Choose an agent provider and model in the pop-up')
   if(Object.values(state.chats).some(other=>other.id!==chat.id&&other.jobState!=='idle'&&(other.workType!=='individual'||chat.workType!=='individual'||other.agent===chat.agent)))throw Error('One of these agents already has work in progress')
-  const context=source?.role==='user'&&source.context?source.context:composeSharedContext([chat.instructions??'',WORKSPACE_VISUAL_INSTRUCTION].filter(Boolean).join('\n\n'),branch?[]:chat.attachments??[])
+  // Large documents belong to the chat, so branches and follow-ups keep them; pictures and short files stay with their own message.
+  const searchable=(chat.attachments??[]).filter(file=>file.searchable)
+  const context=source?.role==='user'&&source.context?source.context:composeSharedContext([chat.instructions??'',WORKSPACE_VISUAL_INSTRUCTION].filter(Boolean).join('\n\n'),branch?searchable:chat.attachments??[])
   // An alternative question is a sibling of the original, not a repeated follow-up beneath it.
   const parentId=source?(source.role==='user'?source.parentId:source.id):chat.selectedId
   const id=this.deps.id(),answerId=this.deps.id(),question:WorkspaceMessage={id:this.deps.id(),parentId,role:'user',text,state:'completed',...(context?{context}:{})}
   const path=workspaceMessagePath({...chat,selectedId:parentId})
+  // A reused question sends exactly the large documents its saved context names, so the agent is never told about a document it cannot read.
+  const documents=(source?.role==='user'&&source.context?largeDocumentNames(source.context).map(name=>{
+   const file=searchable.find(item=>item.name===name)
+   if(!file)throw Error(`Attach "${name}" again to use it on this branch. It is no longer attached to this chat.`)
+   return file
+  }):searchable).map(file=>({name:file.name,text:file.text}))
   const attached=parseHadronImages(branch?(source?.role==='user'?source.images:[]) : (chat.attachments??[]).flatMap(file=>file.image?[file.image]:[]))
   if(attached.length)question.images=attached
   const images=parseHadronImages([...new Map([...path.flatMap(message=>message.images??[]),...attached].map(image=>[image.id,image])).values()])
-  const request:WorkspaceRunRequest=structuredClone({id,chatId:chat.id,projectId:state.projectId,nativeWorkspaceId:chat.nativeWorkspaceId,workType:chat.workType,permission:chat.folder?chat.permission:'chat',agent:chat.agent,models:chat.models,maxTurns:chat.maxTurns,folder:chat.folder,question,answerId,path,...(images.length?{images}:{})})
+  const request:WorkspaceRunRequest=structuredClone({id,chatId:chat.id,projectId:state.projectId,nativeWorkspaceId:chat.nativeWorkspaceId,workType:chat.workType,permission:chat.folder?chat.permission:'chat',agent:chat.agent,models:chat.models,maxTurns:chat.maxTurns,folder:chat.folder,question,answerId,path,...(images.length?{images}:{}),...(documents.length?{documents}:{})})
   // Build and validate locally before clearing the user's draft or showing an admitted task.
   let record:{request:WorkspaceRunRequest;handle:WorkspaceRunHandle;ended:boolean}|undefined
   const buffered:WorkspaceRunEvent[]=[]
@@ -81,7 +96,8 @@ export class WorkspaceRunner {
   this.deps.dispatch({type:'select-message',chatId:chat.id,id:answerId})
   this.deps.dispatch({type:'follow-updates',chatId:chat.id,value:true})
   this.deps.dispatch({type:'job',chatId:chat.id,id,state:'running'})
-  if(!branch){this.deps.dispatch({type:'draft',chatId:chat.id,text:''});this.deps.dispatch({type:'attachments',chatId:chat.id,files:[]})}
+  // Large documents stay attached for follow-ups (remove them from the attachment list); pictures and short files are used once.
+  if(!branch){this.deps.dispatch({type:'draft',chatId:chat.id,text:''});this.deps.dispatch({type:'attachments',chatId:chat.id,files:(chat.attachments??[]).filter(file=>file.searchable)})}
   this.deps.error(chat.id,null)
   for(const event of buffered)changed(event)
   try{await handle.start()}

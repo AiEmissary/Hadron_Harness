@@ -49,7 +49,7 @@ export function continuousWorkspaceTransport(deps:{
    try{await deps.checkpoint?.()}catch(error){deps.remember(null);changed({text:'The conversation was not sent because its saved checkpoint failed.',state:'failed',error:error instanceof Error?error.message:'Save failed'});return}
    if(disposed||stopRequested)return
    posted=true
-   const common={...(request.images?.length?{images:request.images}:{}),id:request.id,models:{a:a.modelName,b:b.modelName},providers:{a:a.provider,b:b.provider},maxTurns:request.maxTurns,maxSeconds:3600,
+   const common={...(request.images?.length?{images:request.images}:{}),...(request.documents?.length?{documents:request.documents}:{}),id:request.id,models:{a:a.modelName,b:b.modelName},providers:{a:a.provider,b:b.provider},maxTurns:request.maxTurns,maxSeconds:3600,
     ...(request.folder?{projectGrantId:request.folder.id}:{})}
    if(continuation)render(await deps.api.continueSaved(continuation,{...common,instruction:continuationInstruction}))
    else render(await deps.api.start({...common,workspaceId:deps.workspaceId,anchorMessageId,goal:goalWithFiles}))

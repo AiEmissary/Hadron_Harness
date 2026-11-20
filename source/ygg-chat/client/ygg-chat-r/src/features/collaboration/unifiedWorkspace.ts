@@ -1,6 +1,6 @@
 import type {HadronProvider} from '../../../../../shared/hadronProviders'
 
-export interface WorkspaceAttachment {id:string;name:string;text:string;image?:import('../../../../../shared/hadronImages').HadronImage}
+export interface WorkspaceAttachment {id:string;name:string;text:string;image?:import('../../../../../shared/hadronImages').HadronImage;searchable?:true}
 export type WorkspaceAgent='a'|'b'
 export type WorkspaceWorkType='individual'|'together'|'continuous'
 export type WorkspacePermission='chat'|'agent'

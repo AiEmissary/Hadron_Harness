@@ -19,12 +19,12 @@ it('reads selected text/code files locally and packs the same immutable data for
   } finally { fetch.mockRestore() }
 })
 it('rejects unsupported, binary, invalid UTF-8, excessive count/size and oversized context explicitly', async () => {
-  await expect(readSharedFiles([new File(['binary'], 'image.png')])).rejects.toThrow('PDF, Word')
+  await expect(readSharedFiles([new File(['binary'], 'image.tiff')])).rejects.toThrow('PDF, Word')
   await expect(readSharedFiles([new File([new Uint8Array([0, 1])], 'binary.txt')])).rejects.toThrow('binary')
   await expect(readSharedFiles([new File([new Uint8Array([255])], 'invalid.txt')])).rejects.toThrow('UTF-8')
   await expect(readSharedFiles([new File([' '.repeat(5)], 'empty.txt')])).rejects.toThrow('empty')
   await expect(readSharedFiles([new File(['x'.repeat(8*1024*1024+1)], 'big.txt')])).rejects.toThrow('8 MiB')
-  await expect(readSharedFiles(Array.from({ length: 6 }, (_, i) => new File(['a'], `${i}.txt`)))).rejects.toThrow('five')
+  await expect(readSharedFiles(Array.from({ length: 21 }, (_, i) => new File(['a'], `${i}.txt`)))).rejects.toThrow('20 files')
   expect(() => composeSharedContext('b'.repeat(15000), [{ id: 'a', name: 'a.md', text: 'f'.repeat(2000) }])).toThrow('shared-context limit')
 })
 

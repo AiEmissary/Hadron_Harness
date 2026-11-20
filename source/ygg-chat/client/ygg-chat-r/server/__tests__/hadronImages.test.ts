@@ -12,7 +12,7 @@ it('validates real JPEG dimensions and keeps bytes separate from text',()=>{
 })
 it('rejects URLs, renamed files, malformed encodings, oversized images and too many pictures',()=>{
  for(const dataUrl of ['https://example.com/image.jpg','file:///private.jpg','data:image/jpeg;base64,YWJj','data:image/jpeg;base64,?','data:image/png;base64,YWJj',fixtureImage.dataUrl+'A'.repeat(1400000)])expect(()=>parseHadronImages([{...fixtureImage,dataUrl}])).toThrow()
- expect(()=>parseHadronImages(Array.from({length:6},(_,i)=>({...fixtureImage,id:String(i)})))).toThrow('five')
+ expect(()=>parseHadronImages(Array.from({length:21},(_,i)=>({...fixtureImage,id:String(i)})))).toThrow('20 pictures')
  expect(()=>parseHadronImages([fixtureImage,fixtureImage])).toThrow()
 })
 it('retains actual image payloads across strict independent and joint admission',()=>{

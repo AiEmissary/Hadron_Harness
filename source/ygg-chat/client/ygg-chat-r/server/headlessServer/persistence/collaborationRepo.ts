@@ -1,4 +1,4 @@
-import {storeJobImages,restoreJobImages} from './savedJobImages.js'
+import {storeJobImages,restoreJobImages,SAVED_JOB_MAX_BYTES} from './savedJobImages.js'
 export type CollaborationStatus = 'created' | 'running' | 'stopping' | 'completed' | 'cancelled' | 'failed' | 'interrupted'
 export class CollaborationOwnerMismatch extends Error {
   constructor() { super('Collaboration owner mismatch') }
@@ -79,7 +79,7 @@ export class CollaborationRepo {
   create(input: CreateCollaborationInput): CollaborationSessionRow {
     const { id, ownerId, conversationId, sourceLineageId, anchorMessageId, configJson, configHash, participantIds } = input
     if (![id, ownerId, conversationId, sourceLineageId, anchorMessageId, configHash].every(v => typeof v === 'string' && v.length > 0)
-      || typeof configJson !== 'string' || Buffer.byteLength(configJson, 'utf8') > 8*1024*1024
+      || typeof configJson !== 'string' || Buffer.byteLength(configJson, 'utf8') > SAVED_JOB_MAX_BYTES
       || !Array.isArray(participantIds) || participantIds.length < 1 || participantIds.length > 32
       || participantIds.some(p => typeof p !== 'string' || !p.length) || new Set(participantIds).size !== participantIds.length) {
       throw new Error('Invalid collaboration configuration')

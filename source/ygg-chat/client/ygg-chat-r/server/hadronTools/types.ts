@@ -12,6 +12,8 @@ export interface HadronToolSession {
   /** Trusted coordinator: this stage reports an assessment, not implementation. */
   assessmentOnly?:boolean
   acceptStructuredAnswer?:boolean
+  /** Set only by withDocumentTools: reading attached documents needs more read-only steps than web research. */
+  readsDocuments?:true
   maxRequests?:number
   /** Absolute coordinator deadline, supplied only by trusted host admission. */
   deadlineAt?:number
@@ -49,7 +51,8 @@ export function compactHostRequest(value:unknown):unknown{
 }
 
 /** Tools that never change files. An identical repeat can safely reuse the earlier result while no other tool has run since. */
-export const HADRON_READ_ONLY_TOOLS:ReadonlySet<string>=new Set(['project_read','project_search','project_list','web_search','web_read','tool_list','helper_search','helper_read'])
+// Includes Agent-mode coding reads (read_file, read_files, glob, ripgrep); bash/powershell may change files and always clear earlier results.
+export const HADRON_READ_ONLY_TOOLS:ReadonlySet<string>=new Set(['project_read','project_search','project_list','web_search','web_read','tool_list','helper_search','helper_read','read_file','read_files','glob','ripgrep','document_search','document_read'])
 /** Identical repeats (after the earlier result is handed back) before the agent must give its answer. */
 export const HADRON_REPEATED_REQUEST_LIMIT=4
 function canonicalJson(value:unknown):string{
@@ -69,6 +72,20 @@ export async function runHadronToolConversation(input: {
   let budget=toolContextBudget(input.contextLength),contextRetries=0,condensations=0
   const condense=async(aggressive=false)=>{transcript=await compactToolTranscript({transcript,signal:input.signal,aggressive,condense:condensations++<2?input.session.condense:undefined})}
   let correctedNoCheck = false, correctedToolMarkup = false, correctedCompletion = false
+  // Consecutive replies Hadron could not use. One correction is sent; a second in a row ends the run with saved work, never a silent discard.
+  let formatErrors = 0
+  const unusableReply = (text: string, finalAnswerRequired: boolean): string | undefined => {
+    formatErrors++
+    const snippet = text.trim().slice(0, 300)
+    if (formatErrors < 2 && !finalAnswerRequired) {
+      transcript.push({ role: 'assistant', content: text.slice(0, 2000) }, { role: 'user', content: 'HOST PROTOCOL CORRECTION: The preceding reply was not run because it was not one of the accepted shapes. Return exactly one JSON object with only these keys: {"tool":"name","arguments":{...}} for one operation, or {"answer":"...","finished":true|false} (plus "blocked" and "blocker" only for a real external blocker). Do not add other keys. This correction uses the existing request budget.' })
+      return undefined
+    }
+    const evidence = transcript.filter(item => item.role === 'tool_evidence' || item.role === 'host_memory')
+    if (!evidence.length) throw new Error('Expected a tool request or final answer within the request budget. Reply began: ' + snippet)
+    outcome.incompleteReason = 'agent_incomplete'
+    return 'Not finished — the agent twice replied in a format Hadron could not use, so Hadron stopped before a final answer. No operation was run from those replies. Earlier operations may already have changed files. Saved evidence follows; it does not establish completion.\n\nLast reply began:\n```text\n' + snippet.replace(/```/g, "'''") + '\n```\n\n' + evidence.slice(-8).map((item, index) => 'Operation ' + (index + 1) + ':\n```json\n' + JSON.stringify(item.content).slice(0, 1200) + '\n```').join('\n\n')
+  }
   const progress=new Set<string>()
   let partialProgress=-1,stalledReports=0
   // Earlier read-only results by request; cleared whenever any other tool runs, because that may have changed files.
@@ -103,7 +120,7 @@ export async function runHadronToolConversation(input: {
     return answer
   }
   const maximum=input.session.maxRequests??8
-  if(!Number.isSafeInteger(maximum)||maximum<1||maximum>(input.session.execution==='agent'?100:8))throw Error('Invalid host protocol budget')
+  if(!Number.isSafeInteger(maximum)||maximum<1||maximum>(input.session.execution==='agent'||input.session.readsDocuments?100:8))throw Error('Invalid host protocol budget')
   const partial = (reason:'context_limit'|'request_limit'|'time_limit'|'agent_stalled'='request_limit'):string => {
     outcome.incompleteReason=reason
     const timedOut='Not finished — the task time limit was reached before a final answer. Saved work is available.'
@@ -139,6 +156,13 @@ export async function runHadronToolConversation(input: {
       input.signal.throwIfAborted()
       // Only retry a rejected text-generation request. No prior tool operation is repeated.
       if(isOversizedContextError(error)&&contextRetries++<2&&turn<maximum-1&&transcript.length>1){budget=Math.max(1024,Math.floor(budget/2));await condense(true);continue}
+      // An Agent run with saved work ends as Not finished instead of being discarded. No automatic retry; the user can continue.
+      const evidence=transcript.filter(item=>item.role==='tool_evidence'||item.role==='host_memory')
+      if(input.session.execution==='agent'&&evidence.length){
+        outcome.incompleteReason='agent_incomplete'
+        const reason=(error instanceof Error?error.message:'').slice(0,400)||'No reason was available.'
+        return 'Not finished — the model request failed before a final answer, and no automatic retry was made. Reason: '+reason+'\nEarlier operations may already have changed files. Saved evidence follows; it does not establish completion. Continue to resume from it.\n\n'+evidence.slice(-8).map((item,index)=>'Operation '+(index+1)+':\n```json\n'+JSON.stringify(item.content).slice(0,1200)+'\n```').join('\n\n')
+      }
       throw error
     }
     input.signal.throwIfAborted()
@@ -152,14 +176,15 @@ export async function runHadronToolConversation(input: {
       transcript.push({role:'assistant',content:text.slice(0,4000)},{role:'user',content:'HOST PROTOCOL CORRECTION: The preceding XML/native tool request was not executed. Do not present it as an answer or claim it ran. Return exactly one JSON object using the supplied host protocol: {"tool":"name","arguments":{...}} for an allowed operation, or {"answer":"final answer based on actual evidence"}. This correction uses the remaining existing request budget. Do not invent tool results.'})
       continue
     }
-    if (!parsed) { if (text.trim() && !text.trim().startsWith('{')) { const answer = finish(text,undefined,!finalAnswerRequired); if (answer !== undefined) return answer; continue }; throw new Error('Invalid tool response; no tool was run') }
+    if (!parsed) { if (text.trim() && !text.trim().startsWith('{')) { const answer = finish(text,undefined,!finalAnswerRequired); if (answer !== undefined) return answer; continue }; const saved = unusableReply(text, finalAnswerRequired); if (saved !== undefined) return saved; continue }
     if (value && Object.keys(value).every(key=>['answer','finished','blocked','blocker'].includes(key))&&(!Object.hasOwn(value,'finished')||typeof value.finished==='boolean')&&(!Object.hasOwn(value,'blocked')||typeof value.blocked==='boolean')&&(!Object.hasOwn(value,'blocker')||typeof value.blocker==='string'&&value.blocker.length<=2000)&&(!value.blocked||value.finished===false&&value.blocker?.trim())&&typeof value.answer === 'string' && value.answer.trim()) {
       const answer = finish(value.answer,value.finished,!finalAnswerRequired,value.blocked?value.blocker.trim():undefined,finalAnswerRequired?stopReason:undefined)
       if (answer !== undefined)return answer
       continue
     }
     if(input.session.acceptStructuredAnswer&&value&&typeof value==='object'&&!Array.isArray(value)&&!('tool' in value)&&!('arguments' in value)){const answer=finish(JSON.stringify(value));if(answer!==undefined)return answer;continue}
-    if (!value || Object.keys(value).sort().join(',') !== 'arguments,tool' || typeof value.tool !== 'string') throw new Error('Expected a tool request or final answer within the request budget')
+    if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).sort().join(',') !== 'arguments,tool' || typeof value.tool !== 'string') { const saved = unusableReply(text, finalAnswerRequired); if (saved !== undefined) return saved; continue }
+    formatErrors = 0
     if(finalAnswerRequired)return partial(stopReason)
     const requestKey=hadronToolRequestKey(value.tool,value.arguments),readOnly=HADRON_READ_ONLY_TOOLS.has(value.tool)
     const earlier=readOnly?readResults.get(requestKey):undefined

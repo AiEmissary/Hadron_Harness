@@ -1,8 +1,11 @@
 import {parseHadronImages,type HadronImage} from './hadronImages.js'
+import {parseHadronDocuments,type HadronDocument} from './hadronDocuments.js'
 import { isHadronProvider, type HadronProvider } from './hadronProviders.js'
 export interface IndependentJobInput {
   schemaVersion: 1; id: string; conversationId: string; anchorMessageId: string
   images?:HadronImage[]
+  /** Large attached documents, read by the agent through document tools (tool modes only). */
+  documents?:HadronDocument[]
   task: string; context: string; provider: HadronProvider; modelName: string
   toolMode?: 'web' | 'build' | 'project' | 'agent'
   projectGrantId?: string
@@ -47,7 +50,7 @@ export function parseIndependentJobContext(value: unknown): IndependentJobContex
 export function parseIndependentJob(value: unknown): IndependentJobInput {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid job')
   const input = value as Record<string, unknown>
-  const keys = ['schemaVersion', 'id', 'conversationId', 'anchorMessageId', 'task', 'context', 'images', 'provider', 'modelName', 'toolMode', 'projectGrantId']
+  const keys = ['schemaVersion', 'id', 'conversationId', 'anchorMessageId', 'task', 'context', 'images', 'documents', 'provider', 'modelName', 'toolMode', 'projectGrantId']
   if (Object.keys(input).some(key => !keys.includes(key)) || input.schemaVersion !== 1 || !isHadronProvider(input.provider)) throw new Error('Unsupported independent job')
   const text = (key: string, max: number) => {
     const item = input[key]
@@ -56,9 +59,10 @@ export function parseIndependentJob(value: unknown): IndependentJobInput {
   }
   if (typeof input.context !== 'string' || input.context.length > 16000) throw new Error('Invalid job context')
   if (input.toolMode !== undefined && !['web', 'build', 'project', 'agent'].includes(input.toolMode as string)) throw new Error('Unsupported tool mode')
+  if(input.documents!==undefined&&input.toolMode===undefined)throw Error('Large documents need a tool-enabled job')
   if(['project','agent'].includes(input.toolMode as string) ? typeof input.projectGrantId!=='string'||!/^[a-f0-9-]{36}$/.test(input.projectGrantId) : input.projectGrantId!==undefined)throw Error('Invalid project access reference')
   return { schemaVersion: 1, id: text('id', 128), conversationId: text('conversationId', 128), anchorMessageId: text('anchorMessageId', 128),
-    task: text('task', 16000), context: input.context, ...(input.images!==undefined?{images:parseHadronImages(input.images)}:{}), provider: input.provider, modelName: text('modelName', 256), ...(input.toolMode ? { toolMode: input.toolMode as 'web' | 'build' | 'project' | 'agent' } : {}), ...(['project','agent'].includes(input.toolMode as string)?{projectGrantId:input.projectGrantId as string}:{}) }
+    task: text('task', 16000), context: input.context, ...(input.images!==undefined?{images:parseHadronImages(input.images)}:{}), ...(input.documents!==undefined?{documents:parseHadronDocuments(input.documents)}:{}), provider: input.provider, modelName: text('modelName', 256), ...(input.toolMode ? { toolMode: input.toolMode as 'web' | 'build' | 'project' | 'agent' } : {}), ...(['project','agent'].includes(input.toolMode as string)?{projectGrantId:input.projectGrantId as string}:{}) }
 }
 /** Owner-authorized project-list entry -> the workspace that owns its agent history. */
 export interface AgentWorkspaceNavigation {

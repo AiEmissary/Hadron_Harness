@@ -1,8 +1,12 @@
 export type ContinuousProviders={a:'openaichatgpt'|'claudecode';b:'openaichatgpt'|'claudecode'}
 /** Admission/storage bound, separate from the smaller per-provider working prompt. */
 export const CONTINUOUS_INPUT_MAX_BYTES=256_000
-export interface ContinuousChatInput {images?:import('./hadronImages.js').HadronImage[];projectGrantId?:string;id:string;workspaceId:string;anchorMessageId:string;goal:string;models:{a:string;b:string};providers?:ContinuousProviders;maxTurns:number;maxSeconds:number;continuationOf?:string;continuationInstruction?:string}
-export interface ContinuousContinuationInput {images?:import('./hadronImages.js').HadronImage[];projectGrantId?:string;id:string;models:{a:string;b:string};providers?:ContinuousProviders;maxTurns:number;maxSeconds:number;instruction?:string}
+export interface ContinuousChatInput {images?:import('./hadronImages.js').HadronImage[];
+ /** Sent on start only; stored beside the session and never returned in its view. */
+ documents?:import('./hadronDocuments.js').HadronDocument[];projectGrantId?:string;id:string;workspaceId:string;anchorMessageId:string;goal:string;models:{a:string;b:string};providers?:ContinuousProviders;maxTurns:number;maxSeconds:number;continuationOf?:string;continuationInstruction?:string}
+export interface ContinuousContinuationInput {images?:import('./hadronImages.js').HadronImage[];
+ /** Omitted: the saved conversation's documents are kept. */
+ documents?:import('./hadronDocuments.js').HadronDocument[];projectGrantId?:string;id:string;models:{a:string;b:string};providers?:ContinuousProviders;maxTurns:number;maxSeconds:number;instruction?:string}
 export interface ContinuousMemory {throughTurn:number;text:string}
 export interface ContinuousChatHistory {memory?:ContinuousMemory;sourceId:string;turns:Array<{role:'a'|'b';text:string}>;messages:Array<{afterTurn:number;text:string}>}
 export interface ContinuousChatView {

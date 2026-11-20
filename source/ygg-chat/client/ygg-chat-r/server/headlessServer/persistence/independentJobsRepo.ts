@@ -1,4 +1,4 @@
-import {storeJobImages,restoreJobImages} from './savedJobImages.js'
+import {storeJobImages,restoreJobImages,SAVED_JOB_MAX_BYTES} from './savedJobImages.js'
 import { CollaborationOwnerMismatch } from './collaborationRepo.js'
 export interface IndependentJobRow {
   id: string; owner_id: string; conversation_id: string; anchor_message_id: string
@@ -14,7 +14,7 @@ export class IndependentJobsRepo {
   }
   create(input: { id: string; ownerId: string; conversationId: string; anchorMessageId: string; configJson: string; configHash: string }): IndependentJobRow {
     if (![input.id, input.ownerId, input.conversationId, input.anchorMessageId, input.configHash].every(value => typeof value === 'string' && value.length > 0 && value.length <= 128) ||
-      Buffer.byteLength(input.configJson, 'utf8') > 8*1024*1024) throw new Error('Invalid independent job')
+      Buffer.byteLength(input.configJson, 'utf8') > SAVED_JOB_MAX_BYTES) throw new Error('Invalid independent job')
     JSON.parse(input.configJson)
     return this.db.transaction(() => {
       if(this.db.prepare('SELECT 1 FROM hadron_closed_job_admissions WHERE id=?').get(input.id))throw Error('This unstarted admission was closed; use a new task ID')

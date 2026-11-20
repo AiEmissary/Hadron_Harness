@@ -8,10 +8,10 @@ import {fixtureImage} from '../../../../../shared/__fixtures__/hadronImage'
 it('does not include a picture from a sibling branch, and preserves the draft when the selected branch has too many pictures',async()=>{
  const f=fixture();await f.runner.send();f.emit({text:'Starting point.',state:'completed'})
  const branchPoint=f.state().chats.a.selectedId!
- f.deps.dispatch({type:'attachments',chatId:'a',files:Array.from({length:5},(_,index)=>{const image={...fixtureImage,id:`picture-${index}`};return {id:image.id,name:image.name,text:'',image}})})
+ f.deps.dispatch({type:'attachments',chatId:'a',files:Array.from({length:20},(_,index)=>{const image={...fixtureImage,id:`picture-${index}`};return {id:image.id,name:image.name,text:'',image}})})
  f.deps.dispatch({type:'draft',chatId:'a',text:'Describe these pictures.'});await f.runner.send();f.emit({text:'Five pictures.',state:'completed'})
  f.deps.dispatch({type:'attachments',chatId:'a',files:[{id:fixtureImage.id,name:fixtureImage.name,text:'',image:fixtureImage}]})
- f.deps.dispatch({type:'draft',chatId:'a',text:'A sixth picture.'});await expect(f.runner.send()).rejects.toThrow('five')
+ f.deps.dispatch({type:'draft',chatId:'a',text:'A sixth picture.'});await expect(f.runner.send()).rejects.toThrow('20 pictures')
  expect(f.state().chats.a.draft).toBe('A sixth picture.');expect(f.state().chats.a.attachments).toHaveLength(1)
  f.deps.dispatch({type:'attachments',chatId:'a',files:[]})
  f.deps.dispatch({type:'select-message',chatId:'a',id:branchPoint});f.deps.dispatch({type:'draft',chatId:'a',text:'Another branch without pictures.'})
@@ -193,4 +193,22 @@ it('connects the common Send flow to native admission, streams, final output and
  expect(client.prepare.mock.calls[1][0].parent).toEqual({jobId:client.start.mock.calls[0][0].id,kind:'response'})
  expect(client.start.mock.calls[1][0].task).toBe('Continue from there')
  expect(client.start.mock.calls[1][0].context).toBe(WORKSPACE_VISUAL_INSTRUCTION)
+})
+it('keeps a large document on alternative questions and follow-ups, and asks to re-attach it if it was removed', async () => {
+ const f = fixture(), doc = { id: 'doc', name: 'Book.pdf', text: 'Page 1\n' + 'words '.repeat(5000), searchable: true as const }
+ f.deps.dispatch({ type: 'attachments', chatId: 'a', files: [doc] })
+ await f.runner.send()
+ expect(f.request().documents).toEqual([{ name: 'Book.pdf', text: doc.text }])
+ f.emit({ text: 'Read it.', state: 'completed' })
+ expect(f.state().chats.a.attachments).toEqual([doc])
+ const question = f.state().chats.a.messages.find(message => message.role === 'user')!, answer = f.state().chats.a.messages.find(message => message.role === 'assistant')!
+ await f.runner.send({ chatId: 'a', messageId: question.id, text: 'Alternative question' })
+ expect(f.request().documents).toEqual([{ name: 'Book.pdf', text: doc.text }])
+ f.emit({ text: 'Read again.', state: 'completed' })
+ await f.runner.send({ chatId: 'a', messageId: answer.id, text: 'Follow-up' })
+ expect(f.request().documents).toEqual([{ name: 'Book.pdf', text: doc.text }])
+ expect(f.request().question.context).toContain('Large document')
+ f.emit({ text: 'Done.', state: 'completed' })
+ f.deps.dispatch({ type: 'attachments', chatId: 'a', files: [] })
+ await expect(f.runner.send({ chatId: 'a', messageId: question.id, text: 'Without the file' })).rejects.toThrow('Attach "Book.pdf" again')
 })

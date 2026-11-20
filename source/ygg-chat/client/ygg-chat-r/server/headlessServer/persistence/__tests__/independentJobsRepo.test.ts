@@ -77,10 +77,10 @@ it('stores JPEG bytes outside the legacy 64 KiB envelope, retains exact replay i
  expect(configJson.length).toBeGreaterThan(65536)
  expect(f.repo.create(input).config_json).toBe(configJson);expect(f.repo.create(input).config_json).toBe(configJson)
  expect(f.db.prepare('SELECT length(config_json) AS size FROM hadron_independent_jobs WHERE id=?').get(input.id).size).toBeLessThan(65536)
- expect(f.db.prepare('SELECT length(images_json) AS size FROM hadron_saved_job_images').get().size).toBeGreaterThan(65536)
+ expect(f.db.prepare("SELECT sum(length(payload)) AS size FROM hadron_saved_job_media WHERE kind='image'").get().size).toBeGreaterThan(65536)
  expect(()=>f.repo.get(input.id,'intruder')).toThrow()
  f.repo.claim(input.id,'owner');f.repo.finish(input.id,'owner','cancelled');f.db.prepare('DELETE FROM hadron_independent_jobs WHERE id=?').run(input.id)
- expect(f.db.prepare('SELECT count(*) AS n FROM hadron_saved_job_images').get().n).toBe(0)
+ expect(f.db.prepare('SELECT count(*) AS n FROM hadron_saved_job_media').get().n).toBe(0)
 })
 it('fences an absent admission atomically and refuses to close an existing job',()=>{
  const f=fixture()

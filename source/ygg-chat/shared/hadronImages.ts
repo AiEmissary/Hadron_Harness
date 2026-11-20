@@ -2,7 +2,7 @@
 export interface HadronImage {id:string;name:string;dataUrl:string}
 export const HADRON_IMAGE_MAX_BYTES=1024*1024
 export const HADRON_IMAGE_MAX_DATA_URL_LENGTH=Math.ceil(HADRON_IMAGE_MAX_BYTES/3)*4+23
-export const HADRON_IMAGE_MAX_COUNT=5
+export const HADRON_IMAGE_MAX_COUNT=20
 export function jpegDimensions(bytes:Uint8Array|string):{width:number;height:number}{
  const byte=(offset:number)=>typeof bytes==='string'?bytes.charCodeAt(offset):bytes[offset]
  if(bytes.length<4||byte(0)!==255||byte(1)!==216)throw Error('This file is not a JPEG image.')
@@ -27,7 +27,7 @@ export function jpegDimensions(bytes:Uint8Array|string):{width:number;height:num
 }
 export function parseHadronImages(value:unknown):HadronImage[]{
  if(value===undefined)return []
- if(!Array.isArray(value)||value.length>HADRON_IMAGE_MAX_COUNT)throw Error('Use up to five JPEG pictures on the selected conversation branch.')
+ if(!Array.isArray(value)||value.length>HADRON_IMAGE_MAX_COUNT)throw Error('Use up to 20 pictures on the selected conversation branch.')
  const ids=new Set<string>()
  return value.map(image=>{
   if(!image||typeof image!=='object'||Object.keys(image).some(key=>!['id','name','dataUrl'].includes(key))||typeof image.id!=='string'||!image.id||image.id.length>128||ids.has(image.id)||typeof image.name!=='string'||!image.name||image.name.length>1000||typeof image.dataUrl!=='string'||image.dataUrl.length>HADRON_IMAGE_MAX_DATA_URL_LENGTH||!/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(image.dataUrl))throw Error('Invalid JPEG attachment.')

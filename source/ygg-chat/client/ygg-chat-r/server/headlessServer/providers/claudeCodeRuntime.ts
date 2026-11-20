@@ -3,6 +3,14 @@ import {claudeAllowance,type ProviderAllowance} from '../../hadronTools/provider
 import {isHadronToolSession,runHadronToolConversation} from '../../hadronTools/types.js'
 /** Lets the tool loop save its time-limit report at the deadline before Claude itself is stopped. */
 export const CLAUDE_TOOL_DEADLINE_GRACE_MS=15000
+/** Tool-job context when the caller supplies none. The generic 32K default made Hadron condense away all but the last two results, so Claude re-read files in a loop. Below Claude's 200K window to limit per-step usage. */
+export const CLAUDE_TOOL_CONTEXT_TOKENS=128000
+/** Ordinary Claude text requests. */
+export const CLAUDE_TEXT_REQUEST_BYTES=131072
+/** Agent tool steps. The tool loop condenses at roughly 3 bytes per budget token (about 288 KB for the 128K default), so this cap is never the first limit reached. */
+export const CLAUDE_TOOL_REQUEST_BYTES=393216
+/** Progress signal while an Agent tool job runs, well inside the 180 s inactivity timer. */
+export const CLAUDE_TOOL_HEARTBEAT_MS=30000
 import { spawn,type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { mkdirSync, readFileSync, realpathSync, writeFileSync, unlinkSync } from 'node:fs'
 import {randomUUID} from 'node:crypto'
@@ -143,6 +151,7 @@ export function claudeFailureCategory(raw:string,reason:string):string{
  if(result?.subtype==='error_max_turns')return 'format_turn_limit'
  if(/rate_limit_error|usage limit|out of extra usage|hit your limit/i.test(failure))return 'usage_limit'
  if(/overloaded_error|overloaded|temporarily unavailable/i.test(failure))return 'provider_unavailable'
+ if(/connection error|network error|fetch failed|ECONNRESET|ETIMEDOUT|ENOTFOUND|socket hang up/i.test(failure))return 'provider_unavailable'
  const details=claudeFailureDetails(raw)
  if(details.apiStatus===401||details.providerErrorType==='authentication_error')return 'authentication'
  if(/prompt is too long|context length|context window|too many tokens/i.test(failure))return 'context_limit'
@@ -257,6 +266,9 @@ export class ClaudeCodeRuntime {
     const timeoutSignal=AbortSignal.timeout(remaining)
     const signal=AbortSignal.any([controller.signal,timeoutSignal,...(input.signal?[input.signal]:[])])
     let finish!:()=>void;const done=new Promise<void>(resolve=>{finish=resolve});this.toolJobs.set(done,controller)
+    // A long command (up to its own 3-minute limit) must not trip the caller's 3-minute inactivity timer and discard the run;
+    // each Claude step, each command and the whole job keep their own deadlines.
+    const heartbeat=setInterval(()=>emit?.({type:'chunk',part:'reasoning',delta:''}),CLAUDE_TOOL_HEARTBEAT_MS)
     try{
       input.hadronToolSession.bindWebSearch?.(async(query,_options,searchSignal)=>{
         try{
@@ -264,16 +276,16 @@ export class ClaudeCodeRuntime {
         return providerSearchEvidence('Claude',query,result.content,result.raw?.webSources)
         }catch(error){searchSignal?.throwIfAborted();return providerSearchFailure('Claude',query,error)}
       })
-      const content=await runHadronToolConversation({session:input.hadronToolSession,task:input.userContent,signal,contextLength:input.contextLength,
-        generate:async(packet,instructions)=>{signal.throwIfAborted();if(epoch!==this.epoch)throw Error('Claude account changed');return (await this.generateText({...input,hadronToolSession:undefined,signal,systemPrompt:`${input.systemPrompt??''}\n${instructions}`,history:[{role:'user',content:packet}],userContent:packet},()=>emit?.({type:'chunk',part:'reasoning',delta:''}),true,false,input.hadronToolSession!.requireCompletionStatus===true)).content}})
+      const content=await runHadronToolConversation({session:input.hadronToolSession,task:input.userContent,signal,contextLength:input.contextLength??CLAUDE_TOOL_CONTEXT_TOKENS,
+        generate:async(packet,instructions)=>{signal.throwIfAborted();if(epoch!==this.epoch)throw Error('Claude account changed');return (await this.generateText({...input,hadronToolSession:undefined,signal,systemPrompt:`${input.systemPrompt??''}\n${instructions}`,history:[{role:'user',content:packet}],userContent:packet},()=>emit?.({type:'chunk',part:'reasoning',delta:''}),true,false,input.hadronToolSession!.requireCompletionStatus===true,CLAUDE_TOOL_REQUEST_BYTES)).content}})
       signal.throwIfAborted();if(epoch!==this.epoch)throw Error('Claude account changed')
       emit?.({type:'chunk',part:'text',delta:content});return {content}
     }catch(error){
       if(timeoutSignal.aborted&&!input.signal?.aborted&&!controller.signal.aborted)throw Error('Hadron stopped Claude at its tool-work time limit. Available work remains saved; no automatic retry was made.')
       throw error
-    }finally{controller.abort();this.toolJobs.delete(done);finish()}
+    }finally{clearInterval(heartbeat);controller.abort();this.toolJobs.delete(done);finish()}
   }
-  private async generateText(input:ProviderGenerateInput,emit?:ProviderStreamEventHandler,structured=false,webSearch=false,completionRequired=false):Promise<ProviderGenerateOutput>{
+  private async generateText(input:ProviderGenerateInput,emit?:ProviderStreamEventHandler,structured=false,webSearch=false,completionRequired=false,maxRequestBytes=CLAUDE_TEXT_REQUEST_BYTES):Promise<ProviderGenerateOutput>{
     if((this.options.platform??process.platform)!=='win32'||!this.options.nativeHostDirectory)throw Error('Contained Claude generation is available on Windows only')
     if(this.closing||this.login||input.requestPolicy!=='single_attempt'||input.tools?.length||input.hadronToolSession||!this.allowedModels.has(input.modelName))throw Error('Claude text job is not admitted')
     const epoch=this.epoch
@@ -281,7 +293,7 @@ export class ClaudeCodeRuntime {
     if(!Array.isArray(input.history)||input.history.some(item=>!['user','assistant'].includes(item?.role)||typeof item.content!=='string'))throw Error('Unsupported Claude context')
     const images=parseHadronImages(input.images)
     const content=claudeConversationText(input.history,input.userContent)
-    if(Buffer.byteLength(content)+Buffer.byteLength(input.systemPrompt??'')>131072)throw Error('Claude job context exceeded limit')
+    if(Buffer.byteLength(content)+Buffer.byteLength(input.systemPrompt??'')>maxRequestBytes)throw Error('Claude job context exceeded limit: request too large')
     // Safe mode preserves official subscription auth; --bare explicitly disables OAuth.
     // Coding schemas exceed Windows' command-line limit after quoting. Keep
     // trusted instructions separate from task data without putting them on argv.

@@ -1700,7 +1700,8 @@ function setupServer() {
       exposedHeaders: ['Authorization'],
     })
   )
-  app.use(express.json({ limit: '25mb' }))
+  // Local-only server: room for 20 prepared pictures (about 28 MB) plus large documents.
+  app.use(express.json({ limit: '64mb' }))
 
   // Health check
   app.get('/api/health', (_req, res) => {

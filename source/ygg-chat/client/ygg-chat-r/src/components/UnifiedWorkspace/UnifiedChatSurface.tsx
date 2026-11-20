@@ -203,6 +203,7 @@ export function UnifiedChatSurface(props:UnifiedChatSurfaceProps){
      {message.state==='running'&&<span role='status' className='hadron-v2-working'>{chat.jobState==='unknown'?'Checking saved task…':'Working…'}</span>}
      {(message.state==='failed'||message.role==='assistant'&&message.state==='completed'&&isHadronIncompleteRecord(message.text))&&<strong role='status' className='hadron-v2-not-finished'>Not finished</strong>}
      {message.state==='stopped'&&<strong role='status' className='hadron-v2-not-finished'>Not finished · Stopped</strong>}
+     {message.role==='assistant'&&message.state==='completed'&&message.id===path.at(-1)?.id&&!isHadronIncompleteRecord(message.text)&&<strong role='status' className='hadron-v2-done'>✓ Done</strong>}
      </>}
     </article>)}
    </div>
