@@ -36,10 +36,10 @@ export default function DesktopWorkspace(){
  },[projectId,id,userId,navigate,location.key])
  if(error)return <div role='alert' style={{padding:24}}>{error} Your saved work has not been replaced. Choose the chat again in the sidebar to retry.</div>
  if(!runtime?.session||runtime.projectId!==projectId||!runtime.session.getSnapshot().state.chats[id??''])return <div role='status' style={{padding:24}}>Opening saved conversation…</div>
- return <DesktopConversation runtime={runtime} navigate={chat=>navigate(`/chat/${chat.projectId}/${chat.id}`)}/>
+ return <DesktopConversation runtime={runtime}/>
 }
-function DesktopConversation({runtime,navigate}:{runtime:DesktopWorkspaceRuntime;navigate(chat:WorkspaceChat):void}){
- const queries=useQueryClient(),picker=useRef<HTMLInputElement>(null),pickingChat=useRef<string|null>(null),agentNavigation=useRef(0)
+function DesktopConversation({runtime}:{runtime:DesktopWorkspaceRuntime}){
+ const queries=useQueryClient(),picker=useRef<HTMLInputElement>(null),pickingChat=useRef<string|null>(null)
  const [providers,setProviders]=useState<ParticipantOption[]>([]),[filesBusy,setFilesBusy]=useState(false),[revision,setRevision]=useState(0)
  const [destination,setDestination]=useState<{selection:ConversationSelection;move:boolean;newChat:boolean;projects:SelectionProject[];id:string}|null>(null)
  const [textDialog,setTextDialog]=useState<{title:string;initial:string;readOnly?:boolean;save?:(text:string)=>Promise<void>}|null>(null)
@@ -80,7 +80,6 @@ function DesktopConversation({runtime,navigate}:{runtime:DesktopWorkspaceRuntime
  }
  return <div className='hadron-desktop-workspace' style={{height:'100%',minHeight:0,padding:6,boxSizing:'border-box',position:'relative'}}>
   <UnifiedWorkspace session={runtime.session} disabled={filesBusy} providers={providers} help={<UnifiedWorkspaceHelp/>} connections={<SubscriptionConnections compact/>}
-   onChatChange={chat=>{const version=++agentNavigation.current;void runtime.persistence.flush(chat.id).then(async()=>{await refresh();if(version===agentNavigation.current&&runtime.session.getSnapshot().state.activeChatId===chat.id)navigate(chat)}).catch(()=>{})}}
    attachFiles={async chat=>{if(filesBusy)throw Error('Finish the current attachment selection first.');pickingChat.current=chat.id;setAttachmentChat(chat);queueMicrotask(()=>picker.current?.click())}}
    chooseFolder={chat=>runtime.chooseFolder(chat)} messageAction={(...args)=>void action(...args)}/>
   <div className='hadron-v2-attachments' style={{position:'absolute',left:24,bottom:115,zIndex:5}}>

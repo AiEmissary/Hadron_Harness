@@ -24,14 +24,22 @@ async function auditInElectron(){
    const choose=(label,value)=>{const el=document.querySelector('select[aria-label="'+label+'"]');el.value=value;el.dispatchEvent(new Event('change',{bubbles:true}))}
    const menu=()=>document.querySelector('[aria-label="Chat setup"][role="dialog"]')
    const toggle=()=>document.querySelector('button[aria-label="Chat setup"]').click()
+   const agentButton=letter=>Array.from(menu().querySelectorAll('[aria-label="Choose agent"] button')).find(button=>button.textContent.trim()==='Agent '+letter)
    await wait(()=>!!field())
    const mainBounds=field().getBoundingClientRect()
    if(mainBounds.left>window.innerWidth/2||mainBounds.top<window.innerHeight/2)throw Error('Composer moved away from bottom left')
    if(document.querySelector('select')||menu())throw Error('Setup leaked onto the main page')
    type('Question A');await wait(()=>!document.querySelector('button[aria-label="Send"]').disabled);document.querySelector('button[aria-label="Send"]').click()
    await wait(()=>document.body.textContent.includes('Reply from Agent A: Question A'))
-   type('Keep A draft');toggle();await wait(()=>!!menu());button('Agent B').click();await wait(()=>field().value==='')
-   type('Keep B draft');await wait(()=>field().value==='Keep B draft');button('Agent A').click();await wait(()=>field().value==='Keep A draft')
+   const workspace=()=>JSON.parse(document.querySelector('[data-fixture-state]').textContent).state
+   const original=workspace().chats['chat-a']
+   type('Keep this draft');toggle();await wait(()=>!!menu())
+   agentButton('B').click();await wait(()=>agentButton('B').getAttribute('aria-pressed')==='true')
+   const afterSwitch=workspace()
+   if(afterSwitch.activeChatId!=='chat-a'||Object.keys(afterSwitch.chats).length!==1||field().value!=='Keep this draft'||
+      afterSwitch.chats['chat-a'].selectedId!==original.selectedId||JSON.stringify(afterSwitch.chats['chat-a'].messages)!==JSON.stringify(original.messages))
+     throw Error('Switching to Agent B changed the chat, transcript, selected branch or draft')
+   agentButton('A').click();await wait(()=>agentButton('A').getAttribute('aria-pressed')==='true')
    choose('Work type','together');await wait(()=>document.querySelectorAll('select[aria-label$=" provider"]').length===2)
    if(button('Chat').getAttribute('aria-pressed')!=='true')throw Error('Permissions missing')
    button('Agent').click();await wait(()=>button('Agent').getAttribute('aria-pressed')==='true');button('Chat').click()
@@ -42,7 +50,7 @@ async function auditInElectron(){
     const style=getComputedStyle(el)
     if(['Top','Bottom','Left','Right'].some(side=>parseFloat(style['border'+side+'Width'])>0))throw Error('Decorative border remains on '+el.tagName)
    }
-   choose('Work type','individual');document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));await wait(()=>!menu())
+   choose('Work type','individual:a');document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));await wait(()=>!menu())
    if(document.querySelector('select'))throw Error('Setup stays visible after closing pop-up')
    if(document.querySelectorAll('textarea').length!==1)throw Error('Multiple composers')
    const after=field().getBoundingClientRect();if(Math.abs(after.left-mainBounds.left)>1||Math.abs(after.bottom-mainBounds.bottom)>1)throw Error('Mode switch moved composer')
@@ -87,8 +95,17 @@ async function auditInElectron(){
    window.getSelection().removeAllRanges();rightClick(text);await wait(()=>!!document.querySelector('[aria-label="Conversation selection actions"]'))
    document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));await wait(()=>!document.querySelector('[aria-label="Conversation selection actions"]'))
    const state=JSON.parse(document.querySelector('[data-fixture-state]').textContent).state
-   if(Object.values(state.chats).find(chat=>chat.agent==='b').draft!=='Keep B draft'||state.chats['chat-a'].draft!=='Keep A draft')throw Error('Agent switching lost a draft')
-   return {success:true,oneBottomLeftComposer:true,twoPanes:true,popUpOnlySetup:true,borderlessControls:true,newHelpGuide:true,multiMessageActionSelection:true,rightClickChatAndTree:true,highlightedTextSelection:true,newChatMoveAction:true,newProjectAndChatNames:true,chatAgentPermissionChoice:true,turnLimit100InPopUp:true,agentDraftsPreserved:true,chronologicalReply:true,realProviderRequests:0,syntheticUIFixture:true}
+   if(Object.keys(state.chats).length!==1||state.activeChatId!=='chat-a'||state.chats['chat-a'].draft!=='Keep this draft')throw Error('Agent switching changed the chat or lost the draft')
+   toggle();await wait(()=>!!menu())
+   agentButton('B').click();await wait(()=>agentButton('B').getAttribute('aria-pressed')==='true')
+   choose('Agent B provider','claudecode');await wait(()=>document.querySelector('select[aria-label="Agent B model"]').options.length===2)
+   choose('Agent B model','fixture-b')
+   const send=document.querySelector('button[aria-label="Send"]')
+   await wait(()=>!send.disabled);send.click()
+   await wait(()=>document.body.textContent.includes('Reply from Agent B: Keep this draft'))
+   const [question,reply]=workspace().chats['chat-a'].messages.slice(-2)
+   if(question.parentId!==original.selectedId||reply.parentId!==question.id||reply.agent!=='b')throw Error('Agent B did not continue the selected branch')
+   return {success:true,oneBottomLeftComposer:true,twoPanes:true,popUpOnlySetup:true,borderlessControls:true,newHelpGuide:true,multiMessageActionSelection:true,rightClickChatAndTree:true,highlightedTextSelection:true,newChatMoveAction:true,newProjectAndChatNames:true,chatAgentPermissionChoice:true,turnLimit100InPopUp:true,agentSwitchStaysInChat:true,chronologicalReply:true,realProviderRequests:0,syntheticUIFixture:true}
   }
   const result=await window.webContents.executeJavaScript('('+audit.toString()+')()')
   await window.webContents.executeJavaScript('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(resolve,100))))');

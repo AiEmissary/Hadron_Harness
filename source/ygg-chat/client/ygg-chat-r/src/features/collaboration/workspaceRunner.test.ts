@@ -127,12 +127,12 @@ function fixture(){
  const runner=new WorkspaceRunner(deps);runners.push(runner)
  return {runner,deps,handle,state:()=>state,request:()=>request!,emit:(input:WorkspaceRunEvent)=>event(input)}
 }
-it('keeps streaming output in its original chat while switching agents and preserves the next draft',async()=>{
+it('keeps streaming output in its original chat while opening a different chat and preserves the next draft',async()=>{
  const f=fixture();await f.runner.send()
  expect(f.state().chats.a.messages.map(message=>message.role)).toEqual(['user','assistant'])
  expect(f.state().chats.a.draft).toBe('')
  f.deps.dispatch({type:'draft',chatId:'a',text:'Next question'})
- f.deps.dispatch({type:'switch-agent',agent:'b',newChatId:'b'})
+ f.deps.dispatch({type:'open',chat:blankWorkspaceChat('project','b','b')})
  f.emit({text:'Task completed with details',state:'completed'})
  expect(f.state().activeChatId).toBe('b')
  expect(f.state().chats.a.messages.at(-1)?.text).toBe('Task completed with details')

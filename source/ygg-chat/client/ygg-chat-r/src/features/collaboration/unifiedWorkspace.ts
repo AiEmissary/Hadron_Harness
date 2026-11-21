@@ -47,7 +47,6 @@ export function workspaceModelsWithDefaults(chat:WorkspaceChat,defaults:Workspac
 }
 export type UnifiedWorkspaceAction=
   |{type:'open';chat:WorkspaceChat}
-  |{type:'switch-agent';agent:WorkspaceAgent;newChatId:string}
   |{type:'select-chat';id:string}
   |{type:'draft';chatId:string;text:string}
   |{type:'scroll';chatId:string;top:number;following?:boolean}
@@ -76,26 +75,6 @@ export function unifiedWorkspaceReducer(state:UnifiedWorkspaceState,action:Unifi
     const chat=state.chats[action.id]
     return {...state,activeChatId:action.id,agentChats:chat.workType==='individual'?{...state.agentChats,[chat.agent]:chat.id}:state.agentChats}
   }
-  if(action.type==='switch-agent'){
-    const current=state.chats[state.activeChatId]
-    const imported=current?.workType==='individual'&&current.jobState==='idle'&&(current.sharedContinuation||!current.jobId&&current.messages.length>0&&current.messages.every(message=>!!message.reference))
-    if(imported&&!Object.values(state.chats).some(chat=>chat.id!==current.id&&chat.jobState!=='idle'&&(chat.workType!=='individual'||chat.agent===action.agent))){
-      const agentChats={...state.agentChats}
-      if(agentChats[current.agent]===current.id){const previous=Object.values(state.chats).reverse().find(chat=>chat.id!==current.id&&chat.workType==='individual'&&chat.agent===current.agent);if(previous)agentChats[current.agent]=previous.id;else delete agentChats[current.agent]}
-      const prior=state.chats[agentChats[action.agent]??''],model=current.models[action.agent]??state.modelDefaults[action.agent]??prior?.models[action.agent]
-      agentChats[action.agent]=current.id
-      return {...state,agentChats,chats:{...state.chats,[current.id]:{...current,agent:action.agent,models:model?{...current.models,[action.agent]:model}:current.models}}}
-    }
-    const id=state.agentChats[action.agent]
-    if(id&&state.chats[id]){
-      const chat=workspaceModelsWithDefaults(state.chats[id],state.modelDefaults)
-      return {...state,activeChatId:id,chats:chat===state.chats[id]?state.chats:{...state.chats,[id]:chat}}
-    }
-    if(Object.values(state.chats).some(chat=>chat.jobState!=='idle'&&(chat.workType!=='individual'||chat.agent===action.agent)))throw Error('This agent already has work in progress')
-    if(state.chats[action.newChatId])throw Error('New chat identity already exists')
-    const chat=blankWorkspaceChat(state.projectId,action.newChatId,action.agent,state.modelDefaults)
-    return {...state,activeChatId:chat.id,chats:{...state.chats,[chat.id]:chat},agentChats:{...state.agentChats,[action.agent]:chat.id}}
-  }
   const chat=state.chats[action.chatId]
   if(!chat)throw Error('Chat is unavailable')
   let next:WorkspaceChat
@@ -120,8 +99,7 @@ export function unifiedWorkspaceReducer(state:UnifiedWorkspaceState,action:Unifi
       const workType=action.workType??chat.workType,agent=action.agent??chat.agent
       if(action.agent&&Object.values(state.chats).some(other=>other.id!==chat.id&&other.jobState!=='idle'&&(other.workType!=='individual'||other.agent===agent)))throw Error('This agent already has work in progress')
       const models={...state.modelDefaults,...chat.models,...action.models}
-      // Each individual chat owns its own transcript, but choosing a shared
-      // work type should reuse the other agent's existing connection choice.
+      // A mode or agent change keeps the transcript and reuses remembered models.
       if(workType!==chat.workType||agent!==chat.agent)for(const agent of ['a','b'] as const){
         if(models[agent]?.provider||models[agent]?.modelName)continue
         const peer=state.chats[state.agentChats[agent]??'']

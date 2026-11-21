@@ -3,7 +3,7 @@ import {createPortal} from 'react-dom'
 import {isHadronIncompleteRecord} from '../../../../../shared/hadronWorkOutcome'
 import {ArrowDown,ArrowUp,Copy,GitBranch,MessageSquare,MoreHorizontal,Paperclip,Pencil,Share2,Square,Trash2} from 'lucide-react'
 import type {ParticipantOption} from '../../features/collaboration/setup'
-import {workspaceTranscriptPath,type WorkspaceAgent,type WorkspaceChat,type WorkspaceMessage} from '../../features/collaboration/unifiedWorkspace'
+import {workspaceTranscriptPath,type WorkspaceChat,type WorkspaceMessage} from '../../features/collaboration/unifiedWorkspace'
 import {layoutAgentBranches} from '../../features/collaboration/agentConversation'
 import type {AgentConversationNode} from '../../../../../shared/independentJobs'
 import {WorkspaceMenu,type WorkspaceMenuProps} from './WorkspaceMenu'
@@ -17,7 +17,7 @@ export interface UnifiedChatSurfaceProps {
  chat:WorkspaceChat;providers:ReadonlyArray<ParticipantOption>;connections?:ReactNode;help:ReactNode;reasoningControl?:ReactNode;
  error?:string;canSend:boolean;canBranch?:boolean;selectedIds?:ReadonlySet<string>;
  onBranch?(messageId:string,text:string):Promise<boolean>;
- onDraft(text:string):void;onSend():void;onStop():void;onAgent(agent:WorkspaceAgent):void;
+ onDraft(text:string):void;onSend():void;onStop():void;
  onConfigure:WorkspaceMenuProps['onConfigure'];onFile():void;onFolder():void;
  onRemoveFile?(id:string):void;onLatest(id?:string):void;
  onSelect(id:string,multiple?:boolean):void;onSelection(ids:string[]):void;onMessageAction(action:MessageAction,ids:string[],excerpts?:MessageExcerpts):void;onScroll(top:number,following:boolean):void;
@@ -26,7 +26,7 @@ const colorAt=(index:number)=>['#2869e6','#268ed9','#12aab0','#56ad59','#c1b929'
 
 /** One transcript/composer/tree surface for all work types and permissions. */
 export function UnifiedChatSurface(props:UnifiedChatSurfaceProps){
- const {chat,providers,connections,help,reasoningControl,error,canSend,onDraft,onSend,onStop,onAgent,onConfigure,onFile,onFolder,onSelect,onMessageAction,onScroll}=props
+ const {chat,providers,connections,help,reasoningControl,error,canSend,onDraft,onSend,onStop,onConfigure,onFile,onFolder,onSelect,onMessageAction,onScroll}=props
  const [menu,setMenu]=useState(false),[attachments,setAttachments]=useState(false),[more,setMore]=useState<string|null>(null)
  const [visualMessage,setVisualMessage]=useState<string|null>(null)
  const visibleVisuals=workspaceVisuals(chat.messages.find(message=>message.id===visualMessage)?.text??'')
@@ -218,7 +218,7 @@ export function UnifiedChatSurface(props:UnifiedChatSurfaceProps){
      <div className='hadron-v2-toolbar-actions'>
       {help}
       <div className='hadron-v2-setup-anchor'><button aria-label='Chat setup' aria-expanded={menu} data-workspace-menu-toggle onClick={()=>setMenu(current=>!current)}><MoreHorizontal size={20}/></button>
-       <WorkspaceMenu open={menu} chat={chat} providers={providers} connections={connections} onAgent={onAgent} onConfigure={onConfigure} onClose={()=>setMenu(false)}/>
+       <WorkspaceMenu open={menu} chat={chat} providers={providers} connections={connections} onConfigure={onConfigure} onClose={()=>setMenu(false)}/>
       </div>
       {reasoningControl}
       <div className='hadron-v2-setup-anchor'><button aria-label='Attach file or folder' aria-expanded={attachments} onClick={()=>setAttachments(value=>!value)}><Paperclip size={18}/></button>

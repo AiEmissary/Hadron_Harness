@@ -1,7 +1,7 @@
 import {afterEach,expect,it,vi} from 'vitest'
 import {WorkspaceSession} from './workspaceSession'
 import {WorkspacePersistence} from './workspacePersistence'
-import type {WorkspaceChat} from './unifiedWorkspace'
+import {blankWorkspaceChat,type WorkspaceChat} from './unifiedWorkspace'
 import type {ArchivedChat} from '../../../server/hadronTools/workspaceArchive'
 
 const sessions:WorkspaceSession[]=[],stores:WorkspacePersistence[]=[]
@@ -32,7 +32,7 @@ it('does not make B wait for A storage and keeps both drafts separate',async()=>
  const f=fixture();let finish!:()=>void
  f.api.save.mockImplementationOnce((chat,revision)=>new Promise(resolve=>{finish=()=>resolve({chat,revision:revision+1})}))
  const a=f.store.flush('chat-a');await Promise.resolve()
- f.session.dispatch({type:'switch-agent',agent:'b',newChatId:'chat-b'})
+ f.session.open(blankWorkspaceChat('project','chat-b','b'))
  f.session.dispatch({type:'draft',chatId:'chat-b',text:'B instruction'})
  await f.store.flush('chat-b')
  expect(f.rows.get('chat-b')?.chat.draft).toBe('B instruction')

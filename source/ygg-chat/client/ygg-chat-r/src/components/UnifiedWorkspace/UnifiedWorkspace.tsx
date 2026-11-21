@@ -8,7 +8,6 @@ export interface UnifiedWorkspaceProps {
  session:WorkspaceSession;disabled?:boolean;providers:ReadonlyArray<ParticipantOption>;help:ReactNode;connections?:ReactNode;reasoningControl?:ReactNode;
  attachFiles(chat:WorkspaceChat):Promise<void>;chooseFolder(chat:WorkspaceChat):Promise<WorkspaceChat['folder']|null>;
  messageAction(chat:WorkspaceChat,action:MessageAction,ids:string[],excerpts?:MessageExcerpts):void;
- onChatChange?(chat:WorkspaceChat):void;
 }
 /** All modes share this component. Folder picking never changes the chosen Chat/Agent permission. */
 export function UnifiedWorkspace(props:UnifiedWorkspaceProps){
@@ -30,7 +29,6 @@ export function UnifiedWorkspace(props:UnifiedWorkspaceProps){
  return <UnifiedChatSurface chat={chat} providers={props.providers} help={props.help} connections={props.connections} reasoningControl={props.reasoningControl}
   error={snapshot.errors[chat.id]??undefined} canSend={canBranch&&!!chat.draft.trim()} canBranch={canBranch} onBranch={(messageId,text)=>session.branch(chat.id,messageId,text)} selectedIds={snapshot.selections[chat.id]}
   onDraft={text=>session.dispatch({type:'draft',chatId:chat.id,text})} onSend={()=>void session.send()} onStop={()=>void session.stop(chat.id)}
-  onAgent={agent=>safely(()=>{if(chat.messages.length===0&&chat.jobState==='idle')session.dispatch({type:'configure',chatId:chat.id,agent});else session.dispatch({type:'switch-agent',agent,newChatId:crypto.randomUUID()});const state=session.getSnapshot().state;props.onChatChange?.(state.chats[state.activeChatId])})}
   onConfigure={next=>safely(()=>session.dispatch({type:'configure',chatId:chat.id,...next}))}
   onFile={()=>void files()} onFolder={()=>void folder()}
   onLatest={id=>{const last=id?chat.messages.find(message=>message.id===id):chat.messages.at(-1);if(last)session.dispatch({type:'select-message',chatId:chat.id,id:last.id});session.dispatch({type:'follow-updates',chatId:chat.id,value:true})}}
