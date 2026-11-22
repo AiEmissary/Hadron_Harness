@@ -93,3 +93,24 @@ it('gives shared reviewers reads but no write or command capability, and respect
  agents.revoke('owner',grant.id)
  await expect(session.invoke('project_list',{},signal)).rejects.toThrow('permission')
 })
+
+it('reads, edits and runs a real check in a second explicitly selected folder and fences unselected roots',async()=>{
+ const first=path.join(root,'first'),second=path.join(root,'second');fs.mkdirSync(first);fs.mkdirSync(second)
+ fs.writeFileSync(path.join(first,'value.txt'),'First unchanged');fs.writeFileSync(path.join(second,'value.txt'),'broken')
+ const read=reads.grant('owner','workspace','a',[first,second]),grant=agents.grant('owner','workspace','a',read.id)
+ const execute=vi.fn(async(call:any,context:any)=>{
+  expect(context.rootPath).toBe(second)
+  const args=JSON.parse(call.arguments);expect(args.folder).toBeUndefined()
+  if(call.name==='edit_file')return editFile(args.path,args.operation,{...args,cwd:context.rootPath,operationMode:context.operationMode})
+  return runPowerShellCommand(args.command,{cwd:context.rootPath,signal:context.signal,timeoutMs:15000,maxOutputChars:8000})
+ })
+ const tools=agents.session(config(grant.id,execute)),signal=new AbortController().signal
+ expect((await tools.invoke('project_read',{folder:'folder2',path:'value.txt'},signal) as any).text).toBe('broken')
+ expect((await tools.invoke('edit_file',{folder:'folder2',path:'value.txt',operation:'replace',searchPattern:'broken',replacement:'fixed'},signal) as any).success).toBe(true)
+ expect(fs.readFileSync(path.join(first,'value.txt'),'utf8')).toBe('First unchanged')
+ if(process.platform==='win32')expect((await tools.invoke('powershell',{folder:'folder2',command:"if ((Get-Content -LiteralPath value.txt) -ne 'fixed') { throw 'Check failed' }; Write-Output 'SECOND_FOLDER_CHECK_PASSED'",description:'Check saved second folder edit'},signal) as any).success).toBe(true)
+ await expect(tools.invoke('edit_file',{folder:'folder3',path:'value.txt'},signal)).rejects.toThrow('folder')
+ const reviewer=agents.session({...config(grant.id,execute),readOnly:true})
+ expect((await reviewer.invoke('project_read',{folder:'folder2',path:'value.txt'},signal) as any).text).toBe('fixed')
+ await expect(reviewer.invoke('edit_file',{folder:'folder2'},signal)).rejects.toThrow()
+})

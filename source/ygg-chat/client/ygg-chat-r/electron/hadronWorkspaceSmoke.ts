@@ -11,11 +11,12 @@ import {runHadronToolConversation} from '../server/hadronTools/types.js'
 const profile=process.env.HADRON_DESKTOP_SMOKE_PROFILE
 if(!profile||!path.basename(profile).startsWith('hadron-desktop-smoke-'))throw Error('An isolated desktop smoke profile is required')
 const root=fs.mkdtempSync(path.join(os.tmpdir(),'hadron-workspace-code-'))
+const secondRoot=fs.mkdtempSync(path.join(os.tmpdir(),'hadron-workspace-second-'))
 fs.writeFileSync(path.join(root,'calculator.cjs'),'exports.add=(a,b)=>a-b;\n')
 fs.writeFileSync(path.join(root,'calculator.test.cjs'),"const {test}=require('node:test');const assert=require('node:assert/strict');const {add}=require('./calculator.cjs');test('negative operand',()=>assert.equal(add(-2,3),1));\n")
 fs.writeFileSync(path.join(root,'progress.cjs'),'exports.add=(a,b)=>a-b;\n')
 fs.writeFileSync(path.join(root,'progress.test.cjs'),"const {test}=require('node:test');const assert=require('node:assert/strict');const {add}=require('./progress.cjs');test('negative operand',()=>assert.equal(add(-2,3),1));\n")
-dialog.showOpenDialog=(async()=>({canceled:false,filePaths:[root]})) as typeof dialog.showOpenDialog
+dialog.showOpenDialog=(async()=>({canceled:false,filePaths:[root,secondRoot]})) as typeof dialog.showOpenDialog
 let requests=0
 const longInputReceipts={attached:0,pasted:0,memory:0}
 const outcomeReceipts={partial:0,unconfirmed:0,reportAttempts:0,progress:0,progressReports:0}
@@ -103,7 +104,7 @@ app.on('browser-window-created',(_event,window)=>{
     set('Agent A provider','openaichatgpt');await wait(()=>!!document.querySelector('select[aria-label="Agent A model"] option[value="fixture-model"]'));set('Agent A model','fixture-model');button('Agent')!.click();await wait(()=>!!document.querySelector('[aria-label="Provider allowance"]')?.textContent?.includes('80% remaining'))
     document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))
     document.querySelector<HTMLButtonElement>('button[aria-label="Attach file or folder"]')!.click();await wait(()=>!!button('Attach folder'));button('Attach folder')!.click()
-    await wait(()=>!!document.querySelector('.hadron-v2-folder'))
+    await wait(()=>document.querySelectorAll('.hadron-v2-folder').length===2)
     await setup();if(button('Agent')?.getAttribute('aria-pressed')!=='true')throw Error('Attaching the folder changed Agent permission');document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))
     await send('FIX_CALCULATOR');await wait(()=>document.querySelector('.hadron-v2-transcript')!.textContent!.includes('Fixed calculator.cjs and ran the negative operand test.'));await wait(()=>!!document.querySelector('button[aria-label="Send"]'))
     await wait(()=>!!document.querySelector('.hadron-v2-activity')?.textContent?.includes('Run PowerShell command'))
@@ -176,7 +177,14 @@ app.on('browser-window-created',(_event,window)=>{
    const bookmarks=JSON.parse(fs.readFileSync(path.join(profile,'remembered-project-folders.json'),'utf8'))
    const bookmark=bookmarks[0];if(!bookmark)throw Error('Selected folder was not saved natively')
    const restored=await run(`window.electronAPI.collaboration.projectRestore(${JSON.stringify(bookmark.workspace)},${JSON.stringify(bookmark.slot)})`)
-   if(restored?.label!==root)throw Error('Native folder restore returned the wrong project')
+   if(restored?.label!==root||JSON.stringify(restored.paths)!==JSON.stringify([root,secondRoot]))throw Error('Native folder restore returned the wrong projects')
+   const reduced=await run(`window.electronAPI.collaboration.projectRetain(${JSON.stringify(bookmark.workspace)},${JSON.stringify(bookmark.slot)},${JSON.stringify(restored.id)},${JSON.stringify(bookmark.slot)},[1])`)
+   if(reduced?.label!==secondRoot||JSON.stringify(reduced.paths)!==JSON.stringify([secondRoot]))throw Error('Removing one selected folder lost the remaining path')
+   const cleared=await run(`window.electronAPI.collaboration.projectRetain(${JSON.stringify(bookmark.workspace)},${JSON.stringify(bookmark.slot)},${JSON.stringify(reduced.id)},${JSON.stringify(bookmark.slot)},[])`)
+   if(cleared!==null)throw Error('Removing all selected folders did not clear access')
+   const afterRemoval=await run(`window.electronAPI.collaboration.projectRestore(${JSON.stringify(bookmark.workspace)},${JSON.stringify(bookmark.slot)})`)
+   if(afterRemoval!==null)throw Error('Explicitly removed folders were restored')
+
    const before=requests
    await new Promise<void>(resolve=>{window.webContents.once('did-finish-load',()=>resolve());window.webContents.reload()})
    await run(`(async()=>{for(let i=0;i<300;i++){if(document.querySelectorAll('article[data-message-id]').length===2)return;await new Promise(r=>setTimeout(r,50))}throw Error('Saved copied chat did not reopen')})()`)
@@ -188,7 +196,7 @@ app.on('browser-window-created',(_event,window)=>{
    await run(`(async()=>{window.dispatchEvent(new Event('focus'));for(let i=0;i<200;i++){const card=Array.from(document.querySelectorAll('h3')).find(el=>el.textContent==='Claude')?.parentElement;const choice=document.querySelector('option[value="claudecode"]');if(card?.textContent.includes('Connected using your')&&choice&&!choice.disabled){document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));return}await new Promise(r=>setTimeout(r,50))}throw Error('Claude reconnect did not refresh controls')})()`)
    await run(`(async()=>{for(let i=0;i<100;i++){if(document.querySelector('.titlebar-project-name')?.textContent.trim()==='Workspace transfer test')break;await new Promise(r=>setTimeout(r,50))}for(const el of document.querySelectorAll('.hadron-desktop-workspace button,.hadron-desktop-workspace textarea')){if(parseFloat(getComputedStyle(el).borderTopWidth)>0)throw Error('A decorative border remains in the live workspace')}await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));await new Promise(r=>setTimeout(r,100))})()`)
    fs.writeFileSync(path.join(profile,'workspace.png'),(await window.webContents.capturePage()).toPNG())
-   fs.writeFileSync(path.join(profile,'workspace-result.json'),JSON.stringify({...result,...(process.env.HADRON_WORKSPACE_LONG_INPUT==='1'?{longInputReceipts}:{}),...(process.env.HADRON_WORKSPACE_OUTCOME==='1'?{outcomeReceipts}:{}),success:true,reloadWithoutInference:true,connectionStatusRefresh:true,nativeFolderRestored:true,syntheticProviderRequests:requests,realProviderRequests:0,isolatedProfile:profile,fixtureProject:root,rendererErrors:errors},null,2))
+   fs.writeFileSync(path.join(profile,'workspace-result.json'),JSON.stringify({...result,...(process.env.HADRON_WORKSPACE_LONG_INPUT==='1'?{longInputReceipts}:{}),...(process.env.HADRON_WORKSPACE_OUTCOME==='1'?{outcomeReceipts}:{}),success:true,reloadWithoutInference:true,connectionStatusRefresh:true,nativeFolderRestored:true,multipleSelectedFoldersRestored:true,nativeFolderRemovalPersists:true,syntheticProviderRequests:requests,realProviderRequests:0,isolatedProfile:profile,fixtureProject:root,rendererErrors:errors},null,2))
    clearTimeout(watchdog);app.exit(0)
   })().catch(async error=>{
    fs.writeFileSync(path.join(profile,'workspace-failure.json'),JSON.stringify({error:String(error),stack:error.stack,rendererErrors:errors,requests},null,2))

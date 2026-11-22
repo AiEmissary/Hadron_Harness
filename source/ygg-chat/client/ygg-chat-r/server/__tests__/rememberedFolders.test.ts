@@ -15,3 +15,23 @@ it('restores only the same owned workspace folder after a restart, across work m
   expect(()=>reopened.restore('owner','workspace','a')).toThrow('changed')
  }finally{fs.rmSync(directory,{recursive:true,force:true})}
 })
+
+it('restores all selected folders, preserves explicit removals and rejects a changed secondary folder',()=>{
+ const directory=fs.mkdtempSync(path.join(os.tmpdir(),'hadron-bookmark-'))
+ try{
+  const a=path.join(directory,'a'),b=path.join(directory,'b'),file=path.join(directory,'bookmarks.json');fs.mkdirSync(a);fs.mkdirSync(b)
+  const bookmarks=new RememberedFolders(file);bookmarks.remember('owner','workspace','a',[a,b])
+  expect(new RememberedFolders(file).restore('owner','workspace','shared')).toEqual([fs.realpathSync(a),fs.realpathSync(b)])
+  bookmarks.forget('owner','workspace','shared')
+  expect(new RememberedFolders(file).restore('owner','workspace','shared')).toBeNull()
+  expect(bookmarks.restore('owner','workspace','a')).toEqual([fs.realpathSync(a),fs.realpathSync(b)])
+  fs.renameSync(b,b+'-old');fs.mkdirSync(b)
+  expect(()=>bookmarks.restore('owner','workspace','a')).toThrow('changed')
+  bookmarks.remember('owner','workspace','shared',a)
+  expect(bookmarks.restore('owner','workspace','shared')).toBe(fs.realpathSync(a))
+ }finally{
+  const target=fs.realpathSync(directory),temporary=fs.realpathSync(os.tmpdir())
+  if(path.dirname(target)!==temporary||!path.basename(target).startsWith('hadron-bookmark-'))throw Error('Invalid fixture cleanup')
+  fs.rmSync(target,{recursive:true,force:true})
+ }
+})

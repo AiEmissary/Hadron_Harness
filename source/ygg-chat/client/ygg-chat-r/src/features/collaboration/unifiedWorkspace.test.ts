@@ -155,3 +155,16 @@ it('inherits the last chosen A and B models when creating another independent ag
  expect(state.chats.b.messages).toEqual([])
  expect(state.chats.b.folder).toBeUndefined()
 })
+
+it('explicit folder removal survives mode changes without touching draft or model choices and is blocked during work',()=>{
+ let state=initialUnifiedWorkspace('project','chat')
+ state=reduce(state,{type:'draft',chatId:'chat',text:'Unsent'})
+ state=reduce(state,{type:'folder',chatId:'chat',folder:{id:'group',label:'First',paths:['First','Second']}})
+ state=reduce(state,{type:'folder',chatId:'chat',folder:undefined})
+ for(const workType of ['together','continuous','individual'] as const){
+  state=reduce(state,{type:'configure',chatId:'chat',workType})
+  expect(state.chats.chat.folderDetached).toBe(true);expect(state.chats.chat.folder).toBeUndefined();expect(state.chats.chat.draft).toBe('Unsent')
+ }
+ state=reduce(state,{type:'job',chatId:'chat',id:'running',state:'running'})
+ expect(()=>reduce(state,{type:'folder',chatId:'chat',folder:undefined})).toThrow('finish')
+})

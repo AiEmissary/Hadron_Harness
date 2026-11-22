@@ -113,8 +113,8 @@ export class DesktopWorkspaceRuntime {
  }
  private async restoreFolder(id:string){
   const chat=this.session.getSnapshot().state.chats[id]
-  if(!chat||chat.folder||chat.jobState!=='idle'||!this.native.collaboration.projectRestore)return
-  const workspaceId=chat.nativeWorkspaceId??id,slot=chat.workType==='individual'?chat.agent:chat.workType==='together'?'shared':'continuous'
+  if(!chat||chat.folder||chat.folderDetached||chat.jobState!=='idle'||!this.native.collaboration.projectRestore)return
+  const workspaceId=chat.nativeWorkspaceId??id,slot=chat.folderBookmarkSlot??(chat.workType==='individual'?chat.agent:chat.workType==='together'?'shared':'continuous')
   try{const grant=await this.native.collaboration.projectRestore(workspaceId,slot);if(grant)this.session.dispatch({type:'folder',chatId:id,folder:{...grant,workspaceId,slot}})}catch{/* A missing or replaced folder must be selected again. */}
  }
  private transport():WorkspaceRunTransport{
@@ -150,13 +150,23 @@ export class DesktopWorkspaceRuntime {
    }
   }}
  }
- async chooseFolder(chat:WorkspaceChat):Promise<WorkspaceChat['folder']|null>{
+ async chooseFolder(chat:WorkspaceChat,mode:'add'|'replace'='add'):Promise<WorkspaceChat['folder']|null>{
   if(chat.jobState!=='idle')throw Error('Wait for this reply to finish before changing its folder.')
   const workspaceId=chat.nativeWorkspaceId??chat.id,slot=chat.workType==='individual'?chat.agent:chat.workType==='continuous'?'continuous':'shared'
   if(Object.values(this.session.getSnapshot().state.chats).some(other=>other.id!==chat.id&&other.jobState!=='idle'&&(other.nativeWorkspaceId??other.id)===workspaceId&&(chat.workType!=='individual'||other.workType!=='individual'||other.agent===chat.agent)))throw Error('This agent is using its folder in another chat. Wait for that task to finish before changing the folder.')
   // Ensure newly created A/B chats exist before requesting a native grant.
   await this.persistence.flush(chat.id)
-  const grant=await this.native.collaboration.projectSelect(workspaceId,slot)
+  const grant=await this.native.collaboration.projectSelect(workspaceId,slot,{mode,existingId:chat.folder?.id,source:chat.folder?.slot??slot})
+  return grant?{...grant,workspaceId,slot}:null
+ }
+ async removeFolder(chat:WorkspaceChat,index?:number):Promise<WorkspaceChat['folder']|null>{
+  if(chat.jobState!=='idle')throw Error('Wait for this reply to finish before changing its folders.')
+  if(!chat.folder)return null
+  const workspaceId=chat.nativeWorkspaceId??chat.id,slot=chat.workType==='individual'?chat.agent:chat.workType==='continuous'?'continuous':'shared'
+  if(Object.values(this.session.getSnapshot().state.chats).some(other=>other.id!==chat.id&&other.jobState!=='idle'&&(other.nativeWorkspaceId??other.id)===workspaceId&&(chat.workType!=='individual'||other.workType!=='individual'||other.agent===chat.agent)))throw Error('Wait for the other task using this folder to finish.')
+  await this.persistence.flush(chat.id)
+  const paths=chat.folder.paths??[chat.folder.label],indexes=index===undefined?[]:paths.map((_,i)=>i).filter(i=>i!==index)
+  const grant=await this.native.collaboration.projectRetain(workspaceId,chat.folder.slot??slot,chat.folder.id,slot,indexes)
   return grant?{...grant,workspaceId,slot}:null
  }
  async projects():Promise<SelectionProject[]>{

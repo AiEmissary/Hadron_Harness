@@ -65,6 +65,8 @@ export function hadronToolRequestKey(tool:string,args:unknown):string{return cre
 export async function runHadronToolConversation(input: {
   session: HadronToolSession; task: string; signal: AbortSignal
   contextLength?:number
+  /** Trusted adapter checks its fully serialized request, including its outer system prompt. */
+  requestFits?(packet:string,instructions:string):boolean
   generate(packet: string, instructions: string): Promise<string>
 }): Promise<string> {
   let transcript:ToolTranscriptEntry[] = [{ role: 'user', content: input.task }]
@@ -142,16 +144,18 @@ export async function runHadronToolConversation(input: {
     const makePacket=()=>JSON.stringify({ kind: 'hadron_tool_conversation', transcript, remainingRequests: maximum - turn,finalAnswerRequired,...(timeRemainingMs!==undefined?{timeRemainingMs}:{}),
       ...(repeatedRequests?{repeatedRequests}:{}),
       ...(finalAnswerRequired?{hostInstruction:'FINAL RESPONSE REQUIRED. No more tool calls are allowed. '+(stopReason==='agent_stalled'?'You have repeatedly requested operations that already ran. ':'')+'Return your final answer now, using only evidence already returned. State incomplete research and uncertainty explicitly. If a structured proposal is required, return that schema only when supported; never invent file changes.'}:{}) })
+    const instructions=()=>input.session.instructions+'\nHOST FORMAT: Return one JSON object: {"tool":"name","arguments":{...}} or '+(input.session.requireCompletionStatus?'{"answer":"your final answer","finished":true}. The boolean finished is REQUIRED for a final answer; it refers to fulfilling the current user request, not merely writing a reply.':'{"answer":"your final answer"}.')+' If assigned work remains, return {"answer":"available findings and remaining work","finished":false}. Continue through granted tool requests while useful authorized work remains. Only a real external blocker, unavailable required permission/resource or question requiring the user should end unfinished work early: add "blocked":true and "blocker":"concise concrete reason" to that unfinished answer. A recoverable failed search or partial investigation is not an external blocker. Ordinary uncertainty in a completed analysis does not by itself mean unfinished work. Native XML/invoke markup is never executed and is not a final answer.'+(finalAnswerRequired?'\nHOST BUDGET: This is the final allowed response. Tools are now closed. Return the final answer from existing evidence, with explicit limitations.':'')
+    const tooLarge=()=>toolContextTokens(instructions()+packet)>budget||input.requestFits?.(packet,instructions())===false
     let packet=makePacket()
-    if(toolContextTokens(input.session.instructions+packet)>budget){await condense();packet=makePacket()}
-    if(toolContextTokens(input.session.instructions+packet)>budget){await condense(true);packet=makePacket()}
-    if(toolContextTokens(input.session.instructions+packet)>budget){
+    if(tooLarge()){await condense();packet=makePacket()}
+    if(tooLarge()){await condense(true);packet=makePacket()}
+    if(tooLarge()){
       // Preserve the user's task and the evidence; never silently call a partial record a completed answer.
       finalAnswerRequired=true;outcome.incompleteReason='context_limit';packet=makePacket()
-      if(toolContextTokens(input.session.instructions+packet)>budget)return partial('context_limit')
+      if(tooLarge())return partial('context_limit')
     }
     let text:string
-    try{text=await input.generate(packet, input.session.instructions+'\nHOST FORMAT: Return one JSON object: {"tool":"name","arguments":{...}} or '+(input.session.requireCompletionStatus?'{"answer":"your final answer","finished":true}. The boolean finished is REQUIRED for a final answer; it refers to fulfilling the current user request, not merely writing a reply.':'{"answer":"your final answer"}.')+' If assigned work remains, return {"answer":"available findings and remaining work","finished":false}. Continue through granted tool requests while useful authorized work remains. Only a real external blocker, unavailable required permission/resource or question requiring the user should end unfinished work early: add "blocked":true and "blocker":"concise concrete reason" to that unfinished answer. A recoverable failed search or partial investigation is not an external blocker. Ordinary uncertainty in a completed analysis does not by itself mean unfinished work. Native XML/invoke markup is never executed and is not a final answer.'+(finalAnswerRequired?'\nHOST BUDGET: This is the final allowed response. Tools are now closed. Return the final answer from existing evidence, with explicit limitations.':''))}
+    try{text=await input.generate(packet, instructions())}
     catch(error){
       input.signal.throwIfAborted()
       // Only retry a rejected text-generation request. No prior tool operation is repeated.

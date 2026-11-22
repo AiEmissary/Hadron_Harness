@@ -117,4 +117,21 @@ it('keeps an index of completed operations across repeated condensations',async(
 })
 it('treats the Claude request-size refusal as an oversized context so the loop condenses and retries',()=>{
  expect(isOversizedContextError(new Error('Claude job context exceeded limit: request too large'))).toBe(true)
+ expect(isOversizedContextError(new Error('Hadron job context exceeded limit'))).toBe(true)
+})
+
+it('compacts before the ChatGPT serialized request guard, preserving the task without replaying writes',async()=>{
+ const {hadronCodexRequestFits}=await import('../auth/hadronCodexRuntime.js')
+ const system='Worker instructions. '.repeat(1500),task='Continue the selected shared work with one agent; do not repeat completed edits.'
+ let calls=0,largest=0,sawMemory=false
+ const invoked:string[]=[]
+ const result=await runHadronToolConversation({session:{execution:'agent',requireCompletionStatus:true,maxRequests:20,instructions:'Use actual tool results.',invoke:async(name,args)=>{
+  invoked.push(name+JSON.stringify(args));return {success:true,path:'file.ts',content:'const path="C:\\Work\\file.ts";\n'.repeat(400)}
+ }},task,contextLength:200000,signal:new AbortController().signal,requestFits:(packet,instructions)=>hadronCodexRequestFits(packet,instructions,system),generate:async(packet,instructions)=>{
+  expect(hadronCodexRequestFits(packet,instructions,system)).toBe(true);expect(packet).toContain(task)
+  largest=Math.max(largest,packet.length);sawMemory ||= packet.includes('condensed_tool_evidence')
+  return ++calls<=10?JSON.stringify({tool:calls===1?'edit_file':'read_file',arguments:{path:'file.ts',startLine:calls}}):JSON.stringify({answer:'Continued and completed the fixture work.',finished:true})
+ }})
+ expect(result).toContain('completed');expect(calls).toBe(11);expect(sawMemory).toBe(true);expect(largest).toBeGreaterThan(20000)
+ expect(invoked.filter(value=>value.startsWith('edit_file'))).toHaveLength(1)
 })

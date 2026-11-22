@@ -39,12 +39,13 @@ interface ElectronAPI {
   hadronSetup:()=>Promise<import('../../../shared/hadronSetup').HadronSetupReport>
   continuousChat: import('../../../shared/continuousChat').ContinuousChatApi
   collaboration: {
-    projectAgent:(workspace:string,slot:'a'|'b'|'shared',readGrantId:string)=>Promise<{id:string;label:string}>
+    projectAgent:(workspace:string,slot:'a'|'b'|'shared',readGrantId:string)=>Promise<{id:string;label:string;paths?:string[]}>
     agentRevoke:(id:string)=>Promise<void>
     providerAllowance:(provider:string)=>Promise<import('../server/hadronTools/providerAllowance').ProviderAllowance|null>
-    projectRestore:(workspace:string,slot:'a'|'b'|'shared'|'continuous')=>Promise<{id:string;label:string}|null>
-    projectSelect:(workspace:string,slot:'a'|'b'|'shared'|'continuous')=>Promise<{id:string;label:string}|null>
-    projectUse:(workspace:string,source:'a'|'b'|'shared'|'continuous',id:string,target:'a'|'b'|'shared'|'continuous')=>Promise<{id:string;label:string}>
+    projectRestore:(workspace:string,slot:'a'|'b'|'shared'|'continuous')=>Promise<{id:string;label:string;paths?:string[]}|null>
+    projectSelect:(workspace:string,slot:'a'|'b'|'shared'|'continuous',options?:{mode?:'add'|'replace';existingId?:string;source?:'a'|'b'|'shared'|'continuous'})=>Promise<{id:string;label:string;paths?:string[]}|null>
+    projectUse:(workspace:string,source:'a'|'b'|'shared'|'continuous',id:string,target:'a'|'b'|'shared'|'continuous')=>Promise<{id:string;label:string;paths?:string[]}>
+    projectRetain:(workspace:string,source:'a'|'b'|'shared'|'continuous',id:string,target:'a'|'b'|'shared'|'continuous',indexes:number[])=>Promise<{id:string;label:string;paths?:string[]}|null>
     projectRevoke:(id:string)=>Promise<void>
     setup: () => Promise<{ schemaVersion: 1; liveEnabled: boolean; ownerAvailable: boolean; provider: { id: 'openaichatgpt'; connected: boolean; models: Array<{ id: string; label: string }> } }>
     availability: () => Promise<{ liveEnabled: boolean; previewEnabled: boolean }>

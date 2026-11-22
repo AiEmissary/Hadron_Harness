@@ -96,3 +96,7 @@ ygg-chat/server/src/data/uploads/*node_modules/
 # Local skills and design previews
 /.claude/skills/
 /design-previews/
+
+# Local agent/editor restore copies; never export generated/runtime backups.
+/ygg-chat/client/ygg-chat-r/electron/main.mjs.backup.*
+/ygg-chat/client/ygg-chat-r/server/hadronTools/projectPaths.ts.backup.*

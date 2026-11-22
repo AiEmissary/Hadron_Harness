@@ -111,3 +111,5 @@ body.hadron-app .hadron-desktop-workspace .hadron-v2-tree-node:not(:disabled):no
 
 .hadron-v2-attached-image{display:inline-block;max-width:min(100%,320px);max-height:240px;object-fit:contain;border-radius:12px;margin:8px 12px 8px 0}
 .hadron-v2-image-thumbnail{width:48px;height:48px;object-fit:contain;border-radius:6px;margin-right:8px}
+
+.hadron-v2-attachment-menu{max-height:min(65vh,420px);max-width:min(560px,85vw);overflow:auto}.hadron-v2-attachment-menu button{overflow-wrap:anywhere}

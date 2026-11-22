@@ -81,7 +81,7 @@ function DesktopConversation({runtime}:{runtime:DesktopWorkspaceRuntime}){
  return <div className='hadron-desktop-workspace' style={{height:'100%',minHeight:0,padding:6,boxSizing:'border-box',position:'relative'}}>
   <UnifiedWorkspace session={runtime.session} disabled={filesBusy} providers={providers} help={<UnifiedWorkspaceHelp/>} connections={<SubscriptionConnections compact/>}
    attachFiles={async chat=>{if(filesBusy)throw Error('Finish the current attachment selection first.');pickingChat.current=chat.id;setAttachmentChat(chat);queueMicrotask(()=>picker.current?.click())}}
-   chooseFolder={chat=>runtime.chooseFolder(chat)} messageAction={(...args)=>void action(...args)}/>
+   chooseFolder={(chat,mode)=>runtime.chooseFolder(chat,mode)} removeFolder={(chat,index)=>runtime.removeFolder(chat,index)} messageAction={(...args)=>void action(...args)}/>
   <div className='hadron-v2-attachments' style={{position:'absolute',left:24,bottom:115,zIndex:5}}>
    <AttachmentPicker pickerRef={picker} compact label='Attach files to chat' files={attachmentChat?.attachments??[]} disabled={filesBusy} onBusy={setFilesBusy} onFiles={files=>{
     const id=pickingChat.current;if(id)runtime.session.dispatch({type:'attachments',chatId:id,files})

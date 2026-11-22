@@ -18,7 +18,7 @@ export interface UnifiedChatSurfaceProps {
  error?:string;canSend:boolean;canBranch?:boolean;selectedIds?:ReadonlySet<string>;
  onBranch?(messageId:string,text:string):Promise<boolean>;
  onDraft(text:string):void;onSend():void;onStop():void;
- onConfigure:WorkspaceMenuProps['onConfigure'];onFile():void;onFolder():void;
+ onConfigure:WorkspaceMenuProps['onConfigure'];onFile():void;onFolder(mode?:'add'|'replace'):void;onRemoveFolder?(index?:number):void;
  onRemoveFile?(id:string):void;onLatest(id?:string):void;
  onSelect(id:string,multiple?:boolean):void;onSelection(ids:string[]):void;onMessageAction(action:MessageAction,ids:string[],excerpts?:MessageExcerpts):void;onScroll(top:number,following:boolean):void;
 }
@@ -180,7 +180,7 @@ export function UnifiedChatSurface(props:UnifiedChatSurfaceProps){
  return <div className='hadron-v2-workspace' data-unified-workspace='true'>
   <section className='hadron-v2-chat' aria-label='Conversation'>
    <div className='hadron-v2-transcript' ref={transcript} onScroll={event=>{const el=event.currentTarget;follow.current=el.scrollHeight-el.clientHeight-el.scrollTop<80;setAway(!follow.current);onScroll(el.scrollTop,follow.current)}}>
-    {!path.length&&<div className='hadron-v2-empty'><MessageSquare size={66} strokeWidth={1}/><h2>Start a conversation</h2><p>Ask one or both agents a question. Files and folders are optional.</p><button onClick={onFolder}>Attach folder (optional)</button></div>}
+    {!path.length&&<div className='hadron-v2-empty'><MessageSquare size={66} strokeWidth={1}/><h2>Start a conversation</h2><p>Ask one or both agents a question. Files and folders are optional.</p><button onClick={()=>onFolder()}>Attach folder (optional)</button></div>}
     {path.map(message=><article key={message.id} className={`hadron-v2-message ${message.role}`} data-message-id={message.id} onContextMenu={branchDraft?.messageId===message.id?undefined:event=>openContext(event,message,true)}>
      {branchDraft?.messageId===message.id?<form className='hadron-v2-branch-editor' aria-label='New branch' onSubmit={event=>{event.preventDefault();void sendBranch()}}>
       <small>New branch</small>
@@ -210,7 +210,7 @@ export function UnifiedChatSurface(props:UnifiedChatSurfaceProps){
    {(away||path.length>0&&chat.selectedId!==path.at(-1)?.id)&&<button className='hadron-v2-latest' aria-label='Go to latest message' onClick={()=>{props.onLatest(path.at(-1)?.id);follow.current=true;setAway(false);onScroll(transcript.current?.scrollHeight??0,true);transcript.current?.scrollTo({top:transcript.current.scrollHeight,behavior:'smooth'})}}><ArrowDown size={18}/></button>}
    <div className='hadron-v2-composer' data-workspace-composer='true'>
     {error&&<p role='alert' className='hadron-v2-inline-error'>{error}</p>}
-    {chat.folder&&<p className='hadron-v2-folder' title={chat.folder.label}>{chat.folder.label}</p>}
+    {chat.folder&&(chat.folder.paths??[chat.folder.label]).map(folder=><p key={folder} className='hadron-v2-folder' title={folder}>{folder}</p>)}
     {!chat.folder&&chat.permission==='agent'&&<p className='hadron-v2-hint'>No folder attached · questions use Chat permissions. Attach a folder when you want file or coding work.</p>}
     <textarea ref={input} aria-label='Message' placeholder='Type your message…' value={chat.draft} onChange={event=>onDraft(event.target.value)} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();if(canSend)onSend()}}}/>
     <div className='hadron-v2-toolbar'>
@@ -222,7 +222,7 @@ export function UnifiedChatSurface(props:UnifiedChatSurfaceProps){
       </div>
       {reasoningControl}
       <div className='hadron-v2-setup-anchor'><button aria-label='Attach file or folder' aria-expanded={attachments} onClick={()=>setAttachments(value=>!value)}><Paperclip size={18}/></button>
-       {attachments&&<div role='menu' className='hadron-v2-attachment-menu'><button role='menuitem' onClick={()=>{setAttachments(false);onFile()}}>Attach files</button><button role='menuitem' onClick={()=>{setAttachments(false);onFolder()}}>Attach folder</button>{chat.attachments?.map(file=><button key={file.id} role='menuitem' title={`Remove ${file.name}`} onClick={()=>props.onRemoveFile?.(file.id)}>{file.image&&<img className='hadron-v2-image-thumbnail' src={file.image.dataUrl} alt=''/>}{file.name} · Remove</button>)}</div>}
+       {attachments&&<div role='menu' className='hadron-v2-attachment-menu'><button role='menuitem' onClick={()=>{setAttachments(false);onFile()}}>Attach files</button><button role='menuitem' disabled={busy} onClick={()=>{setAttachments(false);onFolder('add')}}>{chat.folder?'Add folders':'Attach folder'}</button>{chat.folder&&<><button role='menuitem' disabled={busy} onClick={()=>{setAttachments(false);onFolder('replace')}}>Replace folders</button>{(chat.folder.paths??[chat.folder.label]).map((folder,index)=><button key={folder} role='menuitem' disabled={busy} title={folder} onClick={()=>{setAttachments(false);props.onRemoveFolder?.(index)}}>Remove folder · {folder}</button>)}{(chat.folder.paths?.length??1)>1&&<button role='menuitem' disabled={busy} onClick={()=>{setAttachments(false);props.onRemoveFolder?.()}}>Remove all folders</button>}</>}{chat.attachments?.map(file=><button key={file.id} role='menuitem' title={`Remove ${file.name}`} onClick={()=>props.onRemoveFile?.(file.id)}>{file.image&&<img className='hadron-v2-image-thumbnail' src={file.image.dataUrl} alt=''/>}{file.name} · Remove</button>)}</div>}
       </div>
       {busy?<button className='hadron-v2-send' aria-label='Stop' onClick={onStop}><Square size={16}/></button>:<button className='hadron-v2-send' aria-label='Send' disabled={!canSend} onClick={onSend}><ArrowUp size={20}/></button>}
      </div>

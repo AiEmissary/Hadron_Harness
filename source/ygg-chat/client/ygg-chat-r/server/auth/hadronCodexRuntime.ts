@@ -15,6 +15,10 @@ export type { HadronCodexStatus } from './hadronCodexTypes.js'
 
 export const HADRON_CODEX_VERSION = '0.166.0'
 export const HADRON_CODEX_JOB_TIMEOUT_MS = 600000
+export const HADRON_CODEX_REQUEST_CHAR_LIMIT = 131072
+export function hadronCodexRequestFits(packet:string,instructions:string,systemPrompt=''):boolean{
+ return JSON.stringify([{role:'user',content:packet}]).length+systemPrompt.length+1+instructions.length<=HADRON_CODEX_REQUEST_CHAR_LIMIT
+}
 export const CODEX_FAILURE_REASONS = Object.freeze({
  timeout:'ChatGPT reached Hadron’s 10-minute request limit.',
  cancelled:'The ChatGPT request was stopped before it finished.',
@@ -350,6 +354,7 @@ export class HadronCodexRuntime {
         }catch(error){searchSignal?.throwIfAborted();return providerSearchFailure('ChatGPT',query,error)}
       })
       const content = await runHadronToolConversation({ session: input.hadronToolSession, task: input.userContent, signal,contextLength:input.contextLength,
+        requestFits:(packet,instructions)=>hadronCodexRequestFits(packet,instructions,input.systemPrompt??undefined),
         generate: async (packet, instructions) => (await this.generateText({ ...input, hadronToolSession: undefined, signal,
           systemPrompt: `${input.systemPrompt ?? ''}\n${instructions}`, history: [{ role: 'user', content: packet }], userContent: packet }, () => emit?.({ type: 'chunk', part: 'reasoning', delta: '' }))).content })
       signal.throwIfAborted()
@@ -365,7 +370,7 @@ export class HadronCodexRuntime {
       return { role: message.role as string, content: message.content as string }
     })
     if (messages.at(-1)?.role !== 'user' || messages.at(-1)?.content !== input.userContent) messages.push({ role: 'user', content: input.userContent })
-    if (JSON.stringify(messages).length + (input.systemPrompt?.length ?? 0) > 131072) throw new Error('Hadron job context exceeded limit')
+    if (JSON.stringify(messages).length + (input.systemPrompt?.length ?? 0) > HADRON_CODEX_REQUEST_CHAR_LIMIT) throw Object.assign(new Error('Hadron job context exceeded limit'),{code:'context_length_exceeded'})
     const controller = new AbortController(), epoch = this.epoch
     this.jobs.add(controller)
     let finish!: () => void

@@ -26,7 +26,7 @@ export function boundedToolReceipt(value:unknown):unknown{
 export function isOversizedContextError(error:unknown):boolean{
  const e=error as {code?:unknown;type?:unknown;message?:unknown;cause?:{code?:unknown;type?:unknown;message?:unknown}}|null
  const fields=[e?.code,e?.type,e?.message,e?.cause?.code,e?.cause?.type,e?.cause?.message].filter(value=>typeof value==='string').join(' ')
- return /context_length_exceeded|maximum context|prompt.{0,35}too (?:long|large)|input.{0,35}too (?:long|large)|request.{0,35}too large|too many (?:input )?tokens/i.test(fields)
+ return /Hadron job context exceeded limit|context_length_exceeded|maximum context|prompt.{0,35}too (?:long|large)|input.{0,35}too (?:long|large)|request.{0,35}too large|too many (?:input )?tokens/i.test(fields)
 }
 /** Every request already run, carried across repeated condensations so the agent can see what it has searched and read. */
 export function completedOperationIndex(entries:ToolTranscriptEntry[],limit=60):Array<{tool:string;arguments:unknown}>{

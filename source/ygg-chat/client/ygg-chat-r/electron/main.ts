@@ -1664,15 +1664,33 @@ authHandle('collaboration:project-restore',(_event,workspace:string,slot:'a'|'b'
  const root=rememberedFolders().restore(owner,workspace,slot)
  return root?projectReadHost.grant(owner,workspace,slot,root,projectProtectedRoots()):null
 })
-authHandle('collaboration:project-select',async (_event,workspace:unknown,slot:unknown)=>{
+authHandle('collaboration:project-select',async (_event,workspace:unknown,slot:unknown,options?:{mode?:'add'|'replace';existingId?:string;source?:'a'|'b'|'shared'|'continuous'})=>{
   const owner=publicAuthState().user?.id
   if(!owner||typeof workspace!=='string'||!workspace||workspace.length>128||!['a','b','shared','continuous'].includes(slot as string))throw Error('Project selection unavailable')
-  const selected=await dialog.showOpenDialog(mainWindow!,{title:['shared','continuous'].includes(String(slot))?'Choose project folder for both agents':`Choose project folder for Agent ${String(slot).toUpperCase()}`,properties:['openDirectory']})
+  desktopProjectDraftHost.get().validateWorkspace(owner,workspace)
+  if(options?.mode!==undefined&&!['add','replace'].includes(options.mode))throw Error('Invalid folder selection')
+  const previous=options?.mode==='add'&&options.existingId?projectReadHost.selectionDirectories(owner,options.existingId,workspace,options.source??slot as 'a'|'b'|'shared'|'continuous'):[]
+  const selected=await dialog.showOpenDialog(mainWindow!,{title:'Choose working folders',properties:['openDirectory','multiSelections']})
   if(selected.canceled||!selected.filePaths[0])return null
   if(publicAuthState().user?.id!==owner)throw Error('Local account changed during selection')
-  const grant=projectReadHost.grant(owner,workspace,slot as 'a'|'b'|'shared'|'continuous',selected.filePaths[0],projectProtectedRoots())
-  rememberedFolders().remember(owner,workspace,slot as 'a'|'b'|'shared'|'continuous',grant.label)
+  const grant=projectReadHost.grant(owner,workspace,slot as 'a'|'b'|'shared'|'continuous',[...previous,...selected.filePaths],projectProtectedRoots())
+  rememberedFolders().remember(owner,workspace,slot as 'a'|'b'|'shared'|'continuous',grant.paths)
   return grant
+})
+authHandle('collaboration:project-retain',(_event,workspace:string,source:'a'|'b'|'shared'|'continuous',id:string,target:'a'|'b'|'shared'|'continuous',indexes:unknown)=>{
+ const owner=projectDraftOwner();desktopProjectDraftHost.get().validateWorkspace(owner,workspace)
+ if(!['a','b','shared','continuous'].includes(target)||!Array.isArray(indexes)||indexes.some(index=>!Number.isSafeInteger(index)))throw Error('Invalid folder selection')
+ const roots=projectReadHost.selectionDirectories(owner,id,workspace,source,false)
+ if(indexes.some(index=>index<0||index>=roots.length)||new Set(indexes).size!==indexes.length)throw Error('Invalid folder selection')
+ if(!indexes.length){
+  rememberedFolders().forget(owner,workspace,target)
+  if(source!==target)rememberedFolders().forget(owner,workspace,source)
+  projectReadHost.revoke(owner,id);return null
+ }
+ const grant=projectReadHost.grant(owner,workspace,target,indexes.map(index=>roots[index]),projectProtectedRoots())
+ rememberedFolders().remember(owner,workspace,target,grant.paths)
+ if(source!==target)projectReadHost.revoke(owner,id)
+ return grant
 })
 authHandle('collaboration:project-agent',(_event,workspace:unknown,slot:unknown,readGrantId:unknown)=>{
   const owner=publicAuthState().user?.id
@@ -1685,10 +1703,10 @@ authHandle('collaboration:project-revoke',(_event,id:unknown)=>{const owner=publ
 authHandle('collaboration:project-use',(_event,workspace:string,source:'a'|'b'|'shared'|'continuous',id:string,target:'a'|'b'|'shared'|'continuous')=>{
   const owner=projectDraftOwner();desktopProjectDraftHost.get().validateWorkspace(owner,workspace)
   if(!['a','b','shared','continuous'].includes(target))throw Error('Invalid conversation destination')
-  const root=projectReadHost.selectionDirectory(owner,id,workspace,source)
-  rememberedFolders().remember(owner,workspace,target,root)
-  if(source===target)return {id,label:root}
-  return projectReadHost.grant(owner,workspace,target,root)
+  const roots=projectReadHost.selectionDirectories(owner,id,workspace,source)
+  rememberedFolders().remember(owner,workspace,target,roots)
+  if(source===target)return {id,label:roots[0],paths:roots}
+  return projectReadHost.grant(owner,workspace,target,roots,projectProtectedRoots())
 })
 
 authHandle('collaboration:claude-status', async () => {

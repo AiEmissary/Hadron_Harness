@@ -6,36 +6,60 @@ import {createHash,randomUUID} from 'node:crypto'
 import {admitHadronToolSession, type HadronToolSession} from './types.js'
 import {deniedProjectName as denied, selectedProjectRoot, projectPath} from './projectPaths.js'
 
-interface Grant {owner:string;workspace:string;slot:'a'|'b'|'shared'|'continuous';root:string;device:string;inode:string}
-const identity=(value:fs.BigIntStats,grant:Grant)=>value.isDirectory()&&value.dev.toString()===grant.device&&value.ino.toString()===grant.inode
+interface RootIdentity {root:string;device:string;inode:string}
+interface Grant {owner:string;workspace:string;slot:'a'|'b'|'shared'|'continuous';roots:RootIdentity[]}
+const identity=(value:fs.BigIntStats,grant:RootIdentity)=>value.isDirectory()&&value.dev.toString()===grant.device&&value.ino.toString()===grant.inode
 function* textLines(text:string){let start=0;do{const next=text.indexOf('\n',start);if(next<0){yield text.slice(start).replace(/\r$/,'');return}yield text.slice(start,next).replace(/\r$/,'');start=next+1}while(start<=text.length)}
 
 /** Main-process folder selection creates grants. JSON input never supplies a root path. */
 export class ProjectReadHost {
   private grants=new Map<string,Grant>()
-  grant(owner:string,workspace:string,slot:'a'|'b'|'shared'|'continuous',root:string,protectedRoots:string[]=[]){
-    if(!owner||!workspace||workspace.length>128||!['a','b','shared','continuous'].includes(slot)||!path.isAbsolute(root))throw Error('Invalid project selection')
-    const canonical=selectedProjectRoot(root,protectedRoots),stat=fs.lstatSync(canonical,{bigint:true})
-    // Selecting a replacement immediately revokes the previous access for this agent/workspace.
-    for(const [id,item] of this.grants)if(item.owner===owner&&item.workspace===workspace&&item.slot===slot)this.grants.delete(id)
-    if(this.grants.size>=128)throw Error('Too many active project selections')
-    const id=randomUUID();this.grants.set(id,{owner,workspace,slot,root:canonical,device:stat.dev.toString(),inode:stat.ino.toString()})
-    return {id,label:canonical}
+  grant(owner:string,workspace:string,slot:'a'|'b'|'shared'|'continuous',root:string|string[],protectedRoots:string[]=[]){
+    const paths=Array.isArray(root)?root:[root]
+    if(!owner||!workspace||workspace.length>128||!['a','b','shared','continuous'].includes(slot)||!paths.length||paths.length>12||paths.some(value=>typeof value!=='string'||!path.isAbsolute(value)))throw Error('Choose between 1 and 12 project folders')
+    // Validate every folder before replacing any live capability.
+    const roots=[...new Set(paths.map(value=>selectedProjectRoot(value,protectedRoots)))].map(canonical=>{
+      const stat=fs.lstatSync(canonical,{bigint:true});return {root:canonical,device:String(stat.dev),inode:String(stat.ino)}
+    })
+    const existing=[...this.grants].filter(([,item])=>item.owner===owner&&item.workspace===workspace&&item.slot===slot)
+    if(this.grants.size-existing.length>=128)throw Error('Too many active project selections')
+    for(const [id] of existing)this.grants.delete(id)
+    const id=randomUUID();this.grants.set(id,{owner,workspace,slot,roots})
+    return {id,label:roots[0].root,paths:roots.map(value=>value.root)}
   }
   revoke(owner:string,id:string){if(this.grants.get(id)?.owner===owner)this.grants.delete(id)}
   clear(){this.grants.clear()}
   selectionDirectory(owner:string,id:string,workspace:string,slot:'a'|'b'|'shared'|'continuous'):string{
-    this.session(owner,id,workspace,slot)
-    return this.grants.get(id)!.root
+    return this.selectionDirectories(owner,id,workspace,slot)[0]
+  }
+  selectionDirectories(owner:string,id:string,workspace:string,slot:'a'|'b'|'shared'|'continuous',verify=true):string[]{
+    const grant=this.grants.get(id)
+    if(!grant||grant.owner!==owner||grant.workspace!==workspace||grant.slot!==slot)throw Error('Select the project folder again; access is unavailable')
+    if(verify)this.session(owner,id,workspace,slot)
+    return grant.roots.map(value=>value.root)
   }
   session(owner:string,id:string,workspace:string,slot:'a'|'b'|'shared'|'continuous',authorize:()=>void=()=>{},activity:(tool:string,state:'started'|'completed'|'failed'|'cancelled')=>void=()=>{}):HadronToolSession{
     const grant=this.grants.get(id)
+    if(!grant||grant.owner!==owner||grant.workspace!==workspace||grant.slot!==slot)throw Error('Select the project folder again; access is unavailable')
+    const sessions=grant.roots.map((_,index)=>this.sessionForRoot(owner,id,workspace,slot,authorize,activity,index))
+    let calls=0
+    return admitHadronToolSession({instructions:sessions[0].instructions+'\n'+selectedFoldersInstruction(grant.roots.map(value=>value.root)),requireEvidenceAttempt:true,
+      evidenceAttempted:()=>sessions.some(session=>session.evidenceAttempted?.()),evidenceInstruction:sessions[0].evidenceInstruction,
+      async invoke(name,args,signal){
+        signal.throwIfAborted()
+        if(++calls>32)throw Error('Project operation limit reached')
+        const {index,arguments:values}=folderArguments(args,sessions.length)
+        return sessions[index].invoke(name,values,signal)
+      }})
+  }
+  private sessionForRoot(owner:string,id:string,workspace:string,slot:'a'|'b'|'shared'|'continuous',authorize:()=>void,activity:(tool:string,state:'started'|'completed'|'failed'|'cancelled')=>void,index:number):HadronToolSession{
+    const grant=this.grants.get(id),selected=grant?.roots[index]
     const check=()=>{
       authorize()
-      if(!grant||this.grants.get(id)!==grant||grant.owner!==owner||grant.workspace!==workspace||grant.slot!==slot)throw Error('Select the project folder again; access is unavailable')
-      const stat=fs.lstatSync(grant.root,{bigint:true})
-      if(stat.isSymbolicLink()||!identity(stat,grant)||fs.realpathSync(grant.root)!==grant.root)throw Error('Project folder changed; select it again')
-      return grant
+      if(!grant||!selected||this.grants.get(id)!==grant||grant.owner!==owner||grant.workspace!==workspace||grant.slot!==slot)throw Error('Select the project folder again; access is unavailable')
+      const stat=fs.lstatSync(selected.root,{bigint:true})
+      if(stat.isSymbolicLink()||!identity(stat,selected)||fs.realpathSync(selected.root)!==selected.root)throw Error('Project folder changed; select it again')
+      return selected
     }
     check()
     const target=(raw:unknown,allowRoot=false)=>{
@@ -131,3 +155,15 @@ These are text-mediated host tools. ${PROJECT_READ_TOOL_CATALOG} Return {"answer
   }
 }
 export const projectReadHost=new ProjectReadHost()
+
+/** Each operation chooses one separately authorized root. Never grant their parent. */
+export function folderArguments(value:unknown,count:number):{index:number;arguments:Record<string,unknown>}{
+  if(!value||typeof value!=='object'||Array.isArray(value))throw Error('Expected project arguments')
+  const {folder,...args}=value as Record<string,unknown>
+  const index=folder===undefined?0:typeof folder==='string'&&/^folder[1-9][0-9]*$/.test(folder)?Number(folder.slice(6))-1:-1
+  if(!Number.isSafeInteger(index)||index<0||index>=count)throw Error('Choose a selected folder alias, such as folder1 or folder2')
+  return {index,arguments:args}
+}
+export function selectedFoldersInstruction(roots:string[]):string{
+  return 'Selected working folders: '+JSON.stringify(roots.map((root,index)=>({folder:`folder${index+1}`,path:root})))+'. All tool arguments may include optional "folder":"folder2" to choose a selected folder; the default is folder1. Paths are relative to that folder. Absolute paths, parent traversal and unselected folders do not gain access. Commands run with that folder as their working directory. Search each relevant selected folder separately. Folder aliases apply only to this task.'
+}

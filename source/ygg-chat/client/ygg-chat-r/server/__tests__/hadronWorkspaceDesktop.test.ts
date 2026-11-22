@@ -96,3 +96,39 @@ it('continues the shared result with B in the same saved chat and passes the sel
  expect(independent.start.mock.calls[0][0].context).toContain('Combined answer from both agents')
  expect(active().messages).toHaveLength(4);expect(Object.keys(runtime.session.getSnapshot().state.chats)).toEqual(['root'])
 })
+
+it('adds/replaces/removes folders in every work mode without changing models, draft or permissions; removal survives reopen',async()=>{
+ await open()
+ native.collaboration.projectRetain=vi.fn(async()=>null)
+ native.collaboration.projectRestore=vi.fn(async()=>({id:'restored',label:'Must not restore after removal'}))
+ for(const workType of ['individual','together','continuous'] as const){
+  runtime.session.dispatch({type:'configure',chatId:'root',workType,permission:workType==='continuous'?'chat':'agent'})
+  runtime.session.dispatch({type:'draft',chatId:'root',text:'Preserve my unsent instruction'})
+  const before=active(),paths=['First folder','Second folder'],slot=workType==='individual'?'a':workType==='together'?'shared':'continuous'
+  native.collaboration.projectSelect.mockResolvedValueOnce({id:'group',label:paths[0],paths})
+  const folder=await runtime.chooseFolder(active(),'add');runtime.session.dispatch({type:'folder',chatId:'root',folder:folder!})
+  expect(active().models).toEqual(before.models);expect(active().permission).toBe(before.permission);expect(active().draft).toBe(before.draft)
+  await runtime.chooseFolder(active(),'replace')
+  expect(native.collaboration.projectSelect).toHaveBeenLastCalledWith('root',slot,{mode:'replace',existingId:'group',source:slot})
+  const remaining=await runtime.removeFolder(active(),0)
+  expect(native.collaboration.projectRetain).toHaveBeenLastCalledWith('root',slot,'group',slot,[1])
+  runtime.session.dispatch({type:'folder',chatId:'root',folder:remaining??undefined})
+  expect(active().folderDetached).toBe(true);expect(active().draft).toBe(before.draft)
+ }
+ await runtime.persistence.flush('root');expect(archive.load('owner','root')!.chat.folderDetached).toBe(true)
+ native.collaboration.projectRestore.mockClear();await runtime.open('root')
+ expect(native.collaboration.projectRestore).not.toHaveBeenCalled();expect(active().folder).toBeUndefined()
+})
+
+it('restores the last selected folder group across a later work-mode change, rather than an older mode bookmark',async()=>{
+ await open();runtime.session.dispatch({type:'configure',chatId:'root',workType:'together'})
+ runtime.session.dispatch({type:'folder',chatId:'root',folder:{id:'group',label:'Remaining folder',paths:['Remaining folder'],slot:'shared',workspaceId:'root'}})
+ runtime.session.dispatch({type:'configure',chatId:'root',workType:'individual',agent:'a'})
+ await runtime.persistence.flush('root')
+ native.collaboration.projectRestore=vi.fn(async()=>({id:'new-group',label:'Remaining folder',paths:['Remaining folder']}))
+ runtime.dispose()
+ runtime=new DesktopWorkspaceRuntime('owner','project',native,{get:async(path:string)=>path.startsWith('/projects/')?{id:'project',user_id:'owner'}:{id:'root',project_id:'project',user_id:'owner',title:'Desktop test',storage_mode:'local'}} as any,()=>{},{independent,shared} as any)
+ await runtime.open('root')
+ expect(native.collaboration.projectRestore).toHaveBeenCalledWith('root','shared')
+ expect(active().folder?.paths).toEqual(['Remaining folder'])
+})

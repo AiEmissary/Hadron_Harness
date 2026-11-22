@@ -23,7 +23,8 @@ export interface WorkspaceChat {
   agent:WorkspaceAgent;models:Partial<Record<WorkspaceAgent,WorkspaceModel>>;maxTurns:number;
   draft:string;selectedId:string|null;messages:WorkspaceMessage[];scrollTop:number;followLatest:boolean;followBranch:boolean;
   jobId:string|null;jobState:'idle'|'running'|'stopping'|'unknown';
-  folder?:{id:string;label:string;workspaceId?:string;slot?:'a'|'b'|'shared'|'continuous'};
+  folderDetached?:boolean;folderBookmarkSlot?:'a'|'b'|'shared'|'continuous';
+  folder?:{id:string;label:string;paths?:string[];workspaceId?:string;slot?:'a'|'b'|'shared'|'continuous'};
   nativeJob?:WorkspaceNativeJob;attachments?:WorkspaceAttachment[];
 }
 export interface UnifiedWorkspaceState {
@@ -85,7 +86,7 @@ export function unifiedWorkspaceReducer(state:UnifiedWorkspaceState,action:Unifi
     case 'select-message':
       if(action.id&&!chat.messages.some(message=>message.id===action.id))throw Error('Branch is unavailable')
       next={...chat,selectedId:action.id,followBranch:false};break
-    case 'folder':next={...chat,folder:action.folder};break
+    case 'folder':if(chat.jobState!=='idle')throw Error('Wait for this reply to finish before changing its folders.');next={...chat,folder:action.folder,folderDetached:!action.folder,folderBookmarkSlot:action.folder?.slot??chat.folderBookmarkSlot};break
     case 'native-job':next={...chat,nativeJob:action.job};break
     case 'attachments':next={...chat,attachments:action.files};break
     case 'instructions':next={...chat,instructions:action.text};break

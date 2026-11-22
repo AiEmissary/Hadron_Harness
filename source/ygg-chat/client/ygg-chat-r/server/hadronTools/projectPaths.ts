@@ -7,6 +7,14 @@ export const insideProject = (root: string, target: string): boolean => {
 }
 export const deniedProjectName = (name: string): boolean => /^(\.git|node_modules|\.ssh|\.aws|\.azure|\.gnupg|\.kube|\.config|\.codex|\.claude|\.npmrc|\.pypirc|\.netrc|\.git-credentials|\.hadron-write-.*|credentials\.json|auth\.json|\.env(?:\..*)?|.*\.(?:pem|key|pfx|p12))$/i.test(name)
 
+/** Protected runtime/account folders seen by selectedProjectRoot. Keep path-level guards as defence in depth as well as validating each selected root. */
+const guardedRoots = new Set<string>()
+const foldPath = (value: string) => process.platform === 'win32' ? value.toLowerCase() : value
+function assertNotProtected(target: string, root: string): void {
+  const folded = foldPath(target)
+  for (const guarded of guardedRoots) if (!insideProject(foldPath(guarded), foldPath(root)) && insideProject(foldPath(guarded), folded)) throw Error('Blocked: this path is inside a protected Hadron runtime or account folder. Changing it requires your explicit confirmation, so the agent was stopped.')
+}
+
 export function selectedProjectRoot(root: string, protectedRoots: string[] = []): string {
   if (!path.isAbsolute(root)) throw Error('Absolute selected project required')
   const canonical = fs.realpathSync(root), stat = fs.lstatSync(root)
@@ -15,8 +23,9 @@ export function selectedProjectRoot(root: string, protectedRoots: string[] = [])
     try{return [absolute,fs.realpathSync(absolute)]}
     catch(error){if((error as NodeJS.ErrnoException).code==='ENOENT')return [absolute];throw Error('Protected application folder could not be verified')}
   })
-  if (stat.isSymbolicLink() || !stat.isDirectory() || canonical === path.parse(canonical).root ||
-    canonical.split(path.sep).some(deniedProjectName) || protectedPaths.some(item => insideProject(item, canonical) || insideProject(canonical, item))) {
+  for (const item of protectedPaths) guardedRoots.add(item)
+  if(canonical===path.parse(canonical).root)throw Error('Choose individual working folders instead of a whole drive. You can attach several folders.')
+  if (stat.isSymbolicLink() || !stat.isDirectory() || canonical.split(path.sep).some(deniedProjectName) || protectedPaths.some(item=>insideProject(item,canonical)||insideProject(canonical,item))) {
     throw Error('Choose a project folder outside protected application and account folders')
   }
   return canonical
@@ -24,6 +33,11 @@ export function selectedProjectRoot(root: string, protectedRoots: string[] = [])
 
 /** Existing ancestors must be plain directories; only the final file may be absent. */
 export function projectPath(root: string, raw: unknown, options: { rootAllowed?: boolean; missingLeaf?: boolean; missingParents?:boolean } = {}): string {
+  const resolved = resolveProjectPath(root, raw, options)
+  assertNotProtected(resolved, root)
+  return resolved
+}
+function resolveProjectPath(root: string, raw: unknown, options: { rootAllowed?: boolean; missingLeaf?: boolean; missingParents?:boolean } = {}): string {
   if (typeof raw !== 'string' || raw.length > 1024 || raw.includes('\\') || raw.includes(':') || raw.includes('\0') || path.posix.isAbsolute(raw)) throw Error('Use a project-relative path with forward slashes')
   const parts = raw === '' && options.rootAllowed ? [] : raw.split('/')
   if (parts.length>16)throw Error('Project path is too deeply nested')
