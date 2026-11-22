@@ -2,7 +2,7 @@
 
 Fixed the single-agent continuation failure caused by the ChatGPT adapter's serialized request limit: older evidence is shortened against the actual adapter envelope before dispatch. Added the previously approved multiple-folder selection, add/replace/remove controls in the existing paperclip menu, persistent explicit removal and correct restoration across mode changes. Folder grants stay separate; Chat/Agent permissions, models, drafts and saved conversations are preserved. See FOLDERS_AND_CONTEXT_ADMISSION.md.
 
-Save any unsent draft and reopen through the desktop shortcut after work ends to load the local source update. Your current task was not replayed. Installer 6.0.6 is unchanged.
+Save any unsent draft and reopen through the desktop shortcut after work ends to load the local source update. Your current task was not replayed. The existing installer is unchanged.
 
 Earlier checkpoints below are historical.
 
