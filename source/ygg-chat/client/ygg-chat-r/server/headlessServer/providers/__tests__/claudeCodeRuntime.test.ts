@@ -457,3 +457,31 @@ it('keeps sending progress while a long Agent command runs, and stops when the j
 it('classifies a Claude connection failure as temporarily unavailable',()=>{
  expect(claudeFailureCategory(JSON.stringify({type:'result',subtype:'success',is_error:true,result:'API Error: Connection error.'}),'Claude job stopped')).toBe('provider_unavailable')
 })
+
+it('marks the observed one-turn Claude error eligible for bounded broker recovery, without exposing raw output',async()=>{
+ const runtime=new ClaudeCodeRuntime({runtimeDirectory:os.tmpdir(),profileDirectory:path.join(os.tmpdir(),'hadron-claude-empty-failure'),platform:'win32',nativeHostDirectory:os.tmpdir()})
+ vi.spyOn(runtime,'status').mockResolvedValue({installed:true,version:'2.1.318',connected:true,reason:'ready'});await runtime.models()
+ const capture=vi.spyOn(runtime as any,'capture').mockResolvedValue({code:1,stdout:JSON.stringify({type:'result',subtype:'success',is_error:true,num_turns:1,result:'Private unknown provider failure'})})
+ const input={modelName:'sonnet',requestPolicy:'single_attempt',history:[],userContent:'Continue'}
+ await expect((runtime as any).generateText(input,undefined,true)).rejects.toMatchObject({code:'hadron_retryable_generation'})
+ capture.mockResolvedValue({code:1,stdout:JSON.stringify({type:'result',subtype:'success',is_error:true,num_turns:1,result:'API Error: 429 rate_limit_error'})})
+ try{await (runtime as any).generateText(input,undefined,true);throw Error('Expected failure')}catch(error){expect((error as any).code).toBeUndefined();expect((error as Error).message).toContain('usage allowance')}
+})
+
+it('recovers the observed Claude CLI failure through the real adapter/broker boundary without replaying edits',async()=>{
+ const runtime=new ClaudeCodeRuntime({runtimeDirectory:os.tmpdir(),profileDirectory:path.join(os.tmpdir(),'hadron-claude-recovery-adapter'),platform:'win32',nativeHostDirectory:os.tmpdir()})
+ vi.spyOn(runtime,'status').mockResolvedValue({installed:true,version:'2.1.318',connected:true,reason:'ready'});await runtime.models()
+ let requests=0
+ const capture=vi.spyOn(runtime as any,'capture').mockImplementation(async(_args:any,options:any)=>{
+  requests++
+  if(requests===1)return {code:0,stdout:structuredFrames({tool:'edit_file',arguments:{path:'saved.cjs'},finished:false})}
+  if(requests===2)return {code:1,stdout:JSON.stringify({type:'result',subtype:'success',is_error:true,num_turns:1,result:'Synthetic unspecified provider failure'})}
+  expect(options.input).toContain('saved.cjs')
+  return {code:0,stdout:structuredFrames({answer:'The requested fixture work is complete.',finished:true})}
+ })
+ const invoke=vi.fn(async()=>({success:true,path:'saved.cjs'})),session=admitHadronToolSession({execution:'agent',requireCompletionStatus:true,maxRequests:8,instructions:'Complete the fixture task.',invoke})
+ try{
+  expect((await runtime.generate({modelName:'opus',requestPolicy:'single_attempt',history:[],userContent:'Continue the existing fixture work.',hadronToolSession:session})).content).toContain('work is complete')
+  expect(capture).toHaveBeenCalledTimes(3);expect(invoke).toHaveBeenCalledTimes(1);expect(session.outcome?.incompleteReason).toBeUndefined()
+ }finally{await runtime.shutdown()}
+})

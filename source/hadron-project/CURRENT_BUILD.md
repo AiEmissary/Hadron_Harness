@@ -1,3 +1,11 @@
+# Bounded recovery for failed Claude replies — 22 November 2026
+
+The latest Opus continuation failed with a one-turn CLI error and no specific provider reason. Qualifying failed reply requests now get up to two bounded recovery attempts within the existing job budget, using saved evidence without replaying completed host operations. Explicit account/usage/permission failures and cancellation remain stops. A still-failed task stays Not finished and reports recovery accurately. See CLAUDE_REPLY_RECOVERY.md for evidence, scope and checks.
+
+Save any unsent draft and reopen Hadron through the desktop shortcut to load this local update. The existing installer is unchanged; the real trading task was not replayed.
+
+---
+
 # Folder groups and context-admission correction — 22 November 2026
 
 Fixed the single-agent continuation failure caused by the ChatGPT adapter's serialized request limit: older evidence is shortened against the actual adapter envelope before dispatch. Added the previously approved multiple-folder selection, add/replace/remove controls in the existing paperclip menu, persistent explicit removal and correct restoration across mode changes. Folder grants stay separate; Chat/Agent permissions, models, drafts and saved conversations are preserved. See FOLDERS_AND_CONTEXT_ADMISSION.md.

@@ -320,7 +320,12 @@ export class ClaudeCodeRuntime {
       const calls=frames.flatMap(frame=>frame.type==='assistant'&&Array.isArray(frame.message?.content)?frame.message.content.filter((part:any)=>part.type==='tool_use'):[])
       try{this.options.onJobDiagnostic?.({at:new Date().toISOString(),stage,category,elapsedMs:Date.now()-started,exitCode,...claudeFailureDetails(raw),resultSubtype:['success','error_max_turns','error_during_execution','error_max_structured_output_retries'].includes(result?.subtype)?result.subtype:null,turns:Number.isSafeInteger(result?.num_turns)?result.num_turns:null,nativeCalls:calls.filter(call=>call.name!=='StructuredOutput').length,formatterCalls:calls.filter(call=>call.name==='StructuredOutput').length})}catch{}
 
-      throw Error(category==='authentication'?CLAUDE_SIGN_IN_REQUIRED:(CLAUDE_FAILURE_REASONS[category]??'Claude could not complete this provider request.')+' Completed conversation replies remain saved; no host retry was made.')
+      const message=category==='authentication'?CLAUDE_SIGN_IN_REQUIRED:(CLAUDE_FAILURE_REASONS[category]??'Claude could not complete this provider request.')+' Completed conversation replies remain saved; no host retry was made.'
+      // Only a failed generation can be retried by the broker. No host operation
+      // has been returned or executed from this failed request. Real native tool
+      // use, protocol failures, account/usage limits and cancellation are excluded.
+      const retryable=stage==='process'&&epoch===this.epoch&&!this.closing&&!input.signal?.aborted&&calls.length===0&&result?.is_error===true&&['provider_error','provider_unavailable'].includes(category)
+      throw Object.assign(Error(message),retryable?{code:'hadron_retryable_generation'}:{})
     }
     finally{unlinkSync(promptFile)}
   }

@@ -20,7 +20,7 @@ it('retains evidence and a time-limit outcome when the last response requests an
  const session:HadronToolSession={execution:'agent',maxRequests:100,instructions:'Inspect',deadlineAt:now+180000,invoke:vi.fn(async()=>({success:true,evidence:'Saved evidence'}))}
  try{
   const text=await runHadronToolConversation({session,task:'Investigate',signal:new AbortController().signal,generate:async()=>{if(calls++===0)now+=130000;return JSON.stringify({tool:'read_file',arguments:{path:'fixture.txt'}})}})
-  expect(text).toContain('Not finished');expect(text).toContain('Saved evidence');expect(session.outcome?.incompleteReason).toBe('time_limit');expect(session.invoke).toHaveBeenCalledTimes(1)
+  expect(text).toContain('Not finished');expect(text).toContain('Saved evidence');expect((session as HadronToolSession).outcome?.incompleteReason).toBe('time_limit');expect(session.invoke).toHaveBeenCalledTimes(1)
  }finally{clock.mockRestore()}
 })
 it('allows trusted deadline propagation to shorten a budget but never extend an earlier deadline',()=>{
@@ -32,7 +32,7 @@ it('allows trusted deadline propagation to shorten a budget but never extend an 
 it('dispatches no generation or operation once the task deadline has already expired',async()=>{
  const session:HadronToolSession={instructions:'Read',deadlineAt:Date.now()-1,invoke:vi.fn()},generate=vi.fn()
  await expect(runHadronToolConversation({session,task:'Read',signal:new AbortController().signal,generate})).rejects.toThrow('task time limit')
- expect(generate).not.toHaveBeenCalled();expect(session.invoke).not.toHaveBeenCalled();expect(session.outcome?.incompleteReason).toBe('time_limit')
+ expect(generate).not.toHaveBeenCalled();expect(session.invoke).not.toHaveBeenCalled();expect((session as HadronToolSession).outcome?.incompleteReason).toBe('time_limit')
 })
 
 it('continues beyond the old 90,000-character cutoff and produces a report with the supplied model budget',async()=>{
@@ -48,7 +48,7 @@ it('uses a helper summary as untrusted evidence and preserves the task and recen
  expect(answer).toContain('report');expect(condense).toHaveBeenCalled();expect(condense.mock.calls.length).toBeLessThanOrEqual(2)
  expect(packets.some(packet=>packet.transcript.some((entry:any)=>entry.role==='host_memory'&&entry.content.untrustedContent===true))).toBe(true)
  for(const packet of packets){expect(packet.transcript[0]).toEqual({role:'user',content:task});expect(toolContextTokens(JSON.stringify(packet)+session.instructions)).toBeLessThanOrEqual(toolContextBudget(24000))}
- expect(session.outcome?.incompleteReason).toBeUndefined()
+ expect((session as HadronToolSession).outcome?.incompleteReason).toBeUndefined()
 })
 it('falls back to bounded receipts if a summary helper fails, without re-executing operations',async()=>{
  let calls=0;const invoke=vi.fn(async()=>({path:'file.ts',success:true,text:'observed fact '.repeat(900)}))
@@ -76,7 +76,7 @@ it('records an incomplete outcome when the request cap is exhausted and the agen
  const session:HadronToolSession={execution:'agent',maxRequests:2,instructions:'Inspect',invoke:vi.fn(async()=>({path:'file.ts',success:true}))}
  const generate=vi.fn(async()=>JSON.stringify({tool:'project_read',arguments:{path:'file.ts'}}))
  expect(await runHadronToolConversation({session,task:'Inspect',signal:new AbortController().signal,generate})).toContain('Work stopped')
- expect(session.outcome?.incompleteReason).toBe('request_limit');expect(generate).toHaveBeenCalledTimes(2)
+ expect((session as HadronToolSession).outcome?.incompleteReason).toBe('request_limit');expect(generate).toHaveBeenCalledTimes(2)
 })
 it('honours Stop during summarisation without a later request or operation',async()=>{
  const controller=new AbortController();let calls=0
@@ -88,14 +88,14 @@ it('retains an explicitly unfinished answer while exposing its outcome to job st
  const session:HadronToolSession={execution:'agent',instructions:'Investigate',invoke:vi.fn()}
  const text='Only part of the requested investigation could be completed. These are the available findings.'
  expect(await runHadronToolConversation({session,task:'Investigate',signal:new AbortController().signal,generate:async()=>JSON.stringify({answer:text,finished:false})})).toBe(text)
- expect(session.outcome?.incompleteReason).toBe('agent_incomplete')
+ expect((session as HadronToolSession).outcome?.incompleteReason).toBe('agent_incomplete')
  expect(session.invoke).not.toHaveBeenCalled()
 })
 it('bounds large arrays of results as well as individual strings during repeated compactions',async()=>{
  let calls=0
  const session:HadronToolSession={execution:'agent',maxRequests:30,instructions:'Inspect',invoke:async()=>({matches:Array.from({length:16},(_,i)=>({path:'file-'+i+'.ts',line:i,text:'observed line '.repeat(45)}))})}
  const result=await runHadronToolConversation({session,contextLength:16000,task:'Keep investigating',signal:new AbortController().signal,generate:async()=>++calls<20?JSON.stringify({tool:'project_search',arguments:{query:'needle'+calls}}):JSON.stringify({answer:'Bounded search report.'})})
- expect(result).toBe('Bounded search report.');expect(session.outcome?.incompleteReason).toBeUndefined()
+ expect(result).toBe('Bounded search report.');expect((session as HadronToolSession).outcome?.incompleteReason).toBeUndefined()
 })
 it('condenses a single oversized tool result instead of failing after an operation already ran',async()=>{
  let calls=0;const packets:string[]=[],condense=vi.fn(async()=> 'The file was created successfully; the returned diagnostic text was oversized.')
@@ -134,4 +134,28 @@ it('compacts before the ChatGPT serialized request guard, preserving the task wi
  }})
  expect(result).toContain('completed');expect(calls).toBe(11);expect(sawMemory).toBe(true);expect(largest).toBeGreaterThan(20000)
  expect(invoked.filter(value=>value.startsWith('edit_file'))).toHaveLength(1)
+})
+
+it('recovers a failed provider reply using saved evidence without repeating a completed edit',async()=>{
+ const invoke=vi.fn(async()=>({success:true,path:'saved.ts'}));let calls=0
+ const result=await runHadronToolConversation({session:{execution:'agent',requireCompletionStatus:true,maxRequests:8,instructions:'Finish',invoke},task:'Implement once and report',signal:new AbortController().signal,generate:async packet=>{
+  calls++
+  if(calls===1)return JSON.stringify({tool:'edit_file',arguments:{path:'saved.ts'}})
+  if(calls===2)throw Object.assign(Error('Claude returned no answer'),{code:'hadron_retryable_generation'})
+  expect(packet).toContain('saved.ts');expect(packet).toContain('Implement once and report')
+  return JSON.stringify({answer:'Saved the file and completed the requested work.',finished:true})
+ }})
+ expect(result).toContain('completed');expect(invoke).toHaveBeenCalledTimes(1);expect(calls).toBe(3)
+})
+it('bounds provider recovery, preserves Not finished, and does not retry unclassified or explicit usage failures',async()=>{
+ let calls=0
+ const invoke=vi.fn(async()=>({success:true,path:'saved.ts'})),session={execution:'agent' as const,maxRequests:10,instructions:'Finish',invoke}
+ const result=await runHadronToolConversation({session,task:'Finish',signal:new AbortController().signal,generate:async()=>{
+  if(++calls===1)return JSON.stringify({tool:'edit_file',arguments:{path:'saved.ts'}})
+  throw Object.assign(Error('Claude returned no answer; no host retry was made'),{code:'hadron_retryable_generation'})
+ }})
+ expect(calls).toBe(4);expect(invoke).toHaveBeenCalledTimes(1);expect(result).toContain('2 bounded recovery attempts');expect(result).not.toContain('no automatic retry was made');expect((session as HadronToolSession).outcome?.incompleteReason).toBe('agent_incomplete')
+ const usage=vi.fn(async()=>{throw Error('Usage allowance reached')})
+ await expect(runHadronToolConversation({session:{instructions:'Read',invoke},task:'Read',signal:new AbortController().signal,generate:usage})).rejects.toThrow('Usage allowance')
+ expect(usage).toHaveBeenCalledTimes(1)
 })

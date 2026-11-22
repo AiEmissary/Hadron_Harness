@@ -1,3 +1,4 @@
+import {setTimeout as recoveryDelay} from 'node:timers/promises'
 import {createHash} from 'node:crypto'
 import {containsRawToolInvocation} from '../../../../shared/toolOutput.js'
 import {boundedToolReceipt,compactToolTranscript,isOversizedContextError,toolContextBudget,toolContextTokens,type ToolTranscriptEntry} from './toolContext.js'
@@ -71,7 +72,7 @@ export async function runHadronToolConversation(input: {
 }): Promise<string> {
   let transcript:ToolTranscriptEntry[] = [{ role: 'user', content: input.task }]
   const outcome:NonNullable<HadronToolSession['outcome']>=input.session.outcome={}
-  let budget=toolContextBudget(input.contextLength),contextRetries=0,condensations=0
+  let budget=toolContextBudget(input.contextLength),contextRetries=0,condensations=0,providerRetries=0
   const condense=async(aggressive=false)=>{transcript=await compactToolTranscript({transcript,signal:input.signal,aggressive,condense:condensations++<2?input.session.condense:undefined})}
   let correctedNoCheck = false, correctedToolMarkup = false, correctedCompletion = false
   // Consecutive replies Hadron could not use. One correction is sent; a second in a row ends the run with saved work, never a silent discard.
@@ -160,13 +161,22 @@ export async function runHadronToolConversation(input: {
       input.signal.throwIfAborted()
       // Only retry a rejected text-generation request. No prior tool operation is repeated.
       if(isOversizedContextError(error)&&contextRetries++<2&&turn<maximum-1&&transcript.length>1){budget=Math.max(1024,Math.floor(budget/2));await condense(true);continue}
-      // An Agent run with saved work ends as Not finished instead of being discarded. No automatic retry; the user can continue.
+      // Trusted adapters mark only generation failures eligible for recovery.
+      // No host tool is replayed: retry the next reply against the same task and saved receipts.
+      if((error as {code?:unknown})?.code==='hadron_retryable_generation'&&providerRetries<2&&turn<maximum-1&&(input.session.deadlineAt===undefined||input.session.deadlineAt-Date.now()>60000)){
+        providerRetries++
+        if(transcript.length>1)await condense(true)
+        await recoveryDelay(750,undefined,{signal:input.signal})
+        continue
+      }
+      // An Agent run with saved work ends as Not finished instead of being discarded. After eligible bounded recovery, the user can continue.
       const evidence=transcript.filter(item=>item.role==='tool_evidence'||item.role==='host_memory')
       if(input.session.execution==='agent'&&evidence.length){
         outcome.incompleteReason='agent_incomplete'
-        const reason=(error instanceof Error?error.message:'').slice(0,400)||'No reason was available.'
-        return 'Not finished — the model request failed before a final answer, and no automatic retry was made. Reason: '+reason+'\nEarlier operations may already have changed files. Saved evidence follows; it does not establish completion. Continue to resume from it.\n\n'+evidence.slice(-8).map((item,index)=>'Operation '+(index+1)+':\n```json\n'+JSON.stringify(item.content).slice(0,1200)+'\n```').join('\n\n')
+        const reason=((error instanceof Error?error.message:'').replace('no host retry was made',providerRetries?'no further retry was made':'no host retry was made')).slice(0,400)||'No reason was available.'
+        return 'Not finished — the model request failed before a final answer'+(providerRetries?` after ${providerRetries} bounded recovery attempts.`:', and no automatic retry was made.')+' Reason: '+reason+'\nEarlier operations may already have changed files. Saved evidence follows; it does not establish completion. Continue to resume from it.\n\n'+evidence.slice(-8).map((item,index)=>'Operation '+(index+1)+':\n```json\n'+JSON.stringify(item.content).slice(0,1200)+'\n```').join('\n\n')
       }
+      if(providerRetries)throw Error(`The model request still failed after ${providerRetries} bounded recovery attempts. `+(error instanceof Error?error.message.replace('no host retry was made','no further retry was made'):'No reason was available.'))
       throw error
     }
     input.signal.throwIfAborted()
