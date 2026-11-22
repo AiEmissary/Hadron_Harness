@@ -350,6 +350,22 @@ it('failed compaction preserves the last memory, never becomes a peer reply, and
  expect(calls[before].packet.kind).toBe('continuous_memory')
  expect(service.status('owner','conversation').memory?.throughTurn).toBeGreaterThan(0)
 })
+it('keeps discussing after a completed memory summary exceeds the UTF-8 limit',async()=>{
+ const summary='Decision and evidence. '+'🌙'.repeat(2300)+' Open questions and next steps.'
+ consensusResponse=packet=>packet.kind==='continuous_memory'?summary:`Reply ${packet.turn}: evidence considered.`
+ service.start('owner',{...input(),maxTurns:8})
+ await wait(()=>service.status('owner','conversation').workersEnded)
+ const view=service.status('owner','conversation'),memory=view.memory?.text??''
+ expect(view.reason).toBe('turn_budget')
+ expect(view.turns.filter(turn=>turn.kind==='reply'&&turn.state==='completed')).toHaveLength(8)
+ expect(Buffer.byteLength(memory)).toBeLessThanOrEqual(8000)
+ expect(memory).toContain('Decision and evidence.')
+ expect(memory).toContain('Open questions and next steps.')
+ expect(memory).toContain('Full originals remain saved')
+ expect(memory).not.toContain('\uFFFD')
+ expect(calls.at(-1)?.packet.memory?.text).toBe(memory)
+ expect(calls.at(-1)?.packet.transcript.map((turn:any)=>turn.turn)).toEqual([6,7])
+})
 it('classifies known provider failures without returning raw diagnostic text',()=>{
  for(const [message,expected] of [['rate limit exceeded','rate_limit'],['401 unauthorized','authentication_required'],['request timeout','provider_timeout'],['ECONNRESET connection lost','connection_lost'],['maximum context length exceeded','context_limit'],['unknown private error','turn_failed_no_retry']])expect(continuousFailure(Error(message))).toBe(expected)
 })

@@ -1,4 +1,4 @@
-import {continuousFailure,MEMORY_INSTRUCTION,similarRepeatedReplies} from './continuousMemory.js'
+import {CONTINUOUS_MEMORY_MAX_BYTES,continuousFailure,fitContinuousMemory,MEMORY_INSTRUCTION,similarRepeatedReplies} from './continuousMemory.js'
 import {randomUUID} from 'node:crypto'
 import {continuousPrompt,type ContinuousPromptPacket} from './continuousPrompt.js'
 import {continuousInputContext} from './continuousInputContext.js'
@@ -186,7 +186,9 @@ export class ContinuousChatService {
      // A new user instruction received while the peer was thinking invalidates
      // that confirmation. It must be considered by a subsequent turn.
      const confirmed=parsed.confirmed&&!this.status(owner,id).messages.some(message=>message.afterTurn>=(prior?.ordinal??ordinal))
-     const response=bounded(parsed.text+(confirmed?'\n\nConsensus reached — both agents agree on this conclusion.':''),compact?8000:12000)
+     const response=compact
+      ?bounded(fitContinuousMemory(parsed.text),CONTINUOUS_MEMORY_MAX_BYTES)
+      :bounded(parsed.text+(confirmed?'\n\nConsensus reached — both agents agree on this conclusion.':''),12000)
      if(control.controller.signal.aborted)throw Error('Conversation turn stopped')
      this.db.exec('BEGIN IMMEDIATE')
      try{
