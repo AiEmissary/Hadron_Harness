@@ -82,7 +82,7 @@ export class WorkspaceRunner {
      this.deps.dispatch({type:'message',chatId:chat.id,message:{...reply,id,parentId,role:'assistant',state}})
      parentId=id
     }
-   }else if(event.state!=='unknown')this.deps.dispatch({type:'message',chatId:chat.id,message:{id:answerId,parentId:question.id,role:'assistant',agent:chat.workType==='individual'?chat.agent:'both',text:event.text,state:event.state,origin:event.origin,activity:event.activity,
+   }else if(event.state!=='unknown')this.deps.dispatch({type:'message',chatId:chat.id,message:{id:answerId,parentId:question.id,role:'assistant',agent:chat.workType==='individual'?chat.agent:'both',text:workspaceRunFailureText(event.text,event.state,event.error),state:event.state,origin:event.origin,activity:event.activity,
     ...(chat.models[chat.agent]??{})}})
    this.deps.dispatch({type:'job',chatId:chat.id,id, state:ended?'idle':event.state==='unknown'?'unknown':'running'})
    this.deps.error(chat.id,event.error??null)
@@ -120,4 +120,9 @@ export class WorkspaceRunner {
  startedHere(chatId:string,id:string){return !this.disposed&&this.runs.get(chatId)?.request.id===id}
  /** Unmounting the viewer never stops work or starts an additional request. */
  dispose(){this.disposed=true;for(const run of this.runs.values())run.handle.dispose();this.runs.clear()}
+}
+
+/** Keep a failed request's explanation in saved history when the provider returned no answer. */
+export function workspaceRunFailureText(text:string,state:string,error?:string|null):string{
+ return text.trim()||state!=='failed'?text:'Not finished — '+(error?.trim().slice(0,4000)||'The provider did not return an answer. Your question is saved.')
 }

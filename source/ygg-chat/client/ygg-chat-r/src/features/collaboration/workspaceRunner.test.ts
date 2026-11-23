@@ -212,3 +212,9 @@ it('keeps a large document on alternative questions and follow-ups, and asks to 
  f.deps.dispatch({ type: 'attachments', chatId: 'a', files: [] })
  await expect(f.runner.send({ chatId: 'a', messageId: question.id, text: 'Without the file' })).rejects.toThrow('Attach "Book.pdf" again')
 })
+
+it('saves the quota reason on an empty failed reply so reopening does not leave a blank answer',async()=>{
+ const f=fixture();await f.runner.send()
+ f.emit({text:'',state:'failed',error:'Claude usage allowance reached. Resets 1:10am (Europe/London).'})
+ expect(f.state().chats.a.messages.at(-1)).toMatchObject({state:'failed',text:'Not finished — Claude usage allowance reached. Resets 1:10am (Europe/London).'})
+})

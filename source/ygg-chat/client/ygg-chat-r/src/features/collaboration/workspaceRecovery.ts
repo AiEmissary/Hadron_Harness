@@ -1,3 +1,4 @@
+import {workspaceRunFailureText} from './workspaceRunner'
 import {IndependentJobMissing} from './independentClient'
 import {workspaceSharedFailureText} from './workspaceSharedFailure'
 import {workspaceActivity,sharedWorkspaceActivity} from './workspaceActivity'
@@ -48,7 +49,7 @@ export function observeWorkspaceJob(session:WorkspaceSession,chatId:string,deps:
       if(view.phase==='ready'&&!view.id){reply('Hadron could not recover this task. Your question is saved above.','failed',{kind:'independent',id,nodeId:id});error(view.error);settle(true);return}
       if(!view.status)return
       const ended=jobTerminal(view.status.status)&&view.outputComplete
-      if(view.text||view.outputComplete||view.status.toolActivity?.length)reply(view.text,ended?workspaceReplyState(view.status.status,view.text):'running',{kind:'independent',id,nodeId:view.status.runId??id},workspaceActivity(view.status.toolActivity,[{id:initial.agent,status:view.status.status}]))
+      if(view.text||view.outputComplete||view.status.toolActivity?.length){const state=ended?workspaceReplyState(view.status.status,view.text):'running';reply(workspaceRunFailureText(view.text,state,view.error),state,{kind:'independent',id,nodeId:view.status.runId??id},workspaceActivity(view.status.toolActivity,[{id:initial.agent,status:view.status.status}]))}
       error(view.error);settle(ended)
       if(ended)store.clear()
      },deps.pollMs)

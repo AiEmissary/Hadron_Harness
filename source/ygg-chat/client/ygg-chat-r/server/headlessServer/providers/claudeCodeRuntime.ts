@@ -1,5 +1,5 @@
 import {parseHadronImages,claudeImageInput} from '../../../../../shared/hadronImages.js'
-import {claudeAllowance,type ProviderAllowance} from '../../hadronTools/providerAllowance.js'
+import {claudeAllowance,claudeUsageLimit,type ProviderAllowance} from '../../hadronTools/providerAllowance.js'
 import {isHadronToolSession,runHadronToolConversation} from '../../hadronTools/types.js'
 /** Lets the tool loop save its time-limit report at the deadline before Claude itself is stopped. */
 export const CLAUDE_TOOL_DEADLINE_GRACE_MS=15000
@@ -149,7 +149,7 @@ export function claudeFailureCategory(raw:string,reason:string):string{
  const result=frames.find(frame=>frame.type==='result'&&(frame.is_error===true||String(frame.subtype).startsWith('error')))
  const failure=result?JSON.stringify({subtype:result.subtype,errors:result.errors,result:result.result}):''
  if(result?.subtype==='error_max_turns')return 'format_turn_limit'
- if(/rate_limit_error|usage limit|out of extra usage|hit your limit/i.test(failure))return 'usage_limit'
+ if(claudeUsageLimit(raw)||/rate_limit_error|usage limit|out of extra usage|hit your limit/i.test(failure))return 'usage_limit'
  if(/overloaded_error|overloaded|temporarily unavailable/i.test(failure))return 'provider_unavailable'
  if(/connection error|network error|fetch failed|ECONNRESET|ETIMEDOUT|ENOTFOUND|socket hang up/i.test(failure))return 'provider_unavailable'
  const details=claudeFailureDetails(raw)
@@ -305,7 +305,7 @@ export class ClaudeCodeRuntime {
     try{
       const result=await this.capture(args,{timeoutMs:120000,signal:input.signal,input:images.length?claudeImageInput(content,images):content,maxOutputBytes:2097152})
       raw=result.stdout;exitCode=result.code
-      if(epoch===this.epoch)this.lastAllowance=claudeAllowance(result.stdout)??this.lastAllowance
+      if(epoch===this.epoch){const allowance=claudeAllowance(result.stdout);if(allowance)this.lastAllowance=allowance;else if(result.code===0&&this.lastAllowance?.limited)this.lastAllowance=null}
       input.signal?.throwIfAborted()
       if(claudeNeedsSignIn(result.stdout)){
         this.generationNeedsSignIn=true;this.allowedModels.clear();throw Error(CLAUDE_SIGN_IN_REQUIRED)
@@ -320,7 +320,8 @@ export class ClaudeCodeRuntime {
       const calls=frames.flatMap(frame=>frame.type==='assistant'&&Array.isArray(frame.message?.content)?frame.message.content.filter((part:any)=>part.type==='tool_use'):[])
       try{this.options.onJobDiagnostic?.({at:new Date().toISOString(),stage,category,elapsedMs:Date.now()-started,exitCode,...claudeFailureDetails(raw),resultSubtype:['success','error_max_turns','error_during_execution','error_max_structured_output_retries'].includes(result?.subtype)?result.subtype:null,turns:Number.isSafeInteger(result?.num_turns)?result.num_turns:null,nativeCalls:calls.filter(call=>call.name!=='StructuredOutput').length,formatterCalls:calls.filter(call=>call.name==='StructuredOutput').length})}catch{}
 
-      const message=category==='authentication'?CLAUDE_SIGN_IN_REQUIRED:(CLAUDE_FAILURE_REASONS[category]??'Claude could not complete this provider request.')+' Completed conversation replies remain saved; no host retry was made.'
+      const quota=category==='usage_limit'?claudeUsageLimit(raw):null
+      const message=category==='authentication'?CLAUDE_SIGN_IN_REQUIRED:(CLAUDE_FAILURE_REASONS[category]??'Claude could not complete this provider request.')+(quota?.resetText?' Resets '+quota.resetText+'.':'')+' Completed conversation replies remain saved; no host retry was made.'
       // Only a failed generation can be retried by the broker. No host operation
       // has been returned or executed from this failed request. Real native tool
       // use, protocol failures, account/usage limits and cancellation are excluded.

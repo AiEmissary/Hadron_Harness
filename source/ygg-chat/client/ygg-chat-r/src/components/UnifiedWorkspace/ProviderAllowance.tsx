@@ -15,6 +15,7 @@ export function ProviderAllowance({provider,refreshKey}:{provider:string|undefin
   {!state||state.provider!==provider?'Checking provider allowance…':!value?'Remaining allowance is not reported yet.':<>
    {value.limited&&<strong>Provider usage limit reached. </strong>}
    {value.windows.map(item=><div key={item.label}>{item.label}: {item.remainingPercent}% remaining{item.resetsAt?` · resets ${new Date(item.resetsAt).toLocaleString()}`:''}</div>)}
+   {value.note&&<div>{value.note}</div>}
    <div>Last reported: {new Date(value.reportedAt).toLocaleString()}</div>
   </>}
   <div>Providers do not report an exact number of tokens or minutes left.</div>

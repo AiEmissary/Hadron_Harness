@@ -1,3 +1,11 @@
+# Claude quota detection and durable failure feedback — 23 November 2026
+
+The repeated Opus error was identified by a minimal live connection test as a five-hour subscription limit. Hadron now recognizes the exact window-qualified quota wording, shows the provider's reset detail and 0% remaining in the existing agent pop-up, and avoids retrying that explicit quota rejection. Failed replies with no answer retain their explanation in saved chat history. See CLAUDE_USAGE_LIMITS.md.
+
+Save any unsent draft and reopen through the desktop shortcut to load the local source update. The existing installer is unchanged; the user's trading task was not replayed. The reset time in the diagnostic belongs to the 22 November failure, not a fresh account check.
+
+---
+
 # Bounded recovery for failed Claude replies — 22 November 2026
 
 The latest Opus continuation failed with a one-turn CLI error and no specific provider reason. Qualifying failed reply requests now get up to two bounded recovery attempts within the existing job budget, using saved evidence without replaying completed host operations. Explicit account/usage/permission failures and cancellation remain stops. A still-failed task stays Not finished and reports recovery accurately. See CLAUDE_REPLY_RECOVERY.md for evidence, scope and checks.

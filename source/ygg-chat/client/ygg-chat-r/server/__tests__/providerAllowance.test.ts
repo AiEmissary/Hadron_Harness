@@ -14,3 +14,9 @@ it('reads the latest real Claude allowance event and ignores conversation text',
 })
 
 it('does not infer blocked service from an exhausted included window when extra usage is allowed',()=>{expect(codexAllowance({ordinaryUsageAllowed:true,rateLimits:{primary:{usedPercent:100}}})?.limited).toBe(false)})
+
+it('recognizes the observed Claude five-hour quota rejection and exposes only the bounded reset detail',()=>{
+ const raw=JSON.stringify({type:'result',subtype:'success',is_error:true,result:"You've hit your 5-hour limit · resets 1:10am (Europe/London)"})
+ expect(claudeAllowance(raw)).toMatchObject({limited:true,windows:[{label:'5 hours',remainingPercent:0,resetsAt:null}],note:'Resets 1:10am (Europe/London)'})
+ expect(claudeAllowance(JSON.stringify({type:'result',subtype:'success',is_error:false,result:"Example: You've hit your 5-hour limit"}))).toBeNull()
+})

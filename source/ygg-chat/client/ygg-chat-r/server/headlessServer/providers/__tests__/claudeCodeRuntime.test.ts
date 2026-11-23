@@ -485,3 +485,16 @@ it('recovers the observed Claude CLI failure through the real adapter/broker bou
   expect(capture).toHaveBeenCalledTimes(3);expect(invoke).toHaveBeenCalledTimes(1);expect(session.outcome?.incompleteReason).toBeUndefined()
  }finally{await runtime.shutdown()}
 })
+
+it('reports the actual five-hour Claude limit with reset time and excludes it from recovery',async()=>{
+ const runtime=new ClaudeCodeRuntime({runtimeDirectory:os.tmpdir(),profileDirectory:path.join(os.tmpdir(),'hadron-observed-quota'),platform:'win32',nativeHostDirectory:os.tmpdir()})
+ vi.spyOn(runtime,'status').mockResolvedValue({installed:true,version:'2.1.318',connected:true,reason:'ready'});await runtime.models()
+ const stdout=JSON.stringify({type:'result',subtype:'success',is_error:true,num_turns:1,result:"You've hit your 5-hour limit · resets 1:10am (Europe/London)"})
+ const capture=vi.spyOn(runtime as any,'capture').mockResolvedValue({code:1,stdout})
+ const session=admitHadronToolSession({execution:'agent',requireCompletionStatus:true,maxRequests:8,instructions:'Complete the fixture.',invoke:vi.fn()})
+ await expect(runtime.generate({modelName:'opus',requestPolicy:'single_attempt',history:[],userContent:'Continue.',hadronToolSession:session})).rejects.toThrow('usage allowance has been reached. Resets 1:10am (Europe/London)')
+ expect(capture).toHaveBeenCalledTimes(1);expect((await runtime.usage())?.limited).toBe(true);expect((await runtime.usage())?.windows[0].remainingPercent).toBe(0)
+ capture.mockResolvedValue({code:0,stdout:frames()})
+ await runtime.generate({modelName:'opus',requestPolicy:'single_attempt',history:[],userContent:'Connection check after the quota reset.'})
+ expect(await runtime.usage()).toBeNull() // A successful request must not keep a stale 0% limit without a fresh usage report.
+})
