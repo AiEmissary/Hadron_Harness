@@ -371,7 +371,10 @@ function App() {
         </div>
         <RightBarShell />
       </div>
-      <HtmlToolsShell enabled={isElectron} />
+      {/* Off in Hadron: the inherited HTML tools panel could reload saved HTML into preview
+          frames that allow scripts with the app's own origin. Hadron's workspace never
+          shows AI-written HTML, and Hadron shows its own work status. */}
+      <HtmlToolsShell enabled={false} />
       <GlobalNotifications />
     </>
   )

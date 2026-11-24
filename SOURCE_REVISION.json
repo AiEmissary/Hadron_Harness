@@ -2023,7 +2023,7 @@
     "source/ygg-chat/client/ygg-chat-r/shared/localFileBrowser.ts": "1a968f60f06b9645b90bd7c0bb9ffdb6804366c60143ede8b005b86ad798a769",
     "source/ygg-chat/client/ygg-chat-r/shared/localGit.ts": "284dd507d7352e8a01e78f3fe223a7161f426c7f95fd335ea75e6d917d0dc9b1",
     "source/ygg-chat/client/ygg-chat-r/src/App.css": "6a95af7c617313620350dc9124750e1ed849c4b309149632b7f957583549862f",
-    "source/ygg-chat/client/ygg-chat-r/src/App.tsx": "26cbdc5974600e6ac2b43747f40fce226e771d586d5dd6e0ee5f2958c1a9953f",
+    "source/ygg-chat/client/ygg-chat-r/src/App.tsx": "02262569f0e5136df112bc8312944e5bc53960472e862717057b2a03bb7635b3",
     "source/ygg-chat/client/ygg-chat-r/src/IdeContextBootstrap.tsx": "43fa5895e26b8c8ea4376ff64fbf673df617b7521757fef35c3b848248567db1",
     "source/ygg-chat/client/ygg-chat-r/src/assets/hadron/eyehadron.jpg": "83c99cfd0d9e89d6f2eeeaf2445ea33510e34f51dad29b2f8dbba1f992913e7e",
     "source/ygg-chat/client/ygg-chat-r/src/assets/react.svg": "35ef61ed53b323ae94a16a8ec659b3d0af3880698791133f23b084085ab1c2e5",
@@ -2810,6 +2810,6 @@
   },
   "product": "Hadron Harness",
   "scope": "Committed application sources and build materials; local account settings and personal data excluded",
-  "sourceRevision": "ad9504eb2489fc0a1ecd0b82f0924a7e7706d4c8",
+  "sourceRevision": "95e30af689d886e3e6c525c48540968d6b1cae3b",
   "version": "6.0.7"
 }
