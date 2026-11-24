@@ -43,6 +43,7 @@ interface ElectronAPI {
     agentRevoke:(id:string)=>Promise<void>
     providerAllowance:(provider:string)=>Promise<import('../server/hadronTools/providerAllowance').ProviderAllowance|null>
     projectRestore:(workspace:string,slot:'a'|'b'|'shared'|'continuous')=>Promise<{id:string;label:string;paths?:string[]}|null>
+    wordDocText?:(bytes:Uint8Array)=>Promise<string>
     projectSelect:(workspace:string,slot:'a'|'b'|'shared'|'continuous',options?:{mode?:'add'|'replace';existingId?:string;source?:'a'|'b'|'shared'|'continuous'})=>Promise<{id:string;label:string;paths?:string[]}|null>
     projectUse:(workspace:string,source:'a'|'b'|'shared'|'continuous',id:string,target:'a'|'b'|'shared'|'continuous')=>Promise<{id:string;label:string;paths?:string[]}>
     projectRetain:(workspace:string,source:'a'|'b'|'shared'|'continuous',id:string,target:'a'|'b'|'shared'|'continuous',indexes:number[])=>Promise<{id:string;label:string;paths?:string[]}|null>

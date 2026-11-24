@@ -4,18 +4,23 @@ import {HADRON_DOCUMENT_MAX_CHARS} from '../../../../shared/hadronDocuments.js'
 const cache=new Map<string,string>()
 const CACHE_ENTRIES=4
 
+export type FolderDocumentKind='pdf'|'docx'|'doc'
+
 /** Folder files whose text Hadron extracts instead of reading raw bytes. */
-export const folderDocumentKind=(file:string):'pdf'|'docx'|null=>/\.pdf$/i.test(file)?'pdf':/\.docx$/i.test(file)?'docx':null
+export const folderDocumentKind=(file:string):FolderDocumentKind|null=>{
+  const match=/\.(pdf|docx|doc)$/i.exec(file)
+  return match?match[1].toLowerCase() as FolderDocumentKind:null
+}
 
 /**
- * Extract the text of a PDF or Microsoft Word (.docx) file for read-only folder access.
+ * Extract the text of a PDF or Microsoft Word (.docx, or older .doc) file.
  * Text only: no document scripts, macros, fonts, rendering, network or worker files.
  * PDFs use the same "Page N" layout as attached PDFs.
  */
-export async function folderDocumentText(kind:'pdf'|'docx',bytes:Uint8Array,sha256:string,signal:AbortSignal):Promise<string>{
+export async function folderDocumentText(kind:FolderDocumentKind,bytes:Uint8Array,sha256:string,signal:AbortSignal):Promise<string>{
   const key=kind+':'+sha256,cached=cache.get(key)
   if(cached!==undefined){cache.delete(key);cache.set(key,cached);return cached}
-  const text=kind==='pdf'?await pdfText(bytes,signal):await docxText(bytes)
+  const text=kind==='pdf'?await pdfText(bytes,signal):kind==='doc'?await docText(bytes):await docxText(bytes)
   signal.throwIfAborted()
   if(text.length>HADRON_DOCUMENT_MAX_CHARS)throw Error('Document text is larger than Hadron\'s document limit')
   if(!text.trim())throw Error(kind==='pdf'?'No readable PDF text found. Scanned pages need OCR first.':'This Word document has no readable text')
@@ -28,7 +33,21 @@ async function docxText(bytes:Uint8Array):Promise<string>{
   const imported:{default?:typeof import('mammoth')}&typeof import('mammoth')=await import('mammoth')
   const mammoth=imported.default??imported
   try{return (await mammoth.extractRawText({buffer:Buffer.from(bytes)})).value.trim()}
-  catch{throw Error('This Word document could not be read (only .docx is supported, not older .doc files)')}
+  catch{throw Error('This Word document could not be read')}
+}
+
+interface WordDocument{getBody():string;getFootnotes():string;getEndnotes():string}
+
+/** Word 97-2003 (.doc). Footnotes and endnotes follow the main text under their own headings. */
+async function docText(bytes:Uint8Array):Promise<string>{
+  // @ts-expect-error word-extractor ships no type declarations.
+  const imported=await import('word-extractor')
+  const WordExtractor=(imported.default??imported) as new()=>{extract(source:Buffer):Promise<WordDocument>}
+  let document:WordDocument
+  try{document=await new WordExtractor().extract(Buffer.from(bytes))}
+  catch{throw Error('This Word document could not be read. It may be damaged, password-protected or not really a .doc file.')}
+  const part=(title:string,text:string)=>text.trim()?`\n\n${title}\n${text.trim()}`:''
+  return (document.getBody().trim()+part('Footnotes',document.getFootnotes())+part('Endnotes',document.getEndnotes())).trim()
 }
 
 /**

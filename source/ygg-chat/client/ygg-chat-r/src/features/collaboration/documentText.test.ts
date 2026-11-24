@@ -35,3 +35,15 @@ it('extracts Word text without rendering document HTML', async () => {
   expect(await readDocumentText('.docx', new ArrayBuffer(0))).toBe('Word text')
   expect(getDocument).not.toHaveBeenCalled()
 })
+
+it('sends old Word (.doc) files to the desktop app and returns only the text', async () => {
+  const wordDocText = vi.fn(async (bytes: Uint8Array) => `Old Word text (${bytes.byteLength} bytes)`)
+  vi.stubGlobal('window', { electronAPI: { collaboration: { wordDocText } } })
+  try {
+    expect(await readDocumentText('.doc', new Uint8Array([1, 2, 3]).buffer)).toBe('Old Word text (3 bytes)')
+    wordDocText.mockRejectedValueOnce(new Error("Error invoking remote method 'collaboration:word-doc-text': Error: This Word document could not be read. It may be damaged"))
+    await expect(readDocumentText('.doc', new ArrayBuffer(1))).rejects.toThrow(/^This Word document could not be read/)
+    vi.stubGlobal('window', {})
+    await expect(readDocumentText('.doc', new ArrayBuffer(1))).rejects.toThrow('desktop app only')
+  } finally { vi.unstubAllGlobals() }
+})

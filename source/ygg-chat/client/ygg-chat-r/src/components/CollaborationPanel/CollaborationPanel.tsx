@@ -125,7 +125,7 @@ export function CollaborationPanel({ workspaceId, continuation, options, enabled
       {access==='read'&&!folder&&<p role='status' className='text-xs'>Choose Add folder to enable reading.</p>}
       {folder&&access!=='read'&&<p role='status' className='text-xs'>Folder reading is off for the next collaboration.</p>}
       {folder&&<section aria-label='Shared task folder' className='space-y-2 rounded-xl border p-3 text-sm'><p className='break-all'>{folder.label}</p><p className='text-xs'>{access==='read'?'Both agents can search this folder and its subfolders, read relevant files and check their proposals during cross-review. Read-only: no edits or commands.':'Folder reading is off for the next collaboration.'} The folder stays selected for the next task until removed or Hadron restarts.</p><button type='button' disabled={locked} className='underline' onClick={()=>void act(async()=>{await window.electronAPI.collaboration.projectRevoke(folder.id);setFolder(null);setDraft(current=>({...current,projectGrantId:undefined}))})}>Remove folder</button></section>}
-      <p className='text-xs text-neutral-500'>PDF, Word (.docx), text and code files, shared with both agents. You can add instructions above.</p>
+      <p className='text-xs text-neutral-500'>PDF, Word (.docx or .doc), text and code files, shared with both agents. You can add instructions above.</p>
       {draft.attachments.length > 0 && <ul aria-label='Shared task files' className='space-y-1 text-sm'>
         {draft.attachments.map(file => <li key={file.id} className='flex min-w-0 items-center justify-between gap-2 rounded-lg border px-3 py-2'>
           <span className='min-w-0 truncate' title={file.name}>{file.name}</span>

@@ -21,6 +21,8 @@ import {captureOwnedProcess} from '../server/auth/hadronOwnedProcess.js'
 import type {ProjectDraftInput} from '../../../shared/projectBuild.js'
 import { assertLegacyExecutionAllowed, projectExecutionGate } from '../server/hadronTools/executionGate.js'
 import { projectReadHost } from '../server/hadronTools/projectRead.js'
+import { folderDocumentText } from '../server/hadronTools/folderDocuments.js'
+import { createHash as hashBytes } from 'node:crypto'
 import {projectAgentHost} from '../server/hadronTools/projectAgent.js'
 import { isOwnedHadronHealth } from '../server/runtimeIdentity.js'
 import { getClaudeRuntime } from '../server/headlessServer/providers/claudeRuntimeHost.js'
@@ -1659,6 +1661,11 @@ authHandle('collaboration:provider-allowance',async(_event,provider:unknown)=>{
  if(provider==='openaichatgpt')return getHadronCodexRuntime().usage()
  if(provider==='claudecode')return getClaudeRuntime()?.usage()??null
  return null
+})
+// Old Word (.doc) attachments: the window sends the picked file's bytes and receives only its text.
+authHandle('collaboration:word-doc-text',async (_event,bytes:unknown)=>{
+  if(!(bytes instanceof Uint8Array)||bytes.byteLength<1||bytes.byteLength>8*1024*1024)throw Error('Choose a Word document up to 8 MiB')
+  return folderDocumentText('doc',bytes,hashBytes('sha256').update(bytes).digest('hex'),AbortSignal.timeout(120000))
 })
 authHandle('collaboration:project-restore',(_event,workspace:string,slot:'a'|'b'|'shared'|'continuous')=>{
  const owner=projectDraftOwner();desktopProjectDraftHost.get().validateWorkspace(owner,workspace)

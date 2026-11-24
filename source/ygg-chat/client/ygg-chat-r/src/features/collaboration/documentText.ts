@@ -4,6 +4,13 @@ const LIMIT_TEXT = HADRON_DOCUMENT_MAX_CHARS.toLocaleString('en-GB')
 
 /** Text extraction only: no document scripts, HTML rendering, remote workers or provider requests. */
 export async function readDocumentText(extension: string, buffer: ArrayBuffer): Promise<string> {
+  if (extension === '.doc') {
+    // Old Word files are read by the desktop app's background process (the same reader as folders).
+    const read = window.electronAPI?.collaboration?.wordDocText
+    if (!read) throw new Error('Old Word (.doc) files can be read in the Hadron desktop app only.')
+    try { return await read(new Uint8Array(buffer)) }
+    catch (error) { throw new Error((error instanceof Error ? error.message : '').replace(/^Error invoking remote method '[^']+': (Error: )?/, '') || 'This Word document could not be read.') }
+  }
   if (extension === '.docx') {
     const mammoth = await import('mammoth')
     const result = await (mammoth.default ?? mammoth).extractRawText({ arrayBuffer: buffer })

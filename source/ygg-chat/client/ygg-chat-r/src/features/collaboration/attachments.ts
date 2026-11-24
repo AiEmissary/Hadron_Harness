@@ -6,7 +6,7 @@ export interface SharedAttachment { id: string; name: string; text: string; imag
 /** Pictures in other formats are converted to JPEG when attached. */
 export const PICTURE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'])
 export const SHARED_ATTACHMENT_MAX_COUNT = 20
-export const SHARED_FILE_ACCEPT = '.jpg,.jpeg,.png,.webp,.gif,.bmp,.mp4,.webm,.mov,.m4v,.pdf,.docx,.txt,.md,.markdown,.csv,.ts,.tsx,.js,.jsx,.mjs,.cjs,.json,.jsonl,.py,.html,.css,.scss,.xml,.yaml,.yml,.toml,.ini,.log,.sql,.rs,.go,.java,.c,.h,.cpp,.hpp,.cs,.sh,.ps1,.r'
+export const SHARED_FILE_ACCEPT = '.jpg,.jpeg,.png,.webp,.gif,.bmp,.mp4,.webm,.mov,.m4v,.pdf,.docx,.doc,.txt,.md,.markdown,.csv,.ts,.tsx,.js,.jsx,.mjs,.cjs,.json,.jsonl,.py,.html,.css,.scss,.xml,.yaml,.yml,.toml,.ini,.log,.sql,.rs,.go,.java,.c,.h,.cpp,.hpp,.cs,.sh,.ps1,.r'
 const extensions = new Set(SHARED_FILE_ACCEPT.split(','))
 
 /** Read only files explicitly picked by the user. No paths, disk scanning or HTTP upload. */
@@ -14,7 +14,7 @@ export async function readSharedFiles(files: readonly File[], existing: readonly
   if (files.length + existing.length > SHARED_ATTACHMENT_MAX_COUNT) throw new Error(`Choose up to ${SHARED_ATTACHMENT_MAX_COUNT} files.`)
   const prepared = await Promise.all(files.map(async (file): Promise<SharedAttachment | SharedAttachment[]> => {
     const extension = file.name.slice(file.name.lastIndexOf('.')).toLowerCase()
-    if (!extensions.has(extension)) throw new Error(`${file.name}: choose a picture (JPEG, PNG, WebP, GIF or BMP), video (MP4, WebM, MOV), PDF, Word (.docx), text or code file.`)
+    if (!extensions.has(extension)) throw new Error(`${file.name}: choose a picture (JPEG, PNG, WebP, GIF or BMP), video (MP4, WebM, MOV), PDF, Word (.docx or .doc), text or code file.`)
     if (VIDEO_EXTENSIONS.has(extension)) {
       // A video becomes evenly spaced still frames: the AI sees pictures in time order, not motion or sound.
       if (file.size > VIDEO_MAX_BYTES) throw new Error(`${file.name}: videos can be up to ${VIDEO_MAX_BYTES / 1024 / 1024} MiB.`)
@@ -28,7 +28,7 @@ export async function readSharedFiles(files: readonly File[], existing: readonly
         return { id, name, text: '', image: parseHadronImages([{ id, name, dataUrl: frame.dataUrl }])[0] }
       })
     }
-    const isDocument = extension === '.pdf' || extension === '.docx'
+    const isDocument = extension === '.pdf' || extension === '.docx' || extension === '.doc'
     const isPicture = PICTURE_EXTENSIONS.has(extension)
     const maxBytes = (isPicture ? 30 : 8) * 1024 * 1024
     if (file.size > maxBytes) throw new Error(`${file.name}: the file exceeds Hadron's ${isPicture ? 30 : 8} MiB attachment limit. ${isPicture?'Choose a smaller picture.':'Use Add folder for bounded text excerpts instead.'}`)

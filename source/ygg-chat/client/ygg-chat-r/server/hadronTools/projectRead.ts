@@ -1,11 +1,11 @@
 import fs from 'node:fs'
 
-export const PROJECT_READ_TOOL_CATALOG=`Use {"tool":"project_list","arguments":{"path":""}} to list a directory (empty path means the selected root), {"tool":"project_read","arguments":{"path":"src/file.ts","startLine":1,"maxLines":80}} to read text, and {"tool":"project_search","arguments":{"path":"","query":"function name","mode":"content"}} for recursive literal content search (mode path searches filenames). Search is bounded to 2000 entries, 100 files and 8 MiB; generated/dependency folders are skipped. Narrow the path when truncated; no matches is not proof of absence. Project reads are capped at 200 lines/8000 characters from files up to 16 MiB; project_read also returns the text of PDF and Word (.docx) files, with PDF text under "Page N" headings; directory lists at 200 entries. Use returned hashes and line numbers. Links, dependency trees, Git internals and common credential files are unavailable. A blocked or truncated read cannot establish unseen content.`
+export const PROJECT_READ_TOOL_CATALOG=`Use {"tool":"project_list","arguments":{"path":""}} to list a directory (empty path means the selected root), {"tool":"project_read","arguments":{"path":"src/file.ts","startLine":1,"maxLines":80}} to read text, and {"tool":"project_search","arguments":{"path":"","query":"function name","mode":"content"}} for recursive literal content search (mode path searches filenames). Search is bounded to 2000 entries, 100 files and 8 MiB; generated/dependency folders are skipped. Narrow the path when truncated; no matches is not proof of absence. Project reads are capped at 200 lines/8000 characters from files up to 16 MiB; project_read also returns the text of PDF and Word (.docx and .doc) files, with PDF text under "Page N" headings; directory lists at 200 entries. Use returned hashes and line numbers. Links, dependency trees, Git internals and common credential files are unavailable. A blocked or truncated read cannot establish unseen content.`
 import path from 'node:path'
 import {createHash,randomUUID} from 'node:crypto'
 import {admitHadronToolSession, type HadronToolSession} from './types.js'
 import {deniedProjectName as denied, selectedProjectRoot, projectPath} from './projectPaths.js'
-import {folderDocumentKind,folderDocumentText} from './folderDocuments.js'
+import {folderDocumentKind,folderDocumentText,type FolderDocumentKind} from './folderDocuments.js'
 
 interface RootIdentity {root:string;device:string;inode:string}
 interface Grant {owner:string;workspace:string;slot:'a'|'b'|'shared'|'continuous';roots:RootIdentity[]}
@@ -68,7 +68,7 @@ export class ProjectReadHost {
       return projectPath(selected.root,raw,{rootAllowed:allowRoot})
     }
     /** Same checked read as text files; PDF and Word text is extracted instead of decoding raw bytes. */
-    const readDocument=async(kind:'pdf'|'docx',raw:unknown,signal:AbortSignal)=>{
+    const readDocument=async(kind:FolderDocumentKind,raw:unknown,signal:AbortSignal)=>{
       const {buffer,sha256}=readBytes(raw,signal)
       return {text:await folderDocumentText(kind,buffer,sha256,signal),sha256}
     }

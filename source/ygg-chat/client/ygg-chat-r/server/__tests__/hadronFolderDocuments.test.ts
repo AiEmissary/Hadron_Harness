@@ -58,11 +58,23 @@ it('reads the text of a Microsoft Word document in a shared folder',async()=>{
   expect(read.text).toContain('Dear team,');expect(read.text).toContain('The launch moves to Friday.')
 })
 
+it('reads an old Word 97-2003 (.doc) document made by Microsoft Word, including its footnote',async()=>{
+  // Fixture saved by Microsoft Word in the binary .doc format; it contains only this test text.
+  fs.copyFileSync(path.join(import.meta.dirname,'fixtures','legacy-word-97.doc'),path.join(project,'Minutes.DOC'))
+  const read=await tools().invoke('project_read',{path:'Minutes.DOC'},signal()) as {text:string}
+  expect(read.text).toContain('Hadron legacy Word test')
+  expect(read.text).toContain('The meeting moves to Thursday at 3pm.')
+  expect(read.text).toContain('Budget: 4,200 pounds (café costs included).')
+  expect(read.text).toContain('Footnotes');expect(read.text).toContain('Footnote: confirmed by email.')
+})
+
 it('explains unreadable documents instead of returning raw bytes',async()=>{
   fs.writeFileSync(path.join(project,'broken.pdf'),'not really a pdf')
-  fs.writeFileSync(path.join(project,'old.docx'),'not really a word file')
+  fs.writeFileSync(path.join(project,'broken.docx'),'not really a word file')
+  fs.writeFileSync(path.join(project,'broken.doc'),'not really an old word file either')
   await expect(tools().invoke('project_read',{path:'broken.pdf'},signal())).rejects.toThrow('PDF could not be read')
-  await expect(tools().invoke('project_read',{path:'old.docx'},signal())).rejects.toThrow('only .docx is supported')
+  await expect(tools().invoke('project_read',{path:'broken.docx'},signal())).rejects.toThrow('Word document could not be read')
+  await expect(tools().invoke('project_read',{path:'broken.doc'},signal())).rejects.toThrow('not really a .doc file')
 })
 
 it('still reads HTML in a shared folder as text',async()=>{
