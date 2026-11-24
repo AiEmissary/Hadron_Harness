@@ -1,10 +1,11 @@
 import fs from 'node:fs'
 
-export const PROJECT_READ_TOOL_CATALOG=`Use {"tool":"project_list","arguments":{"path":""}} to list a directory (empty path means the selected root), {"tool":"project_read","arguments":{"path":"src/file.ts","startLine":1,"maxLines":80}} to read text, and {"tool":"project_search","arguments":{"path":"","query":"function name","mode":"content"}} for recursive literal content search (mode path searches filenames). Search is bounded to 2000 entries, 100 files and 8 MiB; generated/dependency folders are skipped. Narrow the path when truncated; no matches is not proof of absence. Project reads are capped at 200 lines/8000 characters from files up to 16 MiB; directory lists at 200 entries. Use returned hashes and line numbers. Links, dependency trees, Git internals and common credential files are unavailable. A blocked or truncated read cannot establish unseen content.`
+export const PROJECT_READ_TOOL_CATALOG=`Use {"tool":"project_list","arguments":{"path":""}} to list a directory (empty path means the selected root), {"tool":"project_read","arguments":{"path":"src/file.ts","startLine":1,"maxLines":80}} to read text, and {"tool":"project_search","arguments":{"path":"","query":"function name","mode":"content"}} for recursive literal content search (mode path searches filenames). Search is bounded to 2000 entries, 100 files and 8 MiB; generated/dependency folders are skipped. Narrow the path when truncated; no matches is not proof of absence. Project reads are capped at 200 lines/8000 characters from files up to 16 MiB; project_read also returns the text of PDF and Word (.docx) files, with PDF text under "Page N" headings; directory lists at 200 entries. Use returned hashes and line numbers. Links, dependency trees, Git internals and common credential files are unavailable. A blocked or truncated read cannot establish unseen content.`
 import path from 'node:path'
 import {createHash,randomUUID} from 'node:crypto'
 import {admitHadronToolSession, type HadronToolSession} from './types.js'
 import {deniedProjectName as denied, selectedProjectRoot, projectPath} from './projectPaths.js'
+import {folderDocumentKind,folderDocumentText} from './folderDocuments.js'
 
 interface RootIdentity {root:string;device:string;inode:string}
 interface Grant {owner:string;workspace:string;slot:'a'|'b'|'shared'|'continuous';roots:RootIdentity[]}
@@ -66,7 +67,17 @@ export class ProjectReadHost {
       const selected=check()
       return projectPath(selected.root,raw,{rootAllowed:allowRoot})
     }
+    /** Same checked read as text files; PDF and Word text is extracted instead of decoding raw bytes. */
+    const readDocument=async(kind:'pdf'|'docx',raw:unknown,signal:AbortSignal)=>{
+      const {buffer,sha256}=readBytes(raw,signal)
+      return {text:await folderDocumentText(kind,buffer,sha256,signal),sha256}
+    }
     const readText=(raw:unknown,signal:AbortSignal)=>{
+      const {buffer,sha256}=readBytes(raw,signal),text=new TextDecoder('utf-8',{fatal:true}).decode(buffer)
+      if(/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(text))throw Error('Binary file is unavailable')
+      return {text,sha256}
+    }
+    const readBytes=(raw:unknown,signal:AbortSignal)=>{
       const file=target(raw),fd=fs.openSync(file,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW??0))
       try{
         const before=fs.fstatSync(fd,{bigint:true}),named=fs.lstatSync(file,{bigint:true})
@@ -76,9 +87,8 @@ export class ProjectReadHost {
         const after=fs.fstatSync(fd,{bigint:true})
         target(raw);check()
         if(BigInt(length)!==before.size||after.size!==before.size||after.mtimeNs!==before.mtimeNs||after.ctimeNs!==before.ctimeNs)throw Error('File changed during read')
-        const buffer=bytes.subarray(0,length),text=new TextDecoder('utf-8',{fatal:true}).decode(buffer)
-        if(/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(text))throw Error('Binary file is unavailable')
-        return {text,sha256:createHash('sha256').update(buffer).digest('hex')}
+        const buffer=bytes.subarray(0,length)
+        return {buffer,sha256:createHash('sha256').update(buffer).digest('hex')}
       }finally{fs.closeSync(fd)}
     }
     let calls=0
@@ -138,7 +148,8 @@ These are text-mediated host tools. ${PROJECT_READ_TOOL_CATALOG} Return {"answer
       if(Object.keys(args).some(key=>!['path','startLine','maxLines'].includes(key)))throw Error('Unexpected file arguments')
       const start=args.startLine??1,count=args.maxLines??80
       if(!Number.isSafeInteger(start)||Number(start)<1||!Number.isSafeInteger(count)||Number(count)<1||Number(count)>200)throw Error('Invalid line range')
-      const {text,sha256}=readText(args.path,signal)
+      const kind=typeof args.path==='string'?folderDocumentKind(args.path):null
+      const {text,sha256}=kind?await readDocument(kind,args.path,signal):readText(args.path,signal)
       let totalLines=0,excerpt='',clipped=false,selectedLines=0
       for(const line of textLines(text)){totalLines++;if(totalLines>=Number(start)&&totalLines<Number(start)+Number(count)){const room=Math.max(0,8000-excerpt.length-(selectedLines?1:0));if(line.length>room)clipped=true;if(excerpt.length<8000)excerpt+=(selectedLines?'\n':'')+line.slice(0,room);selectedLines++}}
       return {path:args.path,startLine:start,totalLines,text:excerpt,truncated:clipped||Number(start)-1+Number(count)<totalLines,sha256,untrustedContent:true}
