@@ -6,9 +6,9 @@
   "files": {
     ".gitattributes": "100b552a1834655218089bbfaa11433d8be13b185d2c3b92f06a09e382d78bb5",
     ".gitignore": "02c1193d4c294f4f661e2486ffc9353916e4a27d9860f78e7c546cd464dcf34a",
-    "AGENTS.md": "ec1ed589f18ab9d073d55785eea0f14b031217579616c26c3d05093d1f19db33",
-    "GITHUB_BACKUP.md": "7d47bd5c7ee55e5e8274baf0e73ea4f5ca9d81bb1f3952e943f66e849a23fb6f",
-    "README.md": "f6fa19d70b1e64ab1011d1700fb6416e1325bb15434b1d1629527e51cda897bc",
+    "AGENTS.md": "2a115ff0eba9801464c2e72abd56e813fe62065f198e37625c3e4e456b9f4ec1",
+    "GITHUB_BACKUP.md": "b7105eefed5be5583cadc04963d9ef96e1eb35e26a6de4febe789e86407f4176",
+    "README.md": "b747709964cbb5e16dc228a61afea72774e7230ccfed311cf29213bacd65a387",
     "SOURCE_BUILD.md": "e3fe2ea83efb7bb015b44715bc003db460d644050b27d8096a0b500182eaa1a3",
     "WINDOWS_RELEASE.md": "ba663e3e9bfec9ac4629ae7e8d00201ec430eba4fce2fcd7b218a55fdb4324c6",
     "distribution/licences/Electron-LICENSES.chromium.html": "a683de33a700d9b4989416e1cd394169154574e83773e009a71daf9dd8e1ab96",
@@ -2808,7 +2808,7 @@
     "source/ygg-chat/test_wsl2.js": "2885e7e9397f5126d60c497763ec6ca8d4652683ddf0101723cc054aada07561",
     "source/ygg-chat/theme_system_context.md": "d2ba2ed4fefcf56b5a5e3ad6fa6ce87247b3940d3778b3f02951a662b024e6e6",
     "source/ygg-chat/vercel.json": "bd5b46cc8b25a66d782b11e25becfb3f784b3ec3160f63e7801952867d126b28",
-    "tools/Sync-Hadron-GitHub.py": "86800cea5aadea5fe412743370eb9ef1e1ebc7e2b1420a7abc9a9f513f42c288"
+    "tools/Sync-Hadron-GitHub.py": "c82d9402a931b6c4c1231aec13c20da771d55ce9d9bd593e983b3c2de315d7dc"
   },
   "product": "Hadron Harness",
   "scope": "Committed application sources and build materials; local account settings and personal data excluded",

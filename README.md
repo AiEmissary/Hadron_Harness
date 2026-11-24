@@ -1,6 +1,8 @@
 # Hadron Harness
 
-Private source and release backup for the Hadron Harness desktop application.
+Source code and Windows releases for the Hadron Harness desktop application.
+
+[Download the latest Windows installer](https://github.com/AiEmissary/Hadron_Harness/releases/latest).
 
 Current release: **6.0.8**.
 

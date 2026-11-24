@@ -10,6 +10,8 @@ SOURCE=ROOT/'source'
 MIRROR=ROOT/'github-backup'
 OWNER='AiEmissary'
 REPOSITORY='Hadron_Harness'
+# The owner explicitly requested public sharing on 24 November 2026.
+EXPECTED_VISIBILITY='public'
 REMOTE=f'https://{OWNER}@github.com/{OWNER}/{REPOSITORY}.git'
 API=f'https://api.github.com/repos/{OWNER}/{REPOSITORY}'
 ENV={**{k:v for k,v in os.environ.items() if not k.upper().startswith(('GIT_TRACE','GCM_TRACE')) and k.upper()!='GIT_CURL_VERBOSE'},'GIT_TERMINAL_PROMPT':'0','GCM_INTERACTIVE':'Never'}
@@ -113,7 +115,9 @@ def export_source():
             write('distribution/licences/'+p.relative_to(licences).as_posix(),p.read_bytes())
     readme=f"""# Hadron Harness
 
-Private source and release backup for the Hadron Harness desktop application.
+Source code and Windows releases for the Hadron Harness desktop application.
+
+[Download the latest Windows installer](https://github.com/AiEmissary/Hadron_Harness/releases/latest).
 
 Current release: **{version}**.
 
@@ -154,7 +158,7 @@ def push_backup(token,version,revision,managed,previous):
     user=api(token,'https://api.github.com/user')
     repo=api(token)
     if user['login'].lower()!=OWNER.lower() or repo['full_name'].lower()!=f'{OWNER}/{REPOSITORY}'.lower(): raise RuntimeError('GitHub account/repository mismatch')
-    if not repo['private'] or not repo.get('permissions',{}).get('push'): raise RuntimeError('A private writable repository is required')
+    if repo.get('visibility')!=EXPECTED_VISIBILITY or not repo.get('permissions',{}).get('push'): raise RuntimeError('The expected public writable Hadron repository is required')
     git(['config','user.name',OWNER],cwd=MIRROR)
     git(['config','user.email',f"{user['id']}+{OWNER}@users.noreply.github.com"],cwd=MIRROR)
     git(['fetch','origin'],cwd=MIRROR)
@@ -231,7 +235,7 @@ def main():
     if args.push:
         token=credential()
         result['backupCommit']=push_backup(token,version,revision,managed,previous)
-        result['pushed']=True;result['private']=True
+        result['pushed']=True;result['private']=False;result['visibility']=EXPECTED_VISIBILITY
         print('Source commit uploaded and verified.',flush=True)
         if args.release: result['release']=backup_installer(token,version,result['backupCommit'])
     (ROOT/'test-results/github-backup-result.json').write_text(json.dumps(result,indent=2),encoding='utf-8')

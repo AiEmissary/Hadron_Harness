@@ -1,8 +1,8 @@
 # Hadron GitHub backup
 
-Private repository: https://github.com/AiEmissary/Hadron_Harness
+Public repository: https://github.com/AiEmissary/Hadron_Harness
 
-The working application source stays in the existing source folder. The small github-backup folder is a clean Git export for this private repository. It has independent history so local account configuration and prior personal metadata are never sent to GitHub.
+The working application source stays in the existing source folder. The small github-backup folder is a clean Git export for this repository. It has independent history so local account configuration and prior personal metadata are never sent to GitHub.
 
 After committing and checking changes in the application source, run from this workspace:
 
@@ -12,11 +12,11 @@ When an installer has been explicitly requested, built and verified, also back u
 
     python Sync-Hadron-GitHub.py --push --release
 
-Without flags the script only prepares the local export. It refuses uncommitted application changes, edits in the backup working directory, an unexpected repository/account, a public destination, changed existing release assets and unsafe paths. It never force-pushes. If someone changed GitHub separately, those changes must be merged first.
+Without flags the script only prepares the local export. It refuses uncommitted application changes, edits in the backup working directory, an unexpected repository/account or visibility, changed existing release assets and unsafe paths. It never force-pushes. If someone changed GitHub separately, those changes must be merged first.
 
 Source, dependency locks, build guides and licences are included. Saved chat databases, credentials, local AI account settings, dependencies and build caches are excluded. The installer is a release attachment rather than a Git source file. Its uploaded checksum and size are checked against the validated Desktop copy. No credentials are written into scripts, Git remotes or reports; sign-in is handled by Git Credential Manager and the browser.
 
-This is a repeatable update step, not a scheduled background backup. Keep the private repository current after completed, checked Hadron work. A restored clone can use normal Git commits and pushes; the export script is intended for the original development workspace.
+This is a repeatable update step, not a scheduled background backup. Keep the repository current after completed, checked Hadron work. A restored clone can use normal Git commits and pushes; the export script is intended for the original development workspace.
 
 The latest upload result is saved locally in test-results/github-backup-result.json.
 
@@ -35,3 +35,9 @@ Final delivery includes the follow-up retry guard: failed/stopped/unavailable in
 ## Release 6.0.6 — 15 November 2026
 
 The user authorized an updated installer containing the inline branch editor, complete branch transcript browsing, provider-backed web research without an extra search key, restored-notification replay correction and updated help. 86 automated tests, isolated interface and packaged startup checks, build/native/vendor validation and complete installer payload comparison passed. Source and the verified 6.0.6 Desktop installer are backed up as a new private release; earlier assets remain unchanged. Actual clean-PC installation and provider sign-in remain separate acceptance checks. See source/hadron-project/RELEASE_6_0_6.md.
+
+## Public sharing — 24 November 2026
+
+The owner explicitly requested making this repository public. The curated Git history was checked for excluded account/data paths and credential patterns before the visibility change. The public source address is https://github.com/AiEmissary/Hadron_Harness and the public installer page is https://github.com/AiEmissary/Hadron_Harness/releases/latest. Existing release assets are retained unchanged; no installer was rebuilt for this action.
+
+The updater now requires this same owned repository to remain public and writable, while retaining the curated export, credential exclusions, safe repository/account checks and no-force-push rules. It does not change visibility itself. Public visibility exposes the curated source, history and published releases; local user chats, sign-ins and account configuration remain excluded from the export.
