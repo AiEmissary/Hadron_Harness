@@ -2,7 +2,7 @@
 
 Private source and release backup for the Hadron Harness desktop application.
 
-Current release: **6.0.7**.
+Current release: **6.0.8**.
 
 - Questions and answers on the left, conversation branches on the right.
 - Agent A, Agent B, Work together and Continuous conversation.
