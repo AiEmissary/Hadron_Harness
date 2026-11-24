@@ -22,6 +22,7 @@ import type {ProjectDraftInput} from '../../../shared/projectBuild.js'
 import { assertLegacyExecutionAllowed, projectExecutionGate } from '../server/hadronTools/executionGate.js'
 import { projectReadHost } from '../server/hadronTools/projectRead.js'
 import { folderDocumentText } from '../server/hadronTools/folderDocuments.js'
+import { configureDocumentOcr, documentOcrReady } from '../server/hadronTools/pdfOcr.js'
 import { createHash as hashBytes } from 'node:crypto'
 import {projectAgentHost} from '../server/hadronTools/projectAgent.js'
 import { isOwnedHadronHealth } from '../server/runtimeIdentity.js'
@@ -65,11 +66,12 @@ if(hadronDiagnosticDirectory){
    ui.paletteChoices=await window.webContents.executeJavaScript(`document.querySelector('select[aria-label="Hadron colours"]')?.options.length??0`)
    ui.textChoices=await window.webContents.executeJavaScript(`document.querySelector('select[aria-label="Workspace text colour"]')?.options.length??0`)
    ui.settingsScrollReady=await window.webContents.executeJavaScript(`(()=>{const area=document.querySelector('[data-hadron-settings-scroll]'),nav=document.querySelector('[data-hadron-settings-navigation]');if(!area||!nav||area.clientHeight<=0||area.scrollHeight<=area.clientHeight||getComputedStyle(area).overflowY!=='scroll')return false;area.scrollTop=area.scrollHeight;const visible=nav.getBoundingClientRect().top>=0&&nav.getBoundingClientRect().bottom<=area.getBoundingClientRect().top+1;area.scrollTop=0;return visible})()`)
+   ui.ocrReady=await documentOcrReady()
    await new Promise(resolve=>setTimeout(resolve,650))
    fs.writeFileSync(path.join(diagnosticDirectory,'appearance.png'),(await window.webContents.capturePage()).toPNG())
    await window.webContents.executeJavaScript(`location.hash=${JSON.stringify(ui.route)};void 0`)
    for(let i=0;i<100;i++){if(await window.webContents.executeJavaScript(`!!document.querySelector('[data-unified-workspace]')?.offsetWidth`))break;await new Promise(resolve=>setTimeout(resolve,100))}
-   if(!ui.settingsScrollReady||!ui.paletteAbsentFromWorkspace||ui.textChoices!==3||!ui.recycleBinReady||ui.paletteChoices!==5||!app.isPackaged||!ui.workspace||!ui.localOwnerReady||!ui.projectBridgeReady||ui.remote||!ui.help||!ui.singleComposer||!ui.tree||!ui.setupPopup||!window.isMaximized()||setup.items.some(item=>item.required&&!item.ready))throw Error('Packaged workspace, controls or required resources failed')
+   if(!ui.ocrReady||!ui.settingsScrollReady||!ui.paletteAbsentFromWorkspace||ui.textChoices!==3||!ui.recycleBinReady||ui.paletteChoices!==5||!app.isPackaged||!ui.workspace||!ui.localOwnerReady||!ui.projectBridgeReady||ui.remote||!ui.help||!ui.singleComposer||!ui.tree||!ui.setupPopup||!window.isMaximized()||setup.items.some(item=>item.required&&!item.ready))throw Error('Packaged workspace, controls or required resources failed: '+JSON.stringify({ui,maximized:window.isMaximized(),packaged:app.isPackaged,requiredMissing:setup.items.filter(item=>item.required&&!item.ready)}))
    fs.writeFileSync(path.join(diagnosticDirectory,'workspace.png'),(await window.webContents.capturePage()).toPNG())
    report({success:true,ui,setup,startedMaximized:window.isMaximized(),privateProfile:app.getPath('userData')===hadronDiagnosticDirectory,modelRequests:0});diagnosticRecorder?.complete();clearTimeout(watchdog);app.quit()
   }catch(error){
@@ -106,6 +108,10 @@ const { autoUpdater } = autoUpdaterPkg
 // ESM: Get __dirname from import.meta.url
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 installWindowsWorkerEvidenceHost(app.getPath('userData'),app.isPackaged?path.join(process.resourcesPath,'hadron-worker'):path.resolve(__dirname,'..','vendor','hadron-worker'))
+// Scanned-PDF text recognition runs on this PC: its worker and English data ship with the app.
+configureDocumentOcr(app.isPackaged
+  ?{workerPath:path.join(process.resourcesPath,'hadron-ocr','ocrWorker.cjs'),langPath:path.join(process.resourcesPath,'hadron-ocr')}
+  :{workerPath:path.join(__dirname,'ocrWorker.cjs')})
 let mainWindow: BrowserWindow | null = null
 let floatingWindow: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -1673,6 +1679,11 @@ authHandle('collaboration:provider-allowance',async(_event,provider:unknown)=>{
 authHandle('collaboration:word-doc-text',async (_event,bytes:unknown)=>{
   if(!(bytes instanceof Uint8Array)||bytes.byteLength<1||bytes.byteLength>8*1024*1024)throw Error('Choose a Word document up to 8 MiB')
   return folderDocumentText('doc',bytes,hashBytes('sha256').update(bytes).digest('hex'),AbortSignal.timeout(120000))
+})
+// PDF attachments with scanned pages: the same reader as shared folders, including on-PC OCR.
+authHandle('collaboration:pdf-text',async (_event,bytes:unknown)=>{
+  if(!(bytes instanceof Uint8Array)||bytes.byteLength<1||bytes.byteLength>8*1024*1024)throw Error('Choose a PDF up to 8 MiB')
+  return folderDocumentText('pdf',bytes,hashBytes('sha256').update(bytes).digest('hex'),AbortSignal.timeout(9*60000))
 })
 authHandle('collaboration:project-restore',(_event,workspace:string,slot:'a'|'b'|'shared'|'continuous')=>{
  const owner=projectDraftOwner();desktopProjectDraftHost.get().validateWorkspace(owner,workspace)

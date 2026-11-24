@@ -1,0 +1,11 @@
+{
+  "name": "@tesseract.js-data/eng",
+  "version": "1.0.0",
+  "license": "MIT",
+  "author": "Balearica <admin@scribeocr.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/naptha/tessdata.git"
+  },
+  "source": "https://registry.npmjs.org/%40tesseract.js-data%2Feng/1.0.0"
+}

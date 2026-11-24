@@ -28,8 +28,10 @@ tasks.push(() => esbuild.build({
     'node-pty',
   ],
   banner: {
-    // Required for ESM to use require() for native modules
-    js: "import { createRequire } from 'module'; const require = createRequire(import.meta.url);"
+    // Required for ESM to use require() for native modules. Bundled CommonJS libraries (such as
+    // the OCR engine's host side) also expect Node's __filename/__dirname, which ESM lacks;
+    // esbuild renames the app's own variables of those names, so these do not clash.
+    js: "import { createRequire } from 'module'; import { fileURLToPath as __hadronFileURLToPath } from 'url'; const require = createRequire(import.meta.url); const __filename = __hadronFileURLToPath(import.meta.url); const __dirname = __hadronFileURLToPath(new URL('.', import.meta.url));"
   },
   sourcemap: true,
   // Resolve .ts files when importing .js extensions
@@ -47,6 +49,17 @@ tasks.push(() => esbuild.build({
   format: 'cjs',
   sourcemap: true,
 }).then(() => console.log('✅ preload.ts compiled to preload.cjs')))
+
+// Bundle the scanned-PDF text recognition (OCR) worker thread, with its WebAssembly engine inlined.
+// Packaged copies live in resources/hadron-ocr beside the English language data.
+tasks.push(() => esbuild.build({
+  entryPoints: [path.join(__dirname, '..', 'server', 'hadronTools', 'ocrWorkerThread.cjs')],
+  bundle: true,
+  platform: 'node',
+  target: 'node20',
+  outfile: path.join(__dirname, 'ocrWorker.cjs'),
+  format: 'cjs',
+}).then(() => console.log('✅ OCR worker bundled to ocrWorker.cjs')))
 
 // Bundle utility process runtime entry
 tasks.push(() => esbuild.build({

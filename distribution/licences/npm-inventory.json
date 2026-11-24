@@ -63,10 +63,7 @@
         "url": "https://github.com/vercel/ai",
         "directory": "packages/provider-utils"
       },
-      "notices": [
-        "UPSTREAM-LICENSE"
-      ],
-      "noticeSource": "https://raw.githubusercontent.com/vercel/ai/@ai-sdk/provider-utils@4.0.27/LICENSE"
+      "notices": []
     },
     {
       "name": "@ai-sdk/provider",
@@ -175,10 +172,7 @@
         "type": "git",
         "url": "git+https://github.com/evanw/esbuild.git"
       },
-      "notices": [
-        "UPSTREAM-LICENSE.md"
-      ],
-      "noticeSource": "https://raw.githubusercontent.com/evanw/esbuild/208f539945b145e7c9d6d844290f81c3fe5af320/LICENSE.md"
+      "notices": []
     },
     {
       "name": "@hyper-labs/hyper-router",
@@ -349,9 +343,10 @@
         "url": "git+https://github.com/Brooooooklyn/canvas.git"
       },
       "notices": [
-        "UPSTREAM-LICENSE"
+        "PUBLISHER-DECLARATION.json",
+        "DECLARED-LICENCE-NOTICE.txt"
       ],
-      "noticeSource": "https://raw.githubusercontent.com/Brooooooklyn/canvas/f58ba70823ac60504df856999de7dd261973ed67/LICENSE"
+      "publisherLicenceTextUnavailable": true
     },
     {
       "name": "@napi-rs/canvas",
@@ -395,9 +390,10 @@
         "url": "git+https://github.com/rollup/rollup.git"
       },
       "notices": [
-        "UPSTREAM-LICENSE.md"
+        "PUBLISHER-DECLARATION.json",
+        "DECLARED-LICENCE-NOTICE.txt"
       ],
-      "noticeSource": "https://raw.githubusercontent.com/rollup/rollup/33f39c1f205ea2eadaf4b589e493453e2baa3662/LICENSE.md"
+      "publisherLicenceTextUnavailable": true
     },
     {
       "name": "@rollup/rollup-win32-x64-msvc",
@@ -408,9 +404,10 @@
         "url": "git+https://github.com/rollup/rollup.git"
       },
       "notices": [
-        "UPSTREAM-LICENSE.md"
+        "PUBLISHER-DECLARATION.json",
+        "DECLARED-LICENCE-NOTICE.txt"
       ],
-      "noticeSource": "https://raw.githubusercontent.com/rollup/rollup/33f39c1f205ea2eadaf4b589e493453e2baa3662/LICENSE.md"
+      "publisherLicenceTextUnavailable": true
     },
     {
       "name": "@smithy/core",
@@ -559,9 +556,10 @@
         "directory": "packages/core/functions-js"
       },
       "notices": [
-        "UPSTREAM-LICENSE"
+        "PUBLISHER-DECLARATION.json",
+        "DECLARED-LICENCE-NOTICE.txt"
       ],
-      "noticeSource": "https://raw.githubusercontent.com/supabase/supabase-js/c9035515d733480b7f5ed3fdbb2c429fc0dade42/LICENSE"
+      "publisherLicenceTextUnavailable": true
     },
     {
       "name": "@supabase/postgrest-js",
@@ -573,9 +571,10 @@
         "directory": "packages/core/postgrest-js"
       },
       "notices": [
-        "UPSTREAM-LICENSE"
+        "PUBLISHER-DECLARATION.json",
+        "DECLARED-LICENCE-NOTICE.txt"
       ],
-      "noticeSource": "https://raw.githubusercontent.com/supabase/supabase-js/c9035515d733480b7f5ed3fdbb2c429fc0dade42/LICENSE"
+      "publisherLicenceTextUnavailable": true
     },
     {
       "name": "@supabase/realtime-js",
@@ -587,9 +586,10 @@
         "directory": "packages/core/realtime-js"
       },
       "notices": [
-        "UPSTREAM-LICENSE"
+        "PUBLISHER-DECLARATION.json",
+        "DECLARED-LICENCE-NOTICE.txt"
       ],
-      "noticeSource": "https://raw.githubusercontent.com/supabase/supabase-js/c9035515d733480b7f5ed3fdbb2c429fc0dade42/LICENSE"
+      "publisherLicenceTextUnavailable": true
     },
     {
       "name": "@supabase/storage-js",
@@ -601,9 +601,10 @@
         "directory": "packages/core/storage-js"
       },
       "notices": [
-        "UPSTREAM-LICENSE"
+        "PUBLISHER-DECLARATION.json",
+        "DECLARED-LICENCE-NOTICE.txt"
       ],
-      "noticeSource": "https://raw.githubusercontent.com/supabase/supabase-js/c9035515d733480b7f5ed3fdbb2c429fc0dade42/LICENSE"
+      "publisherLicenceTextUnavailable": true
     },
     {
       "name": "@supabase/supabase-js",
@@ -615,9 +616,10 @@
         "directory": "packages/core/supabase-js"
       },
       "notices": [
-        "UPSTREAM-LICENSE"
+        "PUBLISHER-DECLARATION.json",
+        "DECLARED-LICENCE-NOTICE.txt"
       ],
-      "noticeSource": "https://raw.githubusercontent.com/supabase/supabase-js/c9035515d733480b7f5ed3fdbb2c429fc0dade42/LICENSE"
+      "publisherLicenceTextUnavailable": true
     },
     {
       "name": "@tailwindcss/node",
@@ -787,6 +789,20 @@
       "notices": [
         "LICENSE"
       ]
+    },
+    {
+      "name": "@tesseract.js-data/eng",
+      "version": "1.0.0",
+      "license": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/naptha/tessdata.git"
+      },
+      "notices": [
+        "PUBLISHER-DECLARATION.json",
+        "DECLARED-LICENCE-NOTICE.txt"
+      ],
+      "publisherLicenceTextUnavailable": true
     },
     {
       "name": "@types/d3-array",
@@ -1688,6 +1704,18 @@
       ]
     },
     {
+      "name": "bmp-js",
+      "version": "0.1.0",
+      "license": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/shaozilee/bmp-js"
+      },
+      "notices": [
+        "LICENSE"
+      ]
+    },
+    {
       "name": "body-parser",
       "version": "1.20.4",
       "license": "MIT",
@@ -1715,6 +1743,18 @@
       "repository": {
         "type": "git",
         "url": "git+ssh://git@github.com/juliangruber/brace-expansion.git"
+      },
+      "notices": [
+        "LICENSE"
+      ]
+    },
+    {
+      "name": "buffer-crc32",
+      "version": "0.2.13",
+      "license": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "git://github.com/brianloveswords/buffer-crc32.git"
       },
       "notices": [
         "LICENSE"
@@ -3178,6 +3218,18 @@
       ]
     },
     {
+      "name": "fd-slicer",
+      "version": "1.1.0",
+      "license": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "git://github.com/andrewrk/node-fd-slicer.git"
+      },
+      "notices": [
+        "LICENSE"
+      ]
+    },
+    {
       "name": "fdir",
       "version": "6.5.0",
       "license": "MIT",
@@ -3595,6 +3647,18 @@
       ]
     },
     {
+      "name": "idb-keyval",
+      "version": "6.3.0",
+      "license": "Apache-2.0",
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/jakearchibald/idb-keyval.git"
+      },
+      "notices": [
+        "LICENCE"
+      ]
+    },
+    {
       "name": "ieee754",
       "version": "1.2.1",
       "license": "BSD-3-Clause",
@@ -3766,6 +3830,15 @@
       "repository": "jonschlinkert/is-plain-object",
       "notices": [
         "LICENSE"
+      ]
+    },
+    {
+      "name": "is-url",
+      "version": "1.2.4",
+      "license": "MIT",
+      "repository": "https://github.com/segmentio/is-url",
+      "notices": [
+        "LICENSE-MIT"
       ]
     },
     {
@@ -4841,6 +4914,18 @@
       ]
     },
     {
+      "name": "node-fetch",
+      "version": "2.7.0",
+      "license": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/bitinn/node-fetch.git"
+      },
+      "notices": [
+        "LICENSE.md"
+      ]
+    },
+    {
       "name": "node-pty",
       "version": "1.1.0",
       "license": "MIT",
@@ -4900,6 +4985,18 @@
       "repository": {
         "type": "git",
         "url": "git://github.com/isaacs/once"
+      },
+      "notices": [
+        "LICENSE"
+      ]
+    },
+    {
+      "name": "opencollective-postinstall",
+      "version": "2.0.3",
+      "license": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/opencollective/opencollective-postinstall.git"
       },
       "notices": [
         "LICENSE"
@@ -5044,6 +5141,18 @@
       "repository": {
         "type": "git",
         "url": "git+https://github.com/mozilla/pdf.js.git"
+      },
+      "notices": [
+        "LICENSE"
+      ]
+    },
+    {
+      "name": "pend",
+      "version": "1.2.0",
+      "license": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "git://github.com/andrewrk/node-pend.git"
       },
       "notices": [
         "LICENSE"
@@ -5303,10 +5412,7 @@
       "version": "4.3.1",
       "license": "MIT",
       "repository": "ReactTraining/react-router",
-      "notices": [
-        "UPSTREAM-LICENSE"
-      ],
-      "noticeSource": "https://raw.githubusercontent.com/ReactTraining/react-router/v4.3.1/LICENSE"
+      "notices": []
     },
     {
       "name": "react-router-dom",
@@ -5326,10 +5432,7 @@
       "version": "4.3.1",
       "license": "MIT",
       "repository": "ReactTraining/react-router",
-      "notices": [
-        "UPSTREAM-LICENSE"
-      ],
-      "noticeSource": "https://raw.githubusercontent.com/ReactTraining/react-router/v4.3.1/LICENSE"
+      "notices": []
     },
     {
       "name": "react-router",
@@ -5461,6 +5564,18 @@
       ]
     },
     {
+      "name": "regenerator-runtime",
+      "version": "0.13.11",
+      "license": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/facebook/regenerator/tree/main/packages/runtime"
+      },
+      "notices": [
+        "LICENSE"
+      ]
+    },
+    {
       "name": "rehype-highlight",
       "version": "7.0.2",
       "license": "MIT",
@@ -5475,9 +5590,10 @@
       "license": "MIT",
       "repository": "https://github.com/remarkjs/remark-math/tree/main/packages/rehype-katex",
       "notices": [
-        "UPSTREAM-license"
+        "PUBLISHER-DECLARATION.json",
+        "DECLARED-LICENCE-NOTICE.txt"
       ],
-      "noticeSource": "https://raw.githubusercontent.com/remarkjs/remark-math/88a9497e1ede93b958237c85edbf5651faeca7af/license"
+      "publisherLicenceTextUnavailable": true
     },
     {
       "name": "remark-gfm",
@@ -5494,9 +5610,10 @@
       "license": "MIT",
       "repository": "https://github.com/remarkjs/remark-math/tree/main/packages/remark-math",
       "notices": [
-        "UPSTREAM-license"
+        "PUBLISHER-DECLARATION.json",
+        "DECLARED-LICENCE-NOTICE.txt"
       ],
-      "noticeSource": "https://raw.githubusercontent.com/remarkjs/remark-math/d5d0660b150810a535bbb07eac6cc96a4510aa24/license"
+      "publisherLicenceTextUnavailable": true
     },
     {
       "name": "remark-parse",
@@ -5660,6 +5777,13 @@
       "notices": [
         "LICENSE.md"
       ]
+    },
+    {
+      "name": "saxes",
+      "version": "5.0.1",
+      "license": "ISC",
+      "repository": "https://github.com/lddubeau/saxes.git",
+      "notices": []
     },
     {
       "name": "scheduler",
@@ -5882,10 +6006,7 @@
         "url": "https://github.com/asg017/sqlite-vec",
         "directory": null
       },
-      "notices": [
-        "UPSTREAM-LICENSE-MIT"
-      ],
-      "noticeSource": "https://raw.githubusercontent.com/asg017/sqlite-vec/v0.1.9/LICENSE-MIT"
+      "notices": []
     },
     {
       "name": "sqlite-vec",
@@ -5896,10 +6017,7 @@
         "url": "https://github.com/asg017/sqlite-vec",
         "directory": null
       },
-      "notices": [
-        "UPSTREAM-LICENSE-MIT"
-      ],
-      "noticeSource": "https://raw.githubusercontent.com/asg017/sqlite-vec/v0.1.9/LICENSE-MIT"
+      "notices": []
     },
     {
       "name": "state-local",
@@ -6086,6 +6204,30 @@
       ]
     },
     {
+      "name": "tesseract.js-core",
+      "version": "7.0.0",
+      "license": "Apache-2.0",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/naptha/tesseract.js-core.git"
+      },
+      "notices": [
+        "LICENSE"
+      ]
+    },
+    {
+      "name": "tesseract.js",
+      "version": "7.0.0",
+      "license": "Apache-2.0",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/naptha/tesseract.js.git"
+      },
+      "notices": [
+        "LICENSE.md"
+      ]
+    },
+    {
       "name": "tiny-invariant",
       "version": "1.3.3",
       "license": "MIT",
@@ -6164,6 +6306,20 @@
       ]
     },
     {
+      "name": "tr46",
+      "version": "0.0.3",
+      "license": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/Sebmaster/tr46.js.git"
+      },
+      "notices": [
+        "PUBLISHER-DECLARATION.json",
+        "DECLARED-LICENCE-NOTICE.txt"
+      ],
+      "publisherLicenceTextUnavailable": true
+    },
+    {
       "name": "trim-lines",
       "version": "3.0.1",
       "license": "MIT",
@@ -6221,10 +6377,7 @@
       "version": "3.13.1",
       "license": "(MIT OR CC0-1.0)",
       "repository": "sindresorhus/type-fest",
-      "notices": [
-        "UPSTREAM-license-mit"
-      ],
-      "noticeSource": "https://raw.githubusercontent.com/sindresorhus/type-fest/3ebca46f1507654742938d3bc533bbccfbf1bf05/license-mit"
+      "notices": []
     },
     {
       "name": "type-is",
@@ -6487,10 +6640,7 @@
         "type": "git",
         "url": "https://github.com/FormidableLabs/victory"
       },
-      "notices": [
-        "UPSTREAM-LICENSE.txt"
-      ],
-      "noticeSource": "https://raw.githubusercontent.com/FormidableLabs/victory/v36.9.2/LICENSE.txt"
+      "notices": []
     },
     {
       "name": "vite",
@@ -6518,6 +6668,15 @@
       ]
     },
     {
+      "name": "wasm-feature-detect",
+      "version": "1.10.1",
+      "license": "Apache-2.0",
+      "repository": "GoogleChromeLabs/wasm-feature-detect",
+      "notices": [
+        "LICENSE"
+      ]
+    },
+    {
       "name": "web-namespaces",
       "version": "2.0.1",
       "license": "MIT",
@@ -6527,12 +6686,42 @@
       ]
     },
     {
+      "name": "webidl-conversions",
+      "version": "3.0.1",
+      "license": "BSD-2-Clause",
+      "repository": "jsdom/webidl-conversions",
+      "notices": [
+        "LICENSE.md"
+      ]
+    },
+    {
+      "name": "whatwg-url",
+      "version": "5.0.0",
+      "license": "MIT",
+      "repository": "jsdom/whatwg-url",
+      "notices": [
+        "LICENSE.txt"
+      ]
+    },
+    {
       "name": "when-exit",
       "version": "2.1.5",
       "license": "MIT",
       "repository": "github:fabiospampinato/when-exit",
       "notices": [
         "license"
+      ]
+    },
+    {
+      "name": "word-extractor",
+      "version": "1.0.4",
+      "license": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/morungos/node-word-extractor.git"
+      },
+      "notices": [
+        "LICENSE"
       ]
     },
     {
@@ -6572,10 +6761,43 @@
       ]
     },
     {
+      "name": "xmlchars",
+      "version": "2.2.0",
+      "license": "MIT",
+      "repository": "https://github.com/lddubeau/xmlchars.git",
+      "notices": [
+        "LICENSE"
+      ]
+    },
+    {
       "name": "yaml",
       "version": "2.8.2",
       "license": "ISC",
       "repository": "github:eemeli/yaml",
+      "notices": [
+        "LICENSE"
+      ]
+    },
+    {
+      "name": "yauzl",
+      "version": "2.10.0",
+      "license": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/thejoshwolfe/yauzl.git"
+      },
+      "notices": [
+        "LICENSE"
+      ]
+    },
+    {
+      "name": "zlibjs",
+      "version": "0.3.1",
+      "license": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "git://github.com/imaya/zlib.js.git"
+      },
       "notices": [
         "LICENSE"
       ]
@@ -6610,9 +6832,31 @@
       "license": "(MIT OR GPL-3.0-or-later)"
     }
   ],
-  "missingNoticeText": [],
+  "missingNoticeText": [
+    "@ai-sdk/provider-utils@4.0.27",
+    "@esbuild/win32-x64@0.25.12",
+    "react-router-dom@4.3.1",
+    "react-router@4.3.1",
+    "saxes@5.0.1",
+    "sqlite-vec-windows-x64@0.1.9",
+    "sqlite-vec@0.1.9",
+    "type-fest@3.13.1",
+    "victory-vendor@36.9.2"
+  ],
   "publisherDeclarationsUsed": [
+    "@napi-rs/canvas-win32-x64-msvc@0.1.94",
+    "@rollup/rollup-win32-x64-gnu@4.58.0",
+    "@rollup/rollup-win32-x64-msvc@4.58.0",
+    "@supabase/functions-js@2.97.0",
+    "@supabase/postgrest-js@2.97.0",
+    "@supabase/realtime-js@2.97.0",
+    "@supabase/storage-js@2.97.0",
+    "@supabase/supabase-js@2.97.0",
+    "@tesseract.js-data/eng@1.0.0",
     "dingbat-to-unicode@1.0.1",
-    "lazy-val@1.0.5"
+    "lazy-val@1.0.5",
+    "rehype-katex@7.0.1",
+    "remark-math@6.0.0",
+    "tr46@0.0.3"
   ]
 }

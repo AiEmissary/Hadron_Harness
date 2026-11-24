@@ -51,6 +51,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     providerAllowance:(provider:string)=>ipcRenderer.invoke('collaboration:provider-allowance',provider),
     projectRestore:(workspace:string,slot:'a'|'b'|'shared'|'continuous')=>ipcRenderer.invoke('collaboration:project-restore',workspace,slot),
     wordDocText:(bytes:Uint8Array)=>ipcRenderer.invoke('collaboration:word-doc-text',bytes),
+    pdfText:(bytes:Uint8Array)=>ipcRenderer.invoke('collaboration:pdf-text',bytes),
     projectSelect: (workspace:string,slot:'a'|'b'|'shared'|'continuous',options?:{mode?:'add'|'replace';existingId?:string;source?:'a'|'b'|'shared'|'continuous'})=>ipcRenderer.invoke('collaboration:project-select',workspace,slot,options),
     projectRetain:(workspace:string,source:'a'|'b'|'shared'|'continuous',id:string,target:'a'|'b'|'shared'|'continuous',indexes:number[])=>ipcRenderer.invoke('collaboration:project-retain',workspace,source,id,target,indexes),
     projectRevoke: (id:string)=>ipcRenderer.invoke('collaboration:project-revoke',id),

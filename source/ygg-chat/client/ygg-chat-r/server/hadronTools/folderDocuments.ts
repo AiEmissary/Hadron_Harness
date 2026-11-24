@@ -1,4 +1,5 @@
 import {HADRON_DOCUMENT_MAX_CHARS} from '../../../../shared/hadronDocuments.js'
+import {OCR_MAX_PAGES,OCR_PAGE_TEXT_THRESHOLD,pageScanImage,recognisePages,type OcrPageResult,type ScanPage} from './pdfOcr.js'
 
 /** Recently extracted documents by content hash, so reading a long document in parts parses it once. */
 const cache=new Map<string,string>()
@@ -14,8 +15,9 @@ export const folderDocumentKind=(file:string):FolderDocumentKind|null=>{
 
 /**
  * Extract the text of a PDF or Microsoft Word (.docx, or older .doc) file.
- * Text only: no document scripts, macros, fonts, rendering, network or worker files.
- * PDFs use the same "Page N" layout as attached PDFs.
+ * Text only: no document scripts, macros, fonts, rendering or network.
+ * PDFs use the same "Page N" layout as attached PDFs. Scanned pages (an image but almost no
+ * real text) are recognised on this PC with OCR and labelled as such; nothing is sent anywhere.
  */
 export async function folderDocumentText(kind:FolderDocumentKind,bytes:Uint8Array,sha256:string,signal:AbortSignal):Promise<string>{
   const key=kind+':'+sha256,cached=cache.get(key)
@@ -23,7 +25,7 @@ export async function folderDocumentText(kind:FolderDocumentKind,bytes:Uint8Arra
   const text=kind==='pdf'?await pdfText(bytes,signal):kind==='doc'?await docText(bytes):await docxText(bytes)
   signal.throwIfAborted()
   if(text.length>HADRON_DOCUMENT_MAX_CHARS)throw Error('Document text is larger than Hadron\'s document limit')
-  if(!text.trim())throw Error(kind==='pdf'?'No readable PDF text found. Scanned pages need OCR first.':'This Word document has no readable text')
+  if(!text.trim())throw Error(kind==='pdf'?'No readable PDF text found, and text recognition (OCR) found no words on its pages.':'This Word document has no readable text')
   cache.set(key,text)
   while(cache.size>CACHE_ENTRIES)cache.delete(cache.keys().next().value!)
   return text
@@ -65,6 +67,12 @@ class TextOnlyDOMMatrix{
   invertSelf(){return this}
 }
 
+const SCAN_NOTES:Record<Extract<OcrPageResult,{skipped:string}>['skipped'],string>={
+  limit:`[Scanned page not read: Hadron recognises up to ${OCR_MAX_PAGES} scanned pages per document]`,
+  time:'[Scanned page not read: text recognition ran out of time for this document]',
+  failed:'[Scanned page could not be recognised]',
+}
+
 async function pdfText(bytes:Uint8Array,signal:AbortSignal):Promise<string>{
   const globals=globalThis as Record<string,unknown>
   globals.DOMMatrix??=TextOnlyDOMMatrix
@@ -73,24 +81,46 @@ async function pdfText(bytes:Uint8Array,signal:AbortSignal):Promise<string>{
   const holder=globalThis as typeof globalThis&{pdfjsWorker?:unknown}
   // @ts-expect-error pdf.js ships no type declarations for its worker module.
   holder.pdfjsWorker??=await import('pdfjs-dist/legacy/build/pdf.worker.mjs')
-  const loading=pdf.getDocument({data:new Uint8Array(bytes),isEvalSupported:false,useWorkerFetch:false,disableFontFace:true,useSystemFonts:false,verbosity:0})
+  // Raw image pixels (not browser bitmaps), so scanned pages can be passed to OCR.
+  const loading=pdf.getDocument({data:new Uint8Array(bytes),isEvalSupported:false,useWorkerFetch:false,disableFontFace:true,useSystemFonts:false,isOffscreenCanvasSupported:false,isImageDecoderSupported:false,verbosity:0})
   const stop=()=>{void loading.destroy()}
   signal.addEventListener('abort',stop,{once:true})
-  const timer=setTimeout(stop,120000)
+  // Parsing has two minutes; scanned pages add text recognition's own bounded time.
+  let timer=setTimeout(stop,120000)
   try{
     const document=await loading.promise
     if(document.numPages>2000)throw Error('PDF has more than 2,000 pages')
-    let text='',foundText=false
+    const pages:string[]=[],scanned:number[]=[]
+    let length=0
     for(let index=1;index<=document.numPages;index++){
       signal.throwIfAborted()
       const page=await document.getPage(index),content=await page.getTextContent()
       const pageText=content.items.map(item=>'str' in item?item.str+(item.hasEOL?'\n':' '):'').join('')
-      if(pageText.trim())foundText=true
-      text+=`\n\nPage ${index}\n`+pageText
+      if(pageText.replace(/\s/g,'').length<OCR_PAGE_TEXT_THRESHOLD)scanned.push(index)
+      pages[index]=pageText
       page.cleanup()
+      length+=pageText.length
+      if(length>HADRON_DOCUMENT_MAX_CHARS)throw Error('Document text is larger than Hadron\'s document limit')
+    }
+    const recognised=new Map<number,OcrPageResult>()
+    if(scanned.length){
+      clearTimeout(timer);timer=setTimeout(stop,8*60000)
+      const image=async(index:number)=>{const page=await document.getPage(index);try{return await pageScanImage(page as unknown as ScanPage,pdf.OPS)}finally{page.cleanup()}}
+      for(const [index,result] of await recognisePages(scanned,image,signal))recognised.set(index,result)
+    }
+    let text='',foundText=false
+    for(let index=1;index<=document.numPages;index++){
+      const result=recognised.get(index),typed=pages[index].trim()
+      if(result&&'text' in result&&result.text){
+        foundText=true
+        text+=`\n\nPage ${index} (text recognised from a scanned image; may contain OCR errors)\n${typed?typed+'\n':''}${result.text}`
+      }else{
+        if(typed)foundText=true
+        text+=`\n\nPage ${index}\n`+pages[index]+(result&&'skipped' in result?SCAN_NOTES[result.skipped]:'')
+      }
       if(text.length>HADRON_DOCUMENT_MAX_CHARS)throw Error('Document text is larger than Hadron\'s document limit')
     }
-    // Page headings alone must not pass for content (for example scanned pages).
+    // Page headings and notes alone must not pass for content.
     return foundText?text.trim():''
   }catch(error){
     signal.throwIfAborted()

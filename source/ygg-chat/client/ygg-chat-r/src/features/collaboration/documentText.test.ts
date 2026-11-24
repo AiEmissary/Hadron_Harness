@@ -47,3 +47,20 @@ it('sends old Word (.doc) files to the desktop app and returns only the text', a
     await expect(readDocumentText('.doc', new ArrayBuffer(1))).rejects.toThrow('desktop app only')
   } finally { vi.unstubAllGlobals() }
 })
+
+it('sends PDFs with possibly scanned pages to the desktop OCR reader with their original bytes', async () => {
+  const pdfText = vi.fn(async (bytes: Uint8Array) => `Page 1 (text recognised from a scanned image; may contain OCR errors)\nScan text (${bytes.byteLength} bytes)`)
+  vi.stubGlobal('window', { electronAPI: { collaboration: { pdfText } } })
+  try {
+    const scanned = pdf([])
+    expect(await readDocumentText('.pdf', new Uint8Array([1, 2, 3, 4]).buffer)).toContain('Scan text (4 bytes)')
+    expect(scanned.destroy).toHaveBeenCalledTimes(1)
+    // A fully typed PDF is read in the window as before, without the OCR reader.
+    pdf([{ str: 'A typed page with plenty of real text on it', hasEOL: true }])
+    expect(await readDocumentText('.pdf', new ArrayBuffer(1))).toContain('plenty of real text')
+    expect(pdfText).toHaveBeenCalledTimes(1)
+    pdf([])
+    pdfText.mockRejectedValueOnce(new Error("Error invoking remote method 'collaboration:pdf-text': Error: No readable PDF text found, and text recognition (OCR) found no words on its pages."))
+    await expect(readDocumentText('.pdf', new ArrayBuffer(1))).rejects.toThrow(/^No readable PDF text found, and text recognition/)
+  } finally { vi.unstubAllGlobals() }
+})
