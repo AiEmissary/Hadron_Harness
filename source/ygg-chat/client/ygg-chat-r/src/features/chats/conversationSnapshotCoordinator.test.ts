@@ -43,7 +43,7 @@ describe('coordinateConversationSnapshot', () => {
 
   it('rejects an older request and does not write its cache result', async () => {
     const queryClient = new QueryClient()
-    let currentState = state('c1', [])
+    const currentState = state('c1', [])
     let resolveFirst!: (value: any) => void
     const first = coordinateConversationSnapshot({
       conversationId: 'c1',

@@ -14,7 +14,7 @@ export const sortProjects = (
 ): ProjectWithLatestConversation[] => {
   const sorted = [...projects].sort((a, b) => {
     switch (sortBy) {
-      case 'updated':
+      case 'updated': {
         // Use server-provided latest_conversation_updated_at (already sorted by server DESC)
         // This eliminates the race condition with conversations loading
         const aDate = a.latest_conversation_updated_at || a.updated_at || a.created_at || ''
@@ -31,8 +31,9 @@ export const sortProjects = (
           return bCreated.localeCompare(aCreated)
         }
         return dateCompare
+      }
 
-      case 'created':
+      case 'created': {
         if (!a.created_at) return 1
         if (!b.created_at) return -1
 
@@ -42,6 +43,7 @@ export const sortProjects = (
           return a.name.localeCompare(b.name)
         }
         return createdCompare
+      }
 
       case 'name':
         return a.name.localeCompare(b.name)

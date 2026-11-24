@@ -10,7 +10,7 @@ export interface ThunkExtraArgument {
 }
 
 // This will be populated by the store middleware with current auth state and queryClient
-export let thunkExtraArg: ThunkExtraArgument = {
+export const thunkExtraArg: ThunkExtraArgument = {
   auth: {
     accessToken: null,
     userId: null,

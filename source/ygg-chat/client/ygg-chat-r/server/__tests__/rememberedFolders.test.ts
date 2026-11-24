@@ -35,3 +35,14 @@ it('restores all selected folders, preserves explicit removals and rejects a cha
   fs.rmSync(target,{recursive:true,force:true})
  }
 })
+
+it('saves one folder once when it is chosen under different spellings',()=>{
+ const directory=fs.mkdtempSync(path.join(os.tmpdir(),'hadron-bookmark-'))
+ try{
+  const a=path.join(directory,'a'),b=path.join(directory,'b'),file=path.join(directory,'bookmarks.json');fs.mkdirSync(a);fs.mkdirSync(b)
+  // A trailing separator, a `..` detour and (on Windows) different letter case all name folder a.
+  const spellings=[a,a+path.sep,path.join(b,'..','a'),...(process.platform==='win32'?[a.toUpperCase()]:[])]
+  new RememberedFolders(file).remember('owner','workspace','a',[...spellings,b])
+  expect(new RememberedFolders(file).restore('owner','workspace','a')).toEqual([fs.realpathSync(a),fs.realpathSync(b)])
+ }finally{fs.rmSync(directory,{recursive:true,force:true})}
+})

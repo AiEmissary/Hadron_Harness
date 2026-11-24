@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- see KNOWN ISSUE below
 import sanitizeHtmlLib from 'sanitize-html'
 import { promises as fs } from 'fs'
 import os from 'os'
@@ -30,6 +31,8 @@ async function resolveHtmlPath(filePath: string, cwd?: string): Promise<string> 
   return path.resolve(effectiveCwd, effectivePath)
 }
 
+// KNOWN ISSUE: sanitisation is currently disabled (inherited TODO). sanitizeHtmlLib and allowUnsafe are unused until it is restored.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function sanitizeHtml(html: string, allowUnsafe = false): string {
   // TODO: Re-enable sanitization after testing
   // For now, skip sanitization to allow full CSS rendering

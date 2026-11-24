@@ -9,7 +9,6 @@ import { runtimeContextHome } from '../runtimeIdentity.js'
 // interactive points (external-import approval, InstructionsLoaded reporting).
 
 import fs from 'fs/promises'
-import os from 'os'
 import path from 'path'
 import type { ContextDirectorySettings } from '../../../../shared/contextDirectories.js'
 import {

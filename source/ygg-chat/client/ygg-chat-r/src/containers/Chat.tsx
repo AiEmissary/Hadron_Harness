@@ -2114,7 +2114,7 @@ function Chat() {
 
       // Replace mentions in the message.
       // Regex: Matches @ followed by alphanumeric, dot (.), underscore (_), slash (/), dash (-).
-      const mentionRegex = /@([A-Za-z0-9._\/-]+)/g // 'g' flag for global replacement.
+      const mentionRegex = /@([A-Za-z0-9._/-]+)/g // 'g' flag for global replacement.
       return message.replace(mentionRegex, (full: string, mName: string) => {
         // For each match: Look up full path by captured name (mName).
         // If found, replace with path; otherwise, keep original.
@@ -3456,7 +3456,7 @@ function Chat() {
   }, [])
 
   const formatCwdChangedFooter = useCallback((cwdValue: string) => {
-    const escapedCwd = cwdValue.replace(/```/g, '\`\`\`')
+    const escapedCwd = cwdValue.replace(/```/g, '```')
     const displayCwd = escapedCwd.length > 0 ? escapedCwd : '(cleared)'
     return `\n\n\`\`\`cwd_changed\n${displayCwd}\n\`\`\``
   }, [])
@@ -3559,8 +3559,7 @@ function Chat() {
 
     // Priority 3: Check project conversations cache
     const conv = projectConversations.find(c => String(c.id) === String(conversationIdFromUrl))
-    if (conv?.storage_mode) {
-    }
+    if (conv?.storage_mode) return conv.storage_mode
 
     // Priority 4: Check all conversations cache (fallback)
     const allConvs = queryClient.getQueryData<Conversation[]>(['conversations'])

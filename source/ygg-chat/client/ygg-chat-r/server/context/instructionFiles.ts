@@ -4,7 +4,6 @@ import { runtimeContextHome } from '../runtimeIdentity.js'
 // (docs/claude_code_context_loading_rules.md §2, §2.7).
 
 import fs from 'fs/promises'
-import os from 'os'
 import path from 'path'
 import {
   LABEL_LOCAL,

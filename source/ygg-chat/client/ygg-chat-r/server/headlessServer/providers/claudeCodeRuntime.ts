@@ -328,7 +328,8 @@ export class ClaudeCodeRuntime {
       const retryable=stage==='process'&&epoch===this.epoch&&!this.closing&&!input.signal?.aborted&&calls.length===0&&result?.is_error===true&&['provider_error','provider_unavailable'].includes(category)
       throw Object.assign(Error(message),retryable?{code:'hadron_retryable_generation'}:{})
     }
-    finally{unlinkSync(promptFile)}
+    // A locked temporary file (for example during an antivirus scan) must not replace the real result or error.
+    finally{try{unlinkSync(promptFile)}catch{/* left in the private working directory */}}
   }
   async shutdown(){this.closing=true;this.cancelSignIn();for(const controller of [...this.captures.values(),...this.toolJobs.values()])controller.abort();await Promise.allSettled([...this.captures.keys(),...this.toolJobs.keys()])}
   cancelJobs(){this.lastAllowance=null;for(const controller of [...this.captures.values(),...this.toolJobs.values()])controller.abort();this.allowedModels.clear()}

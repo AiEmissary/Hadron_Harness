@@ -13,17 +13,14 @@ import { IndependentJobsRepo } from './headlessServer/persistence/independentJob
 import { claudeBridge } from './tools/claudeBridge.js'
 import { stopAuth } from './auth/runtime.js'
 import { cancelAppLogin } from './auth/appLogin.js'
-import AdmZip from 'adm-zip'
 import Database from 'better-sqlite3'
 import cors from 'cors'
-import crypto from 'crypto'
 import express from 'express'
 import fs from 'fs'
 import { createRequire as createNodeRequire } from 'module'
 import type { AddressInfo } from 'net'
 import path from 'path'
 import { WebSocket, WebSocketServer } from 'ws'
-import { isManagedToolPath } from './utils/managedToolPaths.js'
 
 // Runtime-neutral server graph (Phase 1 server/client separation)
 import { watchService } from './headlessServer/services/watchService.js'
@@ -32,13 +29,9 @@ import { buildCorsOriginOption } from './corsPolicy.js'
 import type { ToolSandboxHost } from './hostCapabilities.js'
 import {
   getHostCapabilities,
-  getServerDataDir,
-  getServerTempDir,
   setHostGatedToolNames,
-  tryGetHostCapabilities,
   tryGetServerConfig,
 } from './serverHost.js'
-import { resolveToolWorkspaceCwd, validateAndResolvePath } from './toolPathPolicy.js'
 import { shouldUseUtilityRuntimeForTool } from './toolSandboxPolicy.js'
 import { canFallbackToLocalExecution } from './tools/runtime/toolRuntimeSandbox.js'
 
@@ -80,8 +73,8 @@ import { createCollaborationSchema, createCollaborationDeletionGuards } from './
 import { CollaborationRepo } from './headlessServer/persistence/collaborationRepo.js'
 import { skillRegistry } from './skills/skillLoader.js'
 import { registerSkillRoutes } from './skills/skillRoutes.js'
-import { customToolRegistry, type CustomToolsChangedEvent, ToolResult } from './tools/customToolLoader.js'
-import { JobFilter, JobOptions, toolOrchestrator } from './tools/orchestrator/index.js'
+import { customToolRegistry, type CustomToolsChangedEvent } from './tools/customToolLoader.js'
+import { toolOrchestrator } from './tools/orchestrator/index.js'
 
 // validateAndResolvePath and resolveToolWorkspaceCwd moved to
 // server/server/toolPathPolicy.ts (imported above) so the server-owned tool
@@ -1782,45 +1775,6 @@ function setupServer() {
   // ============================================================================
   // CLAUDE CODE AGENT ENDPOINTS
   // ============================================================================
-
-  // Normalize CC SDK content blocks to ChatMessage format
-  // CC SDK uses: { type: 'text', text: string }, { type: 'thinking', thinking: string }
-  // ChatMessage expects: { type: 'text', content: string, index: number }, { type: 'thinking', content: string, index: number }
-  function normalizeContentBlocksForStorage(blocks: any[]): any[] {
-    return blocks.map((block, index) => {
-      if (block.type === 'text') {
-        return {
-          type: 'text',
-          index,
-          content: block.text || block.content || '',
-        }
-      } else if (block.type === 'thinking') {
-        return {
-          type: 'thinking',
-          index,
-          content: block.thinking || block.content || '',
-        }
-      } else if (block.type === 'tool_use') {
-        return {
-          type: 'tool_use',
-          index,
-          id: block.id,
-          name: block.name,
-          input: block.input,
-        }
-      } else if (block.type === 'tool_result') {
-        return {
-          type: 'tool_result',
-          index,
-          tool_use_id: block.tool_use_id,
-          content: block.content,
-          is_error: block.isError || block.is_error || false,
-        }
-      }
-      // Pass through unknown block types with index added
-      return { ...block, index }
-    })
-  }
 
 
   // [Phase 0] Duplicate legacy /api/app/* block removed.

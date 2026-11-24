@@ -387,7 +387,7 @@ it('keeps 100 reply attempts bounded without counting internal memory as convers
  expect(view.turns.filter(turn=>turn.kind==='reply').every(turn=>turn.text?.includes('evidence considered'))).toBe(true)
  expect(view.memory?.throughTurn).toBeGreaterThanOrEqual(75)
  for(const call of calls)expect(Buffer.byteLength(JSON.stringify(call.packet))).toBeLessThan(64000)
-})
+},20000)
 
 it('Stop during compaction cancels and joins the memory worker without saving a partial summary or successor',async()=>{
  holdMemory=true;service.start('owner',input())

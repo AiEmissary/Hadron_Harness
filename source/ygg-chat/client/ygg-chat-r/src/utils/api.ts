@@ -770,7 +770,7 @@ export const apiCall = async <T>(endpoint: string, accessToken: string | null, o
     }
   }
 
-  let response = await executeRequest(tokenToUse)
+  const response = await executeRequest(tokenToUse)
 
   // Handle 401 Unauthorized: Try to refresh token and retry once.
   // The reason is accumulated rather than thrown inline: the old shape wrapped its own
@@ -847,9 +847,6 @@ export const publicApiCall = async <T>(endpoint: string, options?: RequestInit):
 // Convenience methods for common HTTP operations
 export const api = {
   get: <T>(endpoint: string, accessToken: string | null, options?: RequestInit) => {
-    // Log all conversation endpoint calls to track duplicate requests
-    if (endpoint.includes('/conversations') && !endpoint.includes('/messages')) {
-    }
     return apiCall<T>(endpoint, accessToken, { ...options, method: 'GET' })
   },
 
@@ -927,7 +924,7 @@ export const createStreamingRequest = async (
     }
   }
 
-  let response = await executeStreamRequest(tokenToUse)
+  const response = await executeStreamRequest(tokenToUse)
 
   // Handle 401 Unauthorized: Try to refresh token and retry once.
   // This is the path auto-compaction takes (`chatActions` → '/generate/ephemeral'), which

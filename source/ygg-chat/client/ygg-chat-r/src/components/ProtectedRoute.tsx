@@ -14,6 +14,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return <>{children}</>
   }
 
+  // isLocal is fixed at build time, so the hook order never changes between renders.
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const { user, loading } = useAuth()
 
   if (loading) {

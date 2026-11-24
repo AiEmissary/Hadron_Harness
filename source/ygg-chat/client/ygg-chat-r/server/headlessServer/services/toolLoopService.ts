@@ -509,20 +509,6 @@ function withIdleTimeoutAndAbort<T>(
   })
 }
 
-function parseJsonArray(value: any): any[] {
-  if (!value) return []
-  if (Array.isArray(value)) return value
-  if (typeof value === 'string') {
-    try {
-      const parsed = JSON.parse(value)
-      return Array.isArray(parsed) ? parsed : []
-    } catch {
-      return []
-    }
-  }
-  return []
-}
-
 function approximateTokens(value: unknown): number {
   if (value == null) return 0
   let serialized: string

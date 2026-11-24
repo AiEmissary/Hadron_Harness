@@ -6,10 +6,10 @@ export type McpUiCsp = {
 }
 
 export type McpUiPermissions = {
-  camera?: {}
-  microphone?: {}
-  geolocation?: {}
-  clipboardWrite?: {}
+  camera?: Record<string, never>
+  microphone?: Record<string, never>
+  geolocation?: Record<string, never>
+  clipboardWrite?: Record<string, never>
 }
 
 export type McpUiMeta = {

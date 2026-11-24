@@ -490,7 +490,7 @@ const parseGitStatusEntries = (gitContext: GitContext, statusOutput: string): Lo
       entry = {
         path: responsePath,
         relativePath,
-        displayPath: oldPath ? `${oldPath} Ã¢â€ â€™ ${relativePath}` : relativePath,
+        displayPath: oldPath ? `${oldPath} → ${relativePath}` : relativePath,
         oldPath: oldResponsePath,
         oldDisplayPath: oldPath,
         code,

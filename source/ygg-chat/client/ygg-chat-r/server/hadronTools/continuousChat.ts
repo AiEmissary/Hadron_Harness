@@ -213,6 +213,8 @@ export class ContinuousChatService {
      if(!retry)return
     }finally{
      clearTimeout(timer);control.controller.abort()
+     // Deliberate: an unconfirmed worker join must override any earlier outcome so no successor starts.
+     // eslint-disable-next-line no-unsafe-finally
      if(control.handle){this.deps.cancel(control.handle);try{await this.deps.join(control.handle)}catch(error){control.uncertain=true;throw error}}
      control.handle=undefined;control.controller=undefined
     }

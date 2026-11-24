@@ -90,9 +90,17 @@ const humanizeToolName = (toolName: string): string => {
     .join(' ')
 }
 
+type HtmlIframeRegistryValue = NonNullable<ReturnType<typeof useHtmlIframeRegistry>>
+
+// Hooks must run in the same order on every render, so the empty-registry
+// check lives in this wrapper rather than before the content's hooks.
 export const HtmlToolsModal: React.FC = () => {
   const registry = useHtmlIframeRegistry()
   if (!registry) return null
+  return <HtmlToolsModalContent registry={registry} />
+}
+
+const HtmlToolsModalContent: React.FC<{ registry: HtmlIframeRegistryValue }> = ({ registry }) => {
 
   const isOpen = registry.isModalOpen
   const isHomepageFullscreen = registry.isHomepageFullscreen

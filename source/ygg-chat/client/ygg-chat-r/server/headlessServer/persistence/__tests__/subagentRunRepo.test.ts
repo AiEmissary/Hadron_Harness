@@ -283,7 +283,7 @@ describeIfSqlite('SubagentRunRepo', () => {
 
     repo.updateRun(run.id, { status: 'error', error: 'boom' })
     expect(repo.reopenRun(run.id)).toBe(true)
-    let row = repo.getRunById(run.id)
+    const row = repo.getRunById(run.id)
     expect(row?.status).toBe('running')
     expect(row?.error).toBeNull() // cleared on reopen
     expect(row?.attempt).toBe(1)

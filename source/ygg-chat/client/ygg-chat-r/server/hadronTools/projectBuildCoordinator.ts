@@ -311,6 +311,8 @@ export class ProjectBuildCoordinator {
       for(const handle of control.children){try{this.deps.agents.cancel(handle)}catch{/* Still await every child before closing. */}}
       // No release or replacement run until all actual provider workers have ended.
       const ended=await Promise.allSettled([...control.children].map(handle=>this.deps.agents.waitForTerminal(handle)))
+      // Deliberate: unconfirmed worker termination must override any earlier outcome and keep the lease held.
+      // eslint-disable-next-line no-unsafe-finally
       if(ended.some(result=>result.status==='rejected'||!result.value||!['completed','aborted','error'].includes(result.value.status)))throw Error('Project worker termination is unconfirmed; lease remains held')
       control.settled=true
     }

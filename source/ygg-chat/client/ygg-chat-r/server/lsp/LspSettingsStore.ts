@@ -2,7 +2,6 @@ import Conf from 'conf'
 import { runtimeConfOptions } from '../runtimeIdentity.js'
 
 const LSP_COMMANDS_STORAGE_KEY = 'lsp.serverCommands'
-const PROJECT_NAME = 'ygg-chat-r'
 
 const memoryCommandOverrides = new Map<string, string>()
 let storeInstance: Conf<Record<string, unknown>> | null | undefined

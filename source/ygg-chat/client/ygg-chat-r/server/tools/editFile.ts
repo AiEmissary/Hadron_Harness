@@ -210,7 +210,6 @@ export async function editFileSearchReplace(
     // Perform search and replace
     let newContent: string
     let replacements: number
-    let matchStrategy: MatchStrategy | undefined
     let attemptedStrategies: string[] = []
     const processedSearchPattern = interpretEscapeSequences(searchPattern, interpretSearchEscapes)
 
@@ -238,7 +237,7 @@ export async function editFileSearchReplace(
       )
     }
 
-    matchStrategy = matchResult.strategy
+    const matchStrategy: MatchStrategy | undefined = matchResult.strategy
 
     // Apply indentation preservation if enabled and using non-exact match
     let finalReplacement = replacement

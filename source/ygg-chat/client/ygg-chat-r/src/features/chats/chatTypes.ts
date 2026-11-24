@@ -367,7 +367,7 @@ export interface StreamUndoState {
   errorByStreamId: Record<string, string | null>
 }
 
-export interface Model extends BaseModel {}
+export type Model = BaseModel
 
 export interface Provider {
   name: string
@@ -412,7 +412,7 @@ export interface CompositionState {
   compactingLineageId: LineageId | null
   compactionSummaryMessageId: MessageId | null
   validationError: string | null
-  draftMessage: String | null
+  draftMessage: string | null
   multiReplyCount: number
   imageDrafts: ImageDraft[] // base64-encoded images + metadata from drag/drop
   imageDraftTarget: ImageDraftTarget | null // explicit owner for imageDrafts; never infer from focused message

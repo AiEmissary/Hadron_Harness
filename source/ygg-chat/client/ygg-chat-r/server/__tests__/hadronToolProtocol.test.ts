@@ -52,7 +52,7 @@ it('requires a real evidence attempt in verification, with at most one bounded c
 })
 it('reserves the last request for synthesis without increasing the configured budget',async()=>{
  const invoke=vi.fn(async()=>({text:'observed file evidence'}))
- const generate=vi.fn(async(packet:string,instructions:string)=>JSON.parse(packet).finalAnswerRequired?JSON.stringify({answer:'Limited conclusion based on the inspected excerpt; the rest remains unknown.'}):JSON.stringify({tool:'project_read',arguments:{path:'sample.md',startLine:generate.mock.calls.length}}))
+ const generate=vi.fn(async(packet:string,_instructions:string)=>JSON.parse(packet).finalAnswerRequired?JSON.stringify({answer:'Limited conclusion based on the inspected excerpt; the rest remains unknown.'}):JSON.stringify({tool:'project_read',arguments:{path:'sample.md',startLine:generate.mock.calls.length}}))
  const answer=await runHadronToolConversation({session:{instructions:'Read only',invoke,maxRequests:3},task:'Inspect a large project',signal:new AbortController().signal,generate})
  expect(answer).toContain('Limited conclusion');expect(generate).toHaveBeenCalledTimes(3);expect(invoke).toHaveBeenCalledTimes(2)
 })

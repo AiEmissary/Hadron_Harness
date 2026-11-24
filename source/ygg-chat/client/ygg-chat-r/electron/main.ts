@@ -1,10 +1,11 @@
+import './hadronBootstrap.js'
+import {hadronDiagnosticDirectory,hadronIsolatedTestProfile} from './hadronBootstrap.js'
+// Keep these first: hadronBootstrap pins the private Hadron profile before any other module loads.
 import {completionAlertText,type CompletionAlert} from '../../../shared/hadronCompletion.js'
 import {RememberedFolders} from '../server/hadronTools/rememberedFolders.js'
 import {workspaceArchiveHost} from '../server/hadronTools/workspaceArchive.js'
 import {diagnosticRecorder} from './hadronDiagnosticBootstrap.js'
 import {recycleBinHost} from '../server/hadronTools/recycleBin.js'
-import './hadronBootstrap.js'
-import {hadronDiagnosticDirectory,hadronIsolatedTestProfile} from './hadronBootstrap.js'
 import {contextCopyHost} from '../server/hadronTools/contextCopy.js'
 import {ARCHIVE_BYTES,archiveSummary,chatArchiveHost,validateChatArchive} from '../server/hadronTools/chatArchive.js'
 import {helperHost} from '../server/hadronTools/helperHost.js'
@@ -398,6 +399,7 @@ type TerminalSessionRecord = {
 const activeTerminalSessions = new Map<string, TerminalSessionRecord>()
 
 function getNodePtyModule(): typeof import('node-pty') {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- loaded lazily on purpose
   return require('node-pty') as typeof import('node-pty')
 }
 
@@ -2375,6 +2377,7 @@ ipcMain.handle('terminal:kill', async (event, sessionId: string) => {
 ipcMain.handle('shell:exec', async (_event, command: string, options?: { cwd?: string; timeout?: number }) => {
   assertLegacyExecutionAllowed('widget_shell')
   // console.log('[Electron IPC] Executing command:', command)
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- loaded lazily on purpose
   const { spawn } = require('child_process')
 
   return new Promise(resolve => {
@@ -2439,8 +2442,11 @@ ipcMain.handle(
   ) => {
     // console.log('[Electron IPC] HTTP request:', options.method || 'GET', options.url)
 
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- loaded lazily on purpose
     const http = require('http')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- loaded lazily on purpose
     const https = require('https')
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- loaded lazily on purpose
     const { URL } = require('url')
 
     return new Promise(resolve => {
@@ -2580,6 +2586,7 @@ ipcMain.handle(
       delete require.cache[resolvedPath]
 
       // Load the tool module using Electron's Node.js runtime
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- loaded lazily on purpose
       const toolModule = require(resolvedPath)
       loadedToolModules.set(resolvedPath, toolModule)
 
@@ -3007,14 +3014,6 @@ function toggleCompactMode() {
 
 // Electron-side OpenAI ChatGPT streaming bridge. Renderer never receives raw OAuth tokens.
 const activeOpenAIStreams = new Map<string, { aborted: boolean; controller: AbortController }>()
-
-function openAIStorageAdapter() {
-  return {
-    get: (key: string) => getFromStore(key),
-    set: (key: string, value: any) => setInStore(key, value),
-    delete: (key: string) => deleteFromStore(key),
-  }
-}
 
 function sendOpenAIStreamEvent(sender: Electron.WebContents, streamId: string, chunk: any): void {
   if (!sender.isDestroyed()) {

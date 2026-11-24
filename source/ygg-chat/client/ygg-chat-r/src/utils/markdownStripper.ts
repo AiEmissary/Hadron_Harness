@@ -119,10 +119,10 @@ export function fallbackStripMarkdown(md: string): string {
   text = text.replace(/`([^`]+)`/g, '$1')
 
   // Images: ![alt](url) -> alt
-  text = text.replace(/!\[([^\]]*)\]\([^\)]*\)/g, '$1')
+  text = text.replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
 
   // Links: [text](url) -> text
-  text = text.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '$1')
+  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1')
 
   // Autolinks: <http://example.com> -> http://example.com
   text = text.replace(/<([a-z]+:\/\/[^>]+)>/gi, '$1')

@@ -1,7 +1,6 @@
 import type { HeadlessStreamEvent } from '../../../../../shared/headlessApi.js'
 import type { ReadableStreamReadResult } from './webStreamTypes.js'
 import type { OpenAIContextUsage } from '../../../../../shared/contextUsage.js'
-const normalizeAuthorizationToken = (token?: string | null) => String(token || '').replace(/^Bearer\s+/i, '').trim()
 import { getAuthManager } from '../../auth/runtime.js'
 import { attachChatErrorCode } from './providerErrorFormatter.js'
 import type { AppAuthTokenManager } from '../services/appAuthTokenManager.js'

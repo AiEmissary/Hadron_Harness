@@ -3,7 +3,6 @@ import { runtimeContextHome } from '../runtimeIdentity.js'
 // Subagent definitions `<configDir>/agents/**/*.md` (docs §6).
 
 import fs from 'fs/promises'
-import os from 'os'
 import path from 'path'
 import { parseToolNameList } from '../../../../shared/toolNameAliases.js'
 import { parseFrontmatter, parseFrontmatterBoolean, parseFrontmatterList, parseFrontmatterString } from './frontmatter.js'

@@ -1595,7 +1595,7 @@ class McpClient extends EventEmitter {
   }
 
   private rejectAllPending(error: Error): void {
-    for (const [id, pending] of this.pendingRequests) {
+    for (const [, pending] of this.pendingRequests) {
       clearTimeout(pending.timeout)
       pending.reject(error)
     }
@@ -1899,8 +1899,7 @@ export class McpManager extends EventEmitter {
     }
 
     // Create and connect client
-    let client: McpClient
-    client = new McpClient(
+    const client: McpClient = new McpClient(
       config.name,
       normalizedConfig,
       async oauth => {

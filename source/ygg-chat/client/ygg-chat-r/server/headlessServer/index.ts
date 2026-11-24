@@ -11,7 +11,6 @@ import { createHadronToolSession, readHadronToolActivity, recordHadronToolActivi
 import {withWebResearch} from '../hadronTools/webResearch.js'
 import { projectReadHost } from '../hadronTools/projectRead.js'
 import {projectAgentHost} from '../hadronTools/projectAgent.js'
-import {admitHadronToolSession} from '../hadronTools/types.js'
 import {withDocumentTools} from '../hadronTools/documentTools.js'
 import {desktopProjectDraftHost,ProjectDraftService} from '../hadronTools/projectDraftService.js'
 import {inspectSavedWindowsWorkerEpoch} from '../hadronTools/windowsWorkerEvidence.js'

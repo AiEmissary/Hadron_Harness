@@ -312,7 +312,7 @@ it('holds the lease when a substituted handle makes actual worker termination un
  expect(()=>writes.acquire('other','workspace',root)).toThrow('overlapping')
 })
 it('rejects changed terminal identity and never dispatches a peer review for it',async()=>{
- answer=(request)=>{runs.get('run-0').model_name='substituted';return proposal()}
+ answer=(_request)=>{runs.get('run-0').model_name='substituted';return proposal()}
  prepare();await expect(coordinator.run('owner','build')).rejects.toThrow('result identity')
  expect(submitted).toHaveLength(1)
  expect(coordinator.status('owner','build').writes?.files).toHaveLength(0)

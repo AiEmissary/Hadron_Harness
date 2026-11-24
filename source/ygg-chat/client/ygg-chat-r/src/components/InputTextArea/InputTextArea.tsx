@@ -67,7 +67,7 @@ interface TextAreaProps {
   fontSizeOffset?: number
 }
 
-const allowedMentionChar = /[A-Za-z0-9._\/\-]/
+const allowedMentionChar = /[A-Za-z0-9._/-]/
 const normalizeSlashes = (value: string) => value.replace(/\\/g, '/')
 const basename = (value: string) => {
   const normalized = normalizeSlashes(value)
@@ -118,7 +118,7 @@ function findActiveMention(value: string, cursorPos: number) {
 }
 
 // Detect slash command at position 0 (e.g., "/compact", "/clear")
-const allowedSlashChar = /[A-Za-z0-9_\-]/
+const allowedSlashChar = /[A-Za-z0-9_-]/
 
 function findActiveSlashCommand(value: string, cursorPos: number) {
   // Slash commands must start at position 0
@@ -153,7 +153,7 @@ export const InputTextArea: React.FC<TextAreaProps> = ({
   onBlur,
   state = 'default',
   errorMessage,
-  maxLength = 1000000,
+  maxLength: _maxLength = 1000000,
   width = 'max-w-3xl',
   className = '',
   minRows = 1,

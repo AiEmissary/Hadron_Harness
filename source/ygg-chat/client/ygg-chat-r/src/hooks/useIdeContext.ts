@@ -295,7 +295,7 @@ export function useIdeContext(): UseIdeContextReturn {
               break
             }
 
-            case 'file_opened':
+            case 'file_opened': {
               const openedFile = message.data as FileInfo
               // if (import.meta.env.VITE_ENVIRONMENT === 'electron') {
               //   console.log('[IDE DEBUG][WS file_opened]', {
@@ -308,20 +308,23 @@ export function useIdeContext(): UseIdeContextReturn {
               globalDispatch(addOpenFile(openedFile))
               addRecentActivity('file_opened', openedFile.path, { file: openedFile })
               break
+            }
 
-            case 'file_closed':
+            case 'file_closed': {
               const closedFilePath = message.data.path
               globalDispatch(removeOpenFile(closedFilePath))
               addRecentActivity('file_closed', closedFilePath)
               break
+            }
 
-            case 'active_file_changed':
+            case 'active_file_changed': {
               const activeFilePath = message.data.path
               // Use current Redux state to find the active file
               const currentOpenFiles = ideContext.openFiles
               const activeFile = activeFilePath ? currentOpenFiles.find(f => f.path === activeFilePath) || null : null
               globalDispatch(setActiveFile(activeFile))
               break
+            }
 
             case 'selection_changed': {
               const selection = message.data as SelectionInfo | null
@@ -348,7 +351,7 @@ export function useIdeContext(): UseIdeContextReturn {
               globalDispatch(setCurrentSelection(null))
               break
 
-            case 'file_contents_response':
+            case 'file_contents_response': {
               const fileContent = message.data
               // if (import.meta.env.VITE_ENVIRONMENT === 'electron') {
               //   console.log('[IDE DEBUG][WS file_contents_response]', {
@@ -397,8 +400,9 @@ export function useIdeContext(): UseIdeContextReturn {
                 console.warn('⚠️ No pending request found for requestId:', responseRequestIdRaw)
               }
               break
+            }
 
-            case 'file_contents_error':
+            case 'file_contents_error': {
               const errorData = message.data
               console.error('❌ File content error:', errorData.path, errorData.error)
               // Resolve with null on error - check both message.requestId and data.requestId
@@ -413,6 +417,7 @@ export function useIdeContext(): UseIdeContextReturn {
                 console.warn('⚠️ No pending request found for error requestId:', errorRequestIdRaw)
               }
               break
+            }
           }
         } catch (error) {
           console.error('Failed to parse IDE context message:', error)

@@ -4228,6 +4228,8 @@ const Settings: React.FC = () => {
           </div>
         </SettingsSection>
 
+        {/* Section intentionally hidden; kept for a later release. */}
+        {/* eslint-disable-next-line no-constant-binary-expression */}
         {false && (
           <section className={settingsSectionClass}>
             <div className='flex flex-col gap-1'>

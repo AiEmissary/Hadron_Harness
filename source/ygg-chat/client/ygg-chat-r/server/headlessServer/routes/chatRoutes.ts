@@ -424,7 +424,7 @@ export function launchQueuedSuccessor(orchestrator: HeadlessChatOrchestrator, ru
 }
 
 export function registerChatRoutes(app: Express, deps: RegisterChatRoutesDeps): void {
-  const { orchestrator, compactionService, decisionBroker, runSessions, resumableRuns } = deps
+  const { orchestrator, decisionBroker, runSessions, resumableRuns } = deps
 
   // Pause/resume: the renderer answers a permission_required / clarify_required
   // event by resolving the paused decision on the ALREADY-OPEN SSE stream. Plain

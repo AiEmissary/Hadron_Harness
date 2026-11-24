@@ -78,7 +78,7 @@ it('marks unfinished helpers interrupted on restart without dispatching another 
 
 it('delegates a granted focused search to the lightweight same-provider helper without widening access',async()=>{
  const f=fixture();try{
-  const invoke=vi.fn(async(name:string,args:unknown)=>{expect(name).toBe('project_search');return {matches:[{path:'src/a.ts',line:3,text:'needle'}],truncated:false}})
+  const invoke=vi.fn(async(name:string,_args:unknown)=>{expect(name).toBe('project_search');return {matches:[{path:'src/a.ts',line:3,text:'needle'}],truncated:false}})
   const session=f.service.decorate({instructions:'Granted bounded project search',invoke},f.input)!
   await session.invoke('helper_search',{task:'Identify relevant code',query:'needle',path:'src'},f.controller.signal)
   expect(invoke).toHaveBeenCalledWith('project_search',{query:'needle',path:'src',mode:'content',maxResults:20},expect.any(AbortSignal))

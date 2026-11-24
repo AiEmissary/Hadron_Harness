@@ -24,10 +24,16 @@ export class RememberedFolders {
  remember(owner:string,workspace:string,slot:Slot,root:string|string[]){
   const paths=Array.isArray(root)?root:[root]
   if(!paths.length||paths.length>12)throw Error('Choose between 1 and 12 project folders')
-  const roots=[...new Set(paths)].map(value=>{
+  const seen=new Set<string>()
+  const roots=paths.map(value=>{
    const canonical=fs.realpathSync(value),stat=fs.lstatSync(value,{bigint:true})
    if(!stat.isDirectory()||stat.isSymbolicLink())throw Error('Choose a project folder')
    return {root:canonical,device:String(stat.dev),inode:String(stat.ino)}
+  }).filter(item=>{
+   // Different spellings of one folder (such as letter case on Windows) are saved once.
+   const key=item.device+':'+item.inode
+   if(seen.has(key))return false
+   seen.add(key);return true
   })
   this.write(owner,workspace,slot,{owner,workspace,slot,...roots[0],roots})
  }

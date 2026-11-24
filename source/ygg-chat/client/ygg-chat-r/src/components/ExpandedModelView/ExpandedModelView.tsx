@@ -90,13 +90,14 @@ export const ExpandedModelView: React.FC<ExpandedModelViewProps> = ({
       case 'all':
         result = models
         break
-      default:
+      default: {
         // Company tab - filter by prefix
         const prefix = COMPANY_PREFIXES[activeTab]
         if (prefix) {
           result = models.filter(m => m.name.startsWith(prefix))
         }
         break
+      }
     }
 
     // Apply search filter

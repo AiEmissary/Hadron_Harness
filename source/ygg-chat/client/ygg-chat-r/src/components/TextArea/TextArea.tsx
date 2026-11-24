@@ -46,7 +46,7 @@ interface TextAreaProps {
   fontSizeOffset?: number
 }
 
-const allowedMentionChar = /[A-Za-z0-9._\/\-]/
+const allowedMentionChar = /[A-Za-z0-9._/-]/
 const normalizeSlashes = (value: string) => value.replace(/\\/g, '/')
 const basename = (value: string) => {
   const normalized = normalizeSlashes(value)

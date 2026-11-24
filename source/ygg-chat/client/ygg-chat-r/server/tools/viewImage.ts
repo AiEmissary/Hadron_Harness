@@ -2,7 +2,7 @@ import { hasFullToolAccess } from '../toolAccessContext.js'
 import * as fs from 'fs'
 import * as path from 'path'
 import { isManagedToolPath } from '../utils/managedToolPaths.js'
-import { isWindows, resolveToWindowsPath, toWslPath } from '../utils/wslBridge.js'
+import { isWindows, resolveToWindowsPath } from '../utils/wslBridge.js'
 
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024
 

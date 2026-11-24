@@ -440,6 +440,8 @@ class LspTransportSession {
       return this.connectPromise
     }
 
+    // Every failure path inside goes through settleReject, so an async executor is safe here.
+    // eslint-disable-next-line no-async-promise-executor
     this.connectPromise = new Promise<void>(async (resolve, reject) => {
       let settled = false
       const settleReject = (error: unknown) => {

@@ -4,16 +4,6 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import type { Express, Request, Response } from 'express'
-type ProviderCredentialRecord = {
-  user_id: string
-  provider: string
-  refresh_token: string
-  client_id?: string | null
-  client_secret?: string | null
-  token_url?: string | null
-  scopes?: string[] | null
-}
-
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
 type JsonObject = Record<string, any>
@@ -1359,26 +1349,6 @@ function isProviderCredentials(value: any): value is ProviderCredentials {
     return Boolean(value.clientEmail && value.privateKey && value.tokenUrl)
   }
   return false
-}
-
-function mapRecordToCredentials(record: ProviderCredentialRecord): ProviderCredentials | undefined {
-  const refreshToken = record.refresh_token
-  const clientId = record.client_id
-  const clientSecret = record.client_secret
-  const tokenUrl = record.token_url || defaultTokenUrl(record.provider)
-
-  if (!refreshToken || !clientId || !clientSecret || !tokenUrl) {
-    return undefined
-  }
-
-  return {
-    type: 'oauth2',
-    clientId,
-    clientSecret,
-    refreshToken,
-    tokenUrl,
-    scopes: record.scopes ?? undefined,
-  }
 }
 
 function normalizeCredentialPayload(provider: string, payload: any): ProviderCredentials | undefined {

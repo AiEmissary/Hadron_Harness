@@ -420,18 +420,6 @@ export function registerNoteSearchRoutes(app: Express, deps: NoteSearchRoutesDep
       )
   }
 
-  const deleteNoteEmbedding = (messageId: string) => {
-    const vectorConfig = getNoteVectorConfig()
-    if (getSqliteVecAvailable() && vectorConfig.embedding_dimensions > 0) {
-      try {
-        db!.prepare(`DELETE FROM ${vectorConfig.vector_table_name} WHERE message_id = ?`).run(messageId)
-      } catch (error) {
-        console.warn('[LocalServer] Failed to delete note embedding row:', error)
-      }
-    }
-    db!.prepare(`DELETE FROM note_search_embedding_state WHERE message_id = ?`).run(messageId)
-  }
-
   const backfillNoteEmbeddings = async (params: {
     userId: string
     projectId?: string
@@ -1376,7 +1364,6 @@ export function registerNoteSearchRoutes(app: Express, deps: NoteSearchRoutesDep
       const projectId = (req.query.projectId as string | undefined) || undefined
       const rawLimit = Number(req.query.limit ?? 20)
       const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? Math.floor(rawLimit) : 20, 1), 50)
-      const queryEmbedding = req.query.embedding
 
       if (!userId) {
         res.status(400).json({ error: 'userId required' })

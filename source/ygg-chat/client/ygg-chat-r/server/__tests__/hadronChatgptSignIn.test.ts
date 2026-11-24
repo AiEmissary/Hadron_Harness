@@ -12,7 +12,6 @@ const hostId = 'urn:uuid:11111111-2222-4333-8444-555555555555'
 const redirectUri = 'http://127.0.0.1:55431/auth/callback'
 function fixture(options: { registration?: any; claims?: Record<string, any>; scope?: string; key?: CryptoKey;
   issuer?: string; audience?: string; expiry?: number; issuedAt?: number } = {}) {
-  let attempt: HadronChatgptSignIn
   const send = vi.fn(async () => {
     const token = await new SignJWT({ nonce: auth.searchParams.get('nonce'), ...options.claims })
       .setProtectedHeader({ alg: 'RS256', kid: 'fixture' }).setIssuer(options.issuer ?? 'https://auth.openai.com')
@@ -22,7 +21,7 @@ function fixture(options: { registration?: any; claims?: Record<string, any>; sc
     return new Response(JSON.stringify({ access_token: 'private-access', refresh_token: 'private-refresh', id_token: token,
       token_type: 'Bearer', expires_in: 3600, scope: options.scope ?? 'openid resource.invoke chatgpt.tokens.use.direct offline_access' }))
   })
-  attempt = new HadronChatgptSignIn({ hostId, redirectUri, now: () => now, registration: options.registration,
+  const attempt = new HadronChatgptSignIn({ hostId, redirectUri, now: () => now, registration: options.registration,
     fetch: send as any, verificationKey: async () => keys.publicKey })
   const auth = new URL(attempt.authorizationUrl())
   const callback = new URL(redirectUri)

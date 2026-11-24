@@ -207,7 +207,7 @@ describe('projectServerEvent', () => {
 
   it('defaults terminal ownership to updatePath=true for primary sends', () => {
     const started = chatSliceActions.sendingStarted({ streamId: 'stream-1' })
-    let state = chatReducer(undefined, started)
+    const state = chatReducer(undefined, started)
     expect(state.streaming.byId['stream-1'].streamType).toBe('primary')
     expect(state.streaming.primaryStreamId).toBe('stream-1')
 

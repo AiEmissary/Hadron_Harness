@@ -33,7 +33,7 @@ const migrations = runInNewContext(`${migrationCode}\n({ SCHEMA_MIGRATIONS, runS
 const migration = migrations.SCHEMA_MIGRATIONS.find(entry => entry.name === 'conversation_additional_cwds')!
 const versions = migrations.SCHEMA_MIGRATIONS.map(entry => entry.version)
 const latestVersion = Math.max(...versions)
-const freshSchema = source.match(/CREATE TABLE IF NOT EXISTS conversations \([\s\S]*?\n    \)/)?.[0]
+const freshSchema = source.match(/CREATE TABLE IF NOT EXISTS conversations \([\s\S]*?\n {4}\)/)?.[0]
 if (!freshSchema) throw new Error('Cannot locate production conversations schema')
 
 function openDatabase(): any {

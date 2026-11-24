@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 const source = readFileSync(new URL('./Chat.tsx', import.meta.url), 'utf8')
 const transcriptClass = source.match(/ref=\{messagesContainerRef\}\s+className=\{(`[^`]+`)\}/)?.[1]
-const scrollEffect = source.match(/\/\/ Hide title bar on scroll down[^\n]*\n\s*useEffect\(\(\) => \{([\s\S]*?)\n  \}, \[\]\)/)?.[1]
+const scrollEffect = source.match(/\/\/ Hide title bar on scroll down[^\n]*\n\s*useEffect\(\(\) => \{([\s\S]*?)\n {2}\}, \[\]\)/)?.[1]
 if (!transcriptClass || !scrollEffect) throw new Error('Missing primary transcript class or toolbar scroll effect')
 
 // Exercise the container's real class expression and listener without mounting chat transports.

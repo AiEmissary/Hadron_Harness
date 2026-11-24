@@ -84,7 +84,7 @@ export async function execute(
     }
   }
 
-  let resolvedMessageId: string | null = requestedMessageId
+  const resolvedMessageId: string | null = requestedMessageId
   let resolvedConversationId: string | null = requestedConversationId || currentConversationId
   let resolvedProjectId: string | null = requestedProjectId
 

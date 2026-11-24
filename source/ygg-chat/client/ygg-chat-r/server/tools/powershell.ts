@@ -3,7 +3,7 @@ import { detectPathType, isWindows, resolveToWindowsPath, type WSLExecutionOptio
 import { runBoundedShell, type ShellRunOptions, type ShellRunResult } from './shellRunner.js'
 
 export interface PowerShellOptions extends ShellRunOptions { description?: string }
-export interface PowerShellResult extends ShellRunResult {}
+export type PowerShellResult = ShellRunResult
 
 export async function resolvePowerShellCwd(inputCwd?: string, execution: WSLExecutionOptions = {}): Promise<{ display: string; forSpawn: string }> {
   const input = inputCwd?.trim()

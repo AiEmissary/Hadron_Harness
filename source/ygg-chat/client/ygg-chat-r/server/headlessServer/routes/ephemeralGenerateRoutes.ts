@@ -207,9 +207,9 @@ function getRemoteApiBase(): string {
 }
 
 async function resolveRemoteAppAccessToken(
-  tokenStore: ProviderTokenStore,
-  userId?: string | null,
-  accessToken?: string | null
+  _tokenStore: ProviderTokenStore,
+  _userId?: string | null,
+  _accessToken?: string | null
 ): Promise<string> {
   return (await getAuthManager().resolve('app')).accessToken
 }

@@ -1,6 +1,6 @@
 import { promises as fs } from 'fs'
 import * as path from 'path'
-import { describe, expect, it, test } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { editFile, multiEdit } from '../editFile.js'
 import { readTextFile } from '../readFile.js'
 import { createToolFsHarness } from './helpers/toolFsHarness.js'

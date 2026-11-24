@@ -390,7 +390,7 @@ export class ClaudeBridge {
           session.initialized = true
           // These are billed/reported models, not a guess based on the requested alias.
           job.modelsUsed = result.modelUsage && typeof result.modelUsage === 'object' && !Array.isArray(result.modelUsage)
-            ? Object.keys(result.modelUsage).filter(model => /^[a-zA-Z0-9][a-zA-Z0-9._:/@\[\]-]{0,255}$/.test(model)).slice(0, 16)
+            ? Object.keys(result.modelUsage).filter(model => /^[a-zA-Z0-9][a-zA-Z0-9._:/@[\]-]{0,255}$/.test(model)).slice(0, 16)
             : undefined
           job.status = 'completed'
           session.messages.push({ role: 'assistant', text: result.result, jobId: job.id, at: job.finishedAt })
@@ -430,7 +430,7 @@ export class ClaudeBridge {
       const scope = this.scope(context)
       if (args.model !== undefined) {
         if (!['start', 'send', 'resume', 'fork'].includes(args.action)) throw new Error('model is only supported for start, send, resume, and fork')
-        if (typeof args.model !== 'string' || /\s/.test(args.model) || !/^[a-zA-Z0-9][a-zA-Z0-9._:/@\[\]-]{0,255}$/.test(args.model)) throw new Error('model must be an alias or model ID of 1–256 characters without spaces or control characters')
+        if (typeof args.model !== 'string' || /\s/.test(args.model) || !/^[a-zA-Z0-9][a-zA-Z0-9._:/@[\]-]{0,255}$/.test(args.model)) throw new Error('model must be an alias or model ID of 1–256 characters without spaces or control characters')
       }
       for (const key of ['name', 'newName', 'query', 'directory'] as const) {
         if (args[key] !== undefined && (typeof args[key] !== 'string' || !args[key]!.trim())) throw new Error(`${key} must be a non-empty string`)

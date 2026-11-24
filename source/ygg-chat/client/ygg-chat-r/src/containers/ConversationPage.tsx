@@ -204,23 +204,25 @@ const ConversationPage: React.FC = () => {
   ) => {
     const sorted = [...convs].sort((a, b) => {
       switch (sortBy) {
-        case 'updated':
+        case 'updated': {
           // Use updated_at if available, otherwise fall back to created_at
           const aDate = a.updated_at || a.created_at || ''
           const bDate = b.updated_at || b.created_at || ''
           if (!aDate) return 1
           if (!bDate) return -1
           return bDate.localeCompare(aDate)
+        }
 
         case 'created':
           if (!a.created_at) return 1
           if (!b.created_at) return -1
           return b.created_at.localeCompare(a.created_at)
 
-        case 'name':
+        case 'name': {
           const aTitle = a.title || `Conversation ${a.id}`
           const bTitle = b.title || `Conversation ${b.id}`
           return aTitle.localeCompare(bTitle)
+        }
 
         default:
           return 0

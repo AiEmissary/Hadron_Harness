@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3'
 import { estimateTokenCount } from 'tokenx'
 import { extractOpenAIContextUsageFromBlocks } from '../../../shared/contextUsage.js'
-import { summarizeDurations, summarizeOutcomes } from './loggingAnalyticsMetrics.js'
+import { summarizeOutcomes } from './loggingAnalyticsMetrics.js'
 
 type QueryLike = Record<string, unknown>
 

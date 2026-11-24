@@ -5,7 +5,7 @@ import { buildNativeShellCommand } from './nativeShell.js'
 import { runBoundedShell, type ShellRunOptions, type ShellRunResult } from './shellRunner.js'
 
 export interface BashOptions extends ShellRunOptions { description?: string }
-export interface BashResult extends ShellRunResult {}
+export type BashResult = ShellRunResult
 
 const EXIT_1_NO_MATCH_COMMANDS = ['grep', 'egrep', 'fgrep', 'diff', 'cmp', 'awk']
 function getDefaultSuccessCodes(command: string): number[] {

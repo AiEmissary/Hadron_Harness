@@ -14,7 +14,7 @@ function composer(initialDraft: string) {
   const dispatch = (action: ReturnType<typeof chatSliceActions.inputChanged>) => {
     state = chatReducer(state, action)
   }
-  const body = source.match(/const clearLocalInput = useCallback\(\(\) => \{([\s\S]*?)\n  \}, \[[^\]]*\]\)/)?.[1]
+  const body = source.match(/const clearLocalInput = useCallback\(\(\) => \{([\s\S]*?)\n {2}\}, \[[^\]]*\]\)/)?.[1]
   if (!body) throw new Error('Missing clearLocalInput callback')
   const clearLocalInput = new Function('inputControllerRef', 'dispatch', 'chatSliceActions', body)
   return {

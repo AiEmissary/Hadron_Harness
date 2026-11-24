@@ -14,12 +14,6 @@ import { parseSkillManifest, serializeSkillManifest } from './skillManifest.js'
 
 const execFile = promisify(execFileCallback)
 
-interface GitHubContent {
-  name: string
-  type: 'file' | 'dir'
-  download_url: string | null
-}
-
 export interface SkillInstallCandidate {
   name: string
   path: string
@@ -588,7 +582,7 @@ const CLAWDHUB_DOWNLOAD_BASE = 'https://auth.clawdhub.com/api/v1/download'
  * https://clawdhub.com/owner/slug -> slug
  */
 function parseClawdHubUrl(url: string): string | null {
-  const match = url.match(/^https?:\/\/clawdhub\.com\/[^\/]+\/([^\/\?\#]+)/)
+  const match = url.match(/^https?:\/\/clawdhub\.com\/[^/]+\/([^/?#]+)/)
   return match ? match[1] : null
 }
 
@@ -596,7 +590,7 @@ function parseClawdHubUrl(url: string): string | null {
  * Check if URL is a ClawdHub page URL
  */
 export function isClawdHubUrl(url: string): boolean {
-  return /^https?:\/\/clawdhub\.com\/[^\/]+\/[^\/]+/.test(url)
+  return /^https?:\/\/clawdhub\.com\/[^/]+\/[^/]+/.test(url)
 }
 
 /**
