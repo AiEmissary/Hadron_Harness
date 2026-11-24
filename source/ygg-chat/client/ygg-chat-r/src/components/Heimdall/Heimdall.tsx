@@ -1861,7 +1861,6 @@ export const Heimdall: React.FC<HeimdallProps> = ({
     if (!offsetRef.current && chatData) {
       offsetRef.current = { x: -bounds.minX + 50, y: -bounds.minY + 50 }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bounds, chatData])
 
   const hasPositions = Object.keys(positions).length > 0

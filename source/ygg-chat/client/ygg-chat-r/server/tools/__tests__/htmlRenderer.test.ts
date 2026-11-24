@@ -2,8 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { promises as fs } from 'fs'
 import os from 'os'
 import path from 'path'
-import { run } from '../htmlRenderer.js'
+import { run, sanitizeHtml } from '../htmlRenderer.js'
 import { createToolFsHarness } from './helpers/toolFsHarness.js'
+import { canCreateSymlinks } from './helpers/symlinkSupport.js'
 import { BUILTIN_TOOL_DEFINITIONS } from '../../../../../shared/builtinToolDefinitions.js'
 
 const html = '<!doctype html><html><head><style>body { color: red; }</style></head><body>café 😀</body></html>'
@@ -11,7 +12,7 @@ const html = '<!doctype html><html><head><style>body { color: red; }</style></he
 afterEach(() => vi.restoreAllMocks())
 
 describe('html_renderer', () => {
-  it('preserves inline HTML and the existing result shape', async () => {
+  it('preserves safe inline HTML (including its doctype and styles) and the existing result shape', async () => {
     expect(await run({ html })).toEqual({ success: true, html })
     expect(await run({ html, allowUnsafe: true })).toEqual({ success: true, html })
   })
@@ -49,7 +50,7 @@ describe('html_renderer', () => {
     expect(await run({ path: 'page.html', cwd: '~' })).toEqual({ success: true, html })
   })
 
-  it('follows symlinks to files outside cwd', async () => {
+  it.skipIf(!canCreateSymlinks)('follows symlinks to files outside cwd', async () => {
     const workspace = await createToolFsHarness()
     const outside = await createToolFsHarness()
     const target = await outside.writeFile('target.html', html)
@@ -92,6 +93,23 @@ describe('html_renderer', () => {
     expect(await run({ html, path: filePath })).toEqual({
       success: false, error: 'Provide either html or path, not both',
     })
+  })
+
+  it('removes scripts, event handlers, frames, forms, refresh redirects and javascript links', () => {
+    const out = sanitizeHtml('<!doctype html><h1 onclick="steal()">Hi</h1><script>steal()</script><iframe src="https://x.test"></iframe><form action="https://x.test"><input name="p"></form><a href="javascript:steal()">bad</a><img src="x" onerror="steal()"><object data="x"></object><meta http-equiv="refresh" content="0;url=https://x.test">')
+    expect(out.startsWith('<!doctype html><h1>Hi</h1>')).toBe(true)
+    for (const unsafe of ['script', 'steal', 'iframe', '<form', '<input', 'javascript:', 'onerror', '<object', 'http-equiv']) expect(out).not.toContain(unsafe)
+  })
+
+  it('keeps styling, tables, images and safe links so pages still look right', () => {
+    const out = sanitizeHtml('<style>.a{color:red}</style><div class="a" style="padding:4px"><table><tr><td colspan="2">Cell</td></tr></table><img src="data:image/png;base64,AAAA" alt="dot"><a href="https://example.com" target="_blank">site</a></div>')
+    for (const kept of ['<style>.a{color:red}</style>', 'style="padding:4px"', 'colspan="2"', 'src="data:image/png;base64,AAAA"', 'href="https://example.com"']) expect(out).toContain(kept)
+  })
+
+  it('cleans by default and only skips cleaning when explicitly asked', async () => {
+    const raw = '<p>x</p><script>1</script>'
+    expect(await run({ html: raw })).toEqual({ success: true, html: '<p>x</p>' })
+    expect(await run({ html: raw, allowUnsafe: true })).toEqual({ success: true, html: raw })
   })
 
   it('advertises path/cwd and does not require inline html', () => {

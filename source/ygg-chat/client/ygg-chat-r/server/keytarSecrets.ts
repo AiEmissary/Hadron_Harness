@@ -10,7 +10,6 @@ const vault = new CredentialVault(getKeytar, withCredentialVaultLock)
 
 function getNodeRequire(): NodeRequire | null {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval
     return Function('return typeof require !== "undefined" ? require : null')() as NodeRequire | null
   } catch {
     return null

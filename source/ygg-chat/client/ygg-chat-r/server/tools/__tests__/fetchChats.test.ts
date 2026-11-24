@@ -134,21 +134,26 @@ describe('tool discovery SQL (no migrations)', () => {
     const { createRequire } = await import('node:module')
     const { readFileSync } = await import('node:fs')
     const { TOP_LEVEL_USER_MESSAGES_SQL } = await import('../../topLevelUserMessages.js')
+    const { activeConversationSql } = await import('../../hadronTools/recycleBin.js')
     const require = createRequire(import.meta.url)
     let db: any
     try { const Database = require('better-sqlite3'); db = new Database(':memory:') }
     catch { const { DatabaseSync } = require('node:sqlite'); db = new DatabaseSync(':memory:') }
     try {
-      db.exec(`CREATE TABLE conversations (id TEXT, title TEXT, user_id TEXT, project_id TEXT, created_at TEXT, updated_at TEXT);
+      db.exec(`CREATE TABLE hadron_recycle_bin (kind TEXT, item_id TEXT);
+        INSERT INTO hadron_recycle_bin VALUES ('conversation', '0');
+        CREATE TABLE conversations (id TEXT, title TEXT, user_id TEXT, project_id TEXT, created_at TEXT, updated_at TEXT);
         INSERT INTO conversations VALUES ('a', 'My-Chat', 'u', 'p', NULL, '2026-10-01 00:00:00');
         INSERT INTO conversations VALUES ('b', 'My Chat', 'u', 'p', NULL, '2026-10-01 00:00:00');
         INSERT INTO conversations VALUES ('c', 'My Chat', 'other', 'p', NULL, '2026-10-01 00:00:00');
+        INSERT INTO conversations VALUES ('0', 'My Chat', 'u', 'p', NULL, '2026-10-01 00:00:00');
         CREATE TABLE messages (id TEXT, conversation_id TEXT, parent_id TEXT, role TEXT, content TEXT, plain_text_content TEXT,
           note TEXT, note_color TEXT, created_at TEXT, children_ids TEXT, meta TEXT);
         INSERT INTO messages VALUES ('context', 'a', NULL, 'user', 'huge', NULL, NULL, NULL, NULL, '[]', '{"kind":"context_injection"}');
         INSERT INTO messages VALUES ('prompt', 'a', 'context', 'user', 'human', NULL, NULL, NULL, NULL, '[]', NULL);`)
       const source = readFileSync(new URL('../../localServer.ts', import.meta.url), 'utf8')
-      const sql = source.match(/getToolConversationsPage: db.prepare\(`([\s\S]*?)`\)/)![1]
+      // The source query interpolates the recycle-bin filter; fill it in as the server does.
+      const sql = source.match(/getToolConversationsPage: db.prepare\(`([\s\S]*?)`\)/)![1].replace('${activeConversationSql()}', activeConversationSql())
       const rows = db.prepare(sql).all({ userId: 'u', projectId: 'p', updatedAfter: '2026-10-01T00:00:00Z',
         updatedBefore: '2026-10-02T00:00:00Z', query: '%mychat%', normalizedQuery: '%mychat%', limit: 1, skip: 1 })
       expect(rows.map((row: any) => row.id)).toEqual(['b'])

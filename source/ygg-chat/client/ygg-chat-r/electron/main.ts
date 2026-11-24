@@ -72,7 +72,10 @@ if(hadronDiagnosticDirectory){
    if(!ui.settingsScrollReady||!ui.paletteAbsentFromWorkspace||ui.textChoices!==3||!ui.recycleBinReady||ui.paletteChoices!==5||!app.isPackaged||!ui.workspace||!ui.localOwnerReady||!ui.projectBridgeReady||ui.remote||!ui.help||!ui.singleComposer||!ui.tree||!ui.setupPopup||!window.isMaximized()||setup.items.some(item=>item.required&&!item.ready))throw Error('Packaged workspace, controls or required resources failed')
    fs.writeFileSync(path.join(diagnosticDirectory,'workspace.png'),(await window.webContents.capturePage()).toPNG())
    report({success:true,ui,setup,startedMaximized:window.isMaximized(),privateProfile:app.getPath('userData')===hadronDiagnosticDirectory,modelRequests:0});diagnosticRecorder?.complete();clearTimeout(watchdog);app.quit()
-  }catch(error){diagnosticRecorder?.fail('startup_failed');clearTimeout(watchdog);app.exit(1)}})()
+  }catch(error){
+   // Keep the reason next to the private diagnostic report; it contains no chat or account data.
+   try{fs.writeFileSync(path.join(diagnosticDirectory,'diagnostic-error.txt'),error instanceof Error?error.stack??error.message:String(error))}catch{}
+   diagnosticRecorder?.fail('startup_failed');clearTimeout(watchdog);app.exit(1)}})()
  })})
 }
 import { fileURLToPath } from 'url'
@@ -797,11 +800,13 @@ function createWindow() {
     minWidth: 800,
     minHeight: 600,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.mjs'),
+      preload: path.join(__dirname, 'preload.cjs'),
       backgroundThrottling: false, // Keep task completion checks timely while minimized.
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      // Chromium's process sandbox: the window has no direct Node or file-system access;
+      // everything goes through the preload's IPC bridge.
+      sandbox: true,
       webviewTag: true, // Enable webview for YouTube embeds (fixes Error 153)
       spellcheck: true,
     },
@@ -1052,10 +1057,12 @@ function createFloatingWindow() {
     skipTaskbar: false,
     show: false,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.mjs'),
+      preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      // Chromium's process sandbox: the window has no direct Node or file-system access;
+      // everything goes through the preload's IPC bridge.
+      sandbox: true,
       webviewTag: true, // Enable webview for YouTube embeds (fixes Error 153)
       spellcheck: true,
     },

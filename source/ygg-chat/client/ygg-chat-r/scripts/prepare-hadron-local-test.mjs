@@ -17,7 +17,7 @@ const renderer=path.resolve(source,'dist-electron')
 if(!renderer.startsWith(path.resolve(root)+path.sep))throw Error('Invalid staging directory')
 fs.rmSync(renderer,{recursive:true,force:true})
 fs.cpSync(path.join(app,'dist-electron'),renderer,{recursive:true})
-for(const name of ['main.mjs','preload.mjs','toolRuntimeUtility.mjs','localAnalyticsWorker.mjs'])fs.copyFileSync(path.join(app,'electron',name),path.join(source,'electron',name))
+for(const name of ['main.mjs','preload.cjs','toolRuntimeUtility.mjs','localAnalyticsWorker.mjs'])fs.copyFileSync(path.join(app,'electron',name),path.join(source,'electron',name))
 fs.cpSync(path.join(app,'server/headlessServer/ui/mobile'),path.join(source,'server/headlessServer/ui/mobile'),{recursive:true})
 const manifest=path.join(source,'package.json'),data=JSON.parse(fs.readFileSync(manifest,'utf8'))
 data.hadronLocalTest='Conversation actions and direct file work; installer unchanged'

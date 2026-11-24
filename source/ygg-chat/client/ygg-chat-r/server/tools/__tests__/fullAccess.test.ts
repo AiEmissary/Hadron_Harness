@@ -8,6 +8,7 @@ import { readTextFile } from '../readFile.js'
 import { createTextFile } from '../createFile.js'
 import { editFile } from '../editFile.js'
 import { deleteFile } from '../deleteFile.js'
+import { canCreateSymlinks } from './helpers/symlinkSupport.js'
 
 describe('full access', () => {
   it('isolates concurrent invocations and restores restricted access', async () => {
@@ -28,13 +29,14 @@ describe('full access', () => {
     await fs.mkdir(cwd)
     await fs.writeFile(path.join(root, 'outside.txt'), 'before')
     await fs.writeFile(path.join(cwd, 'inside.txt'), 'inside')
-    await fs.symlink(path.join(root, 'outside.txt'), path.join(cwd, 'link.txt'))
+    // The symlink checks need link permission (Developer Mode on Windows); the rest always run.
+    if (canCreateSymlinks) await fs.symlink(path.join(root, 'outside.txt'), path.join(cwd, 'link.txt'))
     try {
       await expect(readTextFile('../outside.txt', { cwd })).rejects.toThrow(/outside/)
-      await expect(readTextFile('link.txt', { cwd })).rejects.toThrow(/outside/)
+      if (canCreateSymlinks) await expect(readTextFile('link.txt', { cwd })).rejects.toThrow(/outside/)
       await withToolAccess(true, async () => {
         expect((await readTextFile('../outside.txt', { cwd })).content).toBe('before')
-        expect((await readTextFile('link.txt', { cwd })).content).toBe('before')
+        if (canCreateSymlinks) expect((await readTextFile('link.txt', { cwd })).content).toBe('before')
         expect((await readTextFile('inside.txt', { cwd })).content).toBe('inside')
         expect((await createTextFile('../created.txt', 'new', { cwd })).success).toBe(true)
         expect((await editFile('../outside.txt', 'replace', { cwd, searchPattern: 'before', replacement: 'after' })).success).toBe(true)

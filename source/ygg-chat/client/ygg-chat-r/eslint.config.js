@@ -20,7 +20,9 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+      // Only matters for Vite hot-reloading during development; the desktop app runs
+      // the built renderer, so mixed component/helper exports have no effect there.
+      'react-refresh/only-export-components': 'off',
       // Loose `any` types are widespread in the inherited Yggdrasil code. They are
       // reported as warnings so new code can still be tightened without making
       // `npm run lint` unusable; they do not affect how the app runs.
@@ -37,9 +39,11 @@ export default tseslint.config(
     },
   },
   {
-    // Tests: fixture cleanup guards throw from `finally`, and small render helpers call hooks directly.
-    files: ['**/*.test.{ts,tsx}', '**/__tests__/**/*.{ts,tsx}'],
+    // Tests and the Electron test harnesses (audits, smoke tests, fixtures): fixture cleanup guards
+    // throw from `finally`, small render helpers call hooks directly, and mocks use loose `any` types.
+    files: ['**/*.test.{ts,tsx}', '**/__tests__/**/*.{ts,tsx}', 'electron/hadron*{Audit,Smoke,Acceptance,Fixture}.ts'],
     rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
       'no-unsafe-finally': 'off',
       'react-hooks/rules-of-hooks': 'off',
       '@typescript-eslint/no-this-alias': 'off',

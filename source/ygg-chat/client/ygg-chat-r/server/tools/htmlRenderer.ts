@@ -1,4 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- see KNOWN ISSUE below
 import sanitizeHtmlLib from 'sanitize-html'
 import { promises as fs } from 'fs'
 import os from 'os'
@@ -31,12 +30,44 @@ async function resolveHtmlPath(filePath: string, cwd?: string): Promise<string> 
   return path.resolve(effectiveCwd, effectivePath)
 }
 
-// KNOWN ISSUE: sanitisation is currently disabled (inherited TODO). sanitizeHtmlLib and allowUnsafe are unused until it is restored.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function sanitizeHtml(html: string, allowUnsafe = false): string {
-  // TODO: Re-enable sanitization after testing
-  // For now, skip sanitization to allow full CSS rendering
-  return html
+/**
+ * Cleans tool HTML before it is shown: no scripts, event handlers, frames, plug-ins,
+ * forms or javascript: links. Styling (style tags, style/class attributes) and
+ * ordinary layout, tables, lists and images are kept, so pages still
+ * look right. allowUnsafe returns the HTML unchanged for callers that explicitly ask.
+ */
+export function sanitizeHtml(html: string, allowUnsafe = false): string {
+  if (allowUnsafe) return html
+  // Keep a leading <!doctype html> so cleaned pages still render in standards mode.
+  const doctype = /^\s*<!doctype html>/i.exec(html)?.[0].trim() ?? ''
+  return doctype + sanitizeHtmlLib(html, {
+    allowedTags: [
+      ...sanitizeHtmlLib.defaults.allowedTags,
+      'html', 'head', 'body', 'title', 'meta', 'style', 'img', 'figure', 'figcaption', 'picture',
+      'details', 'summary', 'mark', 'small', 'sub', 'sup', 'del', 'ins', 'u', 's', 'kbd', 'samp', 'var',
+      'progress', 'meter', 'time', 'colgroup', 'col', 'center', 'font', 'label',
+    ],
+    disallowedTagsMode: 'discard',
+    allowedAttributes: {
+      '*': ['class', 'id', 'style', 'title', 'lang', 'dir', 'role', 'aria-*', 'data-*', 'align', 'valign', 'width', 'height', 'hidden'],
+      a: ['href', 'name', 'target', 'rel'],
+      img: ['src', 'srcset', 'alt', 'loading', 'decoding'],
+      meta: ['charset', 'name', 'content'],
+      td: ['colspan', 'rowspan', 'headers', 'scope'],
+      th: ['colspan', 'rowspan', 'headers', 'scope', 'abbr'],
+      col: ['span'], colgroup: ['span'],
+      ol: ['start', 'reversed', 'type'], li: ['value'],
+      progress: ['value', 'max'], meter: ['value', 'min', 'max', 'low', 'high', 'optimum'],
+      time: ['datetime'], details: ['open'], font: ['color', 'face', 'size'],
+    },
+    allowedSchemes: ['http', 'https', 'mailto'],
+    allowedSchemesByTag: { img: ['http', 'https', 'data'] },
+    allowProtocolRelative: false,
+    // Style sheets cannot run code in current browsers; they are needed for faithful rendering.
+    allowVulnerableTags: true,
+    // A meta refresh can redirect the viewer; keep only charset/name metadata.
+    exclusiveFilter: frame => frame.tag === 'meta' && 'http-equiv' in frame.attribs,
+  })
 }
 
 export async function run(params: HtmlRendererInput) {

@@ -143,7 +143,7 @@ describe('claude_bridge', () => {
     external(id, 'Authentication review', '/missing/other-project')
     const result = await bridge.execute({ action: 'list', query: 'authentication' }, context)
     expect(result.totalCount).toBe(1)
-    expect(result.sessions[0]).toMatchObject({ sessionId: id, name: 'Authentication review', cwd: '/missing/other-project', source: 'claude_cli' })
+    expect(result.sessions[0]).toMatchObject({ sessionId: id, name: 'Authentication review', cwd: path.resolve('/missing/other-project'), source: 'claude_cli' })
     expect(JSON.stringify(result)).not.toContain('Original private')
     expect(JSON.stringify(result)).not.toContain('.jsonl')
     expect((await bridge.execute({ action: 'lookup', name: ' AUTHENTICATION   REVIEW ' }, context)).session.sessionId).toBe(id)

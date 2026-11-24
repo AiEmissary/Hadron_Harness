@@ -10,7 +10,7 @@
   "files": [
     "dist-electron/**/*",
     "electron/main.mjs",
-    "electron/preload.mjs",
+    "electron/preload.cjs",
     "electron/toolRuntimeUtility.mjs",
     "electron/localAnalyticsWorker.mjs",
     "src/features/chats/prompts/*.md",

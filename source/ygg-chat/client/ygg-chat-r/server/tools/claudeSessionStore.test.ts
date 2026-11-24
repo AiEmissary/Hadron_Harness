@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { ClaudeSessionStore } from './claudeSessionStore.js'
+import { canCreateSymlinks } from './__tests__/helpers/symlinkSupport.js'
 
 const id = '11111111-1111-4111-8111-111111111111'
 
@@ -61,6 +62,8 @@ describe('Claude session storage adapter', () => {
     write(project, [{ type: 'summary', summary: 'No cwd' }])
     const result = await store.discover()
     expect(result.sessions[0].cwd).toBeUndefined()
+    // The symlink half needs link permission (Developer Mode on Windows).
+    if (!canCreateSymlinks) return
     fs.symlinkSync(path.join(project, `${id}.jsonl`), path.join(project, '22222222-2222-4222-8222-222222222222.jsonl'))
     expect((await store.discover()).sessions).toHaveLength(1)
   })

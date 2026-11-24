@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest'
 import { editFile, multiEdit } from '../editFile.js'
 import { readTextFile } from '../readFile.js'
 import { createToolFsHarness } from './helpers/toolFsHarness.js'
+import { canCreateSymlinks } from './helpers/symlinkSupport.js'
+
+const symlinkIt = canCreateSymlinks ? it : it.skip
 
 describe('safe edit transactions', () => {
   it('edits complete files beyond the public 5 MiB read limit', async () => {
@@ -34,7 +37,7 @@ describe('safe edit transactions', () => {
     expect(await h.fileExists('gone.txt')).toBe(false)
   })
 
-  it.each(['replace', 'append'] as const)('blocks outside symlink targets for %s', async operation => {
+  symlinkIt.each(['replace', 'append'] as const)('blocks outside symlink targets for %s', async operation => {
     const h = await createToolFsHarness()
     const outside = await createToolFsHarness()
     await outside.writeFile('victim.txt', 'alpha')
@@ -45,7 +48,7 @@ describe('safe edit transactions', () => {
     expect(await outside.readFile('victim.txt')).toBe('alpha')
   })
 
-  it('blocks append through a symlinked parent and a dangling symlink', async () => {
+  symlinkIt('blocks append through a symlinked parent and a dangling symlink', async () => {
     const h = await createToolFsHarness()
     const outside = await createToolFsHarness()
     await fs.symlink(outside.workspaceDir, h.absolutePath('directory'))
@@ -79,10 +82,12 @@ describe('safe edit transactions', () => {
   it('serializes concurrent edits, including canonical aliases', async () => {
     const h = await createToolFsHarness()
     await h.writeFile('shared.txt', 'alpha beta')
-    await fs.symlink(h.absolutePath('shared.txt'), h.absolutePath('alias.txt'))
+    // Without symlink permission, still check two concurrent edits of the same file.
+    if (canCreateSymlinks) await fs.symlink(h.absolutePath('shared.txt'), h.absolutePath('alias.txt'))
+    const alias = canCreateSymlinks ? 'alias.txt' : 'shared.txt'
     const results = await Promise.all([
       editFile('shared.txt', 'replace', { cwd: h.workspaceDir, searchPattern: 'alpha', replacement: 'ALPHA' }),
-      editFile('alias.txt', 'replace', { cwd: h.workspaceDir, searchPattern: 'beta', replacement: 'BETA' }),
+      editFile(alias, 'replace', { cwd: h.workspaceDir, searchPattern: 'beta', replacement: 'BETA' }),
     ])
     expect(results.every(r => r.success)).toBe(true)
     expect(await h.readFile('shared.txt')).toBe('ALPHA BETA')
@@ -100,7 +105,7 @@ describe('safe edit transactions', () => {
     expect(await h.readFile('race.txt')).toBe('external change')
   })
 
-  it('rejects a symlink retarget between batch items', async () => {
+  symlinkIt('rejects a symlink retarget between batch items', async () => {
     const h = await createToolFsHarness()
     await h.writeFile('a.txt', 'alpha')
     await h.writeFile('b.txt', 'beta')

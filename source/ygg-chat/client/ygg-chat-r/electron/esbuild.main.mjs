@@ -36,16 +36,17 @@ tasks.push(() => esbuild.build({
   resolveExtensions: ['.ts', '.js', '.mjs', '.json'],
 }).then(() => console.log('✅ main.ts bundled to main.mjs')))
 
-// Compile preload.ts (simple, no bundling needed - only uses electron)
+// Compile preload.ts (no bundling needed - only uses electron). Windows run sandboxed,
+// and Electron only loads a sandboxed preload as a CommonJS script, hence .cjs.
 tasks.push(() => esbuild.build({
   entryPoints: [path.join(__dirname, 'preload.ts')],
   bundle: false,  // Don't bundle, just transpile
   platform: 'node',
   target: 'node20',
-  outfile: path.join(__dirname, 'preload.mjs'),
-  format: 'esm',
+  outfile: path.join(__dirname, 'preload.cjs'),
+  format: 'cjs',
   sourcemap: true,
-}).then(() => console.log('✅ preload.ts compiled to preload.mjs')))
+}).then(() => console.log('✅ preload.ts compiled to preload.cjs')))
 
 // Bundle utility process runtime entry
 tasks.push(() => esbuild.build({

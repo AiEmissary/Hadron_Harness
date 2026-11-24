@@ -371,7 +371,7 @@ describe('editFile replace and replace_first behavior', () => {
   it('replace_first preserves tail when editing the localServer-sized fixture file', async () => {
     const harness = await createToolFsHarness()
     const fixturePath = path.resolve(process.cwd(), 'server/tools/__tests__/dummyfile.ts.test')
-    const original = await fs.readFile(fixturePath, 'utf8')
+    const original = (await fs.readFile(fixturePath, 'utf8')).replace(/\r\n/g, '\n')
     const tailSnapshot = original.slice(-12000)
 
     expect(original.length).toBeGreaterThan(200 * 1024)
@@ -1003,11 +1003,12 @@ describe('editFile indentation preservation', () => {
 })
 
 describe('editFile replace regressions on localServer-sized fixture', () => {
+  // Git may check fixtures out with Windows line endings; the tests below are written against LF text.
   const fixturePath = path.resolve(process.cwd(), 'server/tools/__tests__/dummyfile.ts.test')
 
   it('keeps exact strategy global for repeated tokens in large fixture', async () => {
     const harness = await createToolFsHarness()
-    const original = await fs.readFile(fixturePath, 'utf8')
+    const original = (await fs.readFile(fixturePath, 'utf8')).replace(/\r\n/g, '\n')
     await harness.writeFile('fixture-exact-global.ts', original)
 
     const originalCount = (original.match(/run\(now, conversationId\)/g) || []).length
@@ -1031,7 +1032,7 @@ describe('editFile replace regressions on localServer-sized fixture', () => {
 
   it('uses single-span replacement for line-ending normalized matches in large fixture', async () => {
     const harness = await createToolFsHarness()
-    const original = await fs.readFile(fixturePath, 'utf8')
+    const original = (await fs.readFile(fixturePath, 'utf8')).replace(/\r\n/g, '\n')
     const crlfFixture = original.replace(/\n/g, '\r\n')
     const tailSnapshot = crlfFixture.slice(-12000)
     await harness.writeFile('fixture-line-ending-scope.ts', crlfFixture)
@@ -1055,7 +1056,7 @@ describe('editFile replace regressions on localServer-sized fixture', () => {
 
   it('uses single-span replacement for whitespace-normalized matches in large fixture', async () => {
     const harness = await createToolFsHarness()
-    const original = await fs.readFile(fixturePath, 'utf8')
+    const original = (await fs.readFile(fixturePath, 'utf8')).replace(/\r\n/g, '\n')
     await harness.writeFile('fixture-whitespace-scope.ts', original)
 
     const result = await editFile('fixture-whitespace-scope.ts', 'replace', {
@@ -1076,7 +1077,7 @@ describe('editFile replace regressions on localServer-sized fixture', () => {
 
   it('is a no-op for whitespace-normalized replace when replacement resolves to matched text', async () => {
     const harness = await createToolFsHarness()
-    const original = await fs.readFile(fixturePath, 'utf8')
+    const original = (await fs.readFile(fixturePath, 'utf8')).replace(/\r\n/g, '\n')
     await harness.writeFile('fixture-whitespace-noop.ts', original)
 
     const unindentedBlock =
@@ -1096,7 +1097,7 @@ describe('editFile replace regressions on localServer-sized fixture', () => {
 
   it('fails closed when a large fuzzy search exceeds its work budget', async () => {
     const harness = await createToolFsHarness()
-    const original = await fs.readFile(fixturePath, 'utf8')
+    const original = (await fs.readFile(fixturePath, 'utf8')).replace(/\r\n/g, '\n')
     await harness.writeFile('fixture-fuzzy-scope.ts', original)
 
     const result = await editFile('fixture-fuzzy-scope.ts', 'replace', {
@@ -1346,7 +1347,7 @@ describe('editFile non-fuzzy replacements on chatActions fixture via read_file w
   const fixturePath = path.resolve(process.cwd(), 'server/tools/__tests__/dummyFilechatAction.ts.test')
 
   const seedFixture = async (harness: Awaited<ReturnType<typeof createToolFsHarness>>, targetPath: string) => {
-    const original = await fs.readFile(fixturePath, 'utf8')
+    const original = (await fs.readFile(fixturePath, 'utf8')).replace(/\r\n/g, '\n')
     await harness.writeFile(targetPath, original)
     return original
   }
