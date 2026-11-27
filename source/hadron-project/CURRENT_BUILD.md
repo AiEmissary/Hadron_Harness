@@ -1,3 +1,11 @@
+# Continuous debate and source checks — 27 November 2026
+
+Added opposing-role defaults, provider/model provenance on continuous transcript and cross-mode handover messages, required source-check attempts, and one final peer checking pass before pausing. Unresolved concerns are retained and are not labelled consensus. Current help is updated. See CONTINUOUS_DEBATE_CHECKS.md for exact rules and limitations.
+
+Save any draft and reopen through the desktop shortcut after current work ends to load the local source update. The installer is unchanged; no user task was replayed.
+
+---
+
 # Claude quota detection and durable failure feedback — 23 November 2026
 
 The repeated Opus error was identified by a minimal live connection test as a five-hour subscription limit. Hadron now recognizes the exact window-qualified quota wording, shows the provider's reset detail and 0% remaining in the existing agent pop-up, and avoids retrying that explicit quota rejection. Failed replies with no answer retain their explanation in saved chat history. See CLAUDE_USAGE_LIMITS.md.

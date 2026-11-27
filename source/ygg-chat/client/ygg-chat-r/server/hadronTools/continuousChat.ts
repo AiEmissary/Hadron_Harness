@@ -2,7 +2,7 @@ import {CONTINUOUS_MEMORY_MAX_BYTES,continuousFailure,fitContinuousMemory,MEMORY
 import {randomUUID} from 'node:crypto'
 import {continuousPrompt,type ContinuousPromptPacket} from './continuousPrompt.js'
 import {continuousInputContext} from './continuousInputContext.js'
-import {consensusPacket,consensusReply,type ConsensusOffer} from './continuousConsensus.js'
+import {consensusPacket,consensusReply,agreementCheckOffer,type ConsensusOffer} from './continuousConsensus.js'
 import {CONTINUOUS_INPUT_MAX_BYTES,type ContinuousChatInput,type ContinuousChatView,type ContinuousChatHistory,type ContinuousContinuationInput} from '../../../../shared/continuousChat.js'
 interface Database {exec(sql:string):unknown;prepare(sql:string):any;close():void}
 export interface ContinuousBinding {runId:string;handle:string;streamId:string}
@@ -19,9 +19,13 @@ import {withDocumentTools} from './documentTools.js'
  * "finished":false is still a valid contribution: the discussion continues, so it must not fail the conversation. */
 export function continuousTurnToolSession(research:HadronToolSession,documents:readonly HadronDocument[]):HadronToolSession{
  const session=withDocumentTools(research,[...documents])
+ let checked=false
+ const evidenceTools=new Set(['web_search','web_read','project_search','project_read','document_search','document_read'])
  const reading=documents.length?'\nAttached documents: when the discussion concerns them, read the relevant sections with document_search and document_read in this turn before relying on earlier summaries, memory or peer claims, and cite page numbers.':''
- return admitHadronToolSession({...session,assessmentOnly:true,maxRequests:documents.length?24:4,requireEvidenceAttempt:false,
-  instructions:session.instructions+'\nFor this conversation turn, research only when new evidence is needed. Reuse prior quoted evidence when appropriate. You may answer without another operation.'+reading+' Each reply is one turn of an ongoing discussion: return {"answer":"your contribution","finished":true} when your contribution for this turn is ready, even though the discussion continues. Never claim edits, test execution or verification beyond recorded results.'})
+ return admitHadronToolSession({...session,assessmentOnly:true,maxRequests:documents.length?24:8,requireEvidenceAttempt:true,evidenceAttempted:()=>checked,
+  evidenceInstruction:'Check a relevant factual claim now using the granted web_search/web_read, document_search/document_read or project_search/project_read tool. Report unavailable or failed checks honestly; do not claim verification from a peer statement.',
+  async invoke(name,args,signal){if(evidenceTools.has(name))checked=true;return session.invoke(name,args,signal)},
+  instructions:session.instructions+'\nFor each debate or fact-checking contribution, attempt a relevant source check with the granted tools before answering, including on the final checking pass. Prefer primary sources, cite only URLs or file/page/line references actually consulted, distinguish facts from inference/opinion, and report failed checks or missing evidence honestly. Prior peer claims and working memory are not independent verification. Do not search private supplied text on the public web.'+reading+' Each reply is one turn of an ongoing discussion: return {"answer":"your contribution","finished":true} when your contribution for this turn is ready, even though the discussion continues. Never claim edits, test execution or verification beyond recorded results.'})
 }
 export class ContinuousChatService {
  private readonly instance=randomUUID()
@@ -91,7 +95,7 @@ export class ContinuousChatService {
   if(this.db.prepare('SELECT 1 FROM hadron_continuous_sessions WHERE id=?').get(input.id))return this.create(owner,input,undefined,documents)
   if(['running','pause_requested','stop_requested'].includes(row.state)||this.controls.get(sourceId)?.ended===false)throw Error('Stop the source conversation and wait for its worker before continuing')
   const prior=this.status(owner,sourceId),completed=prior.turns.filter(turn=>turn.state==='completed'&&turn.kind!=='memory'&&turn.text!==null),base=prior.history
-  const history:ContinuousChatHistory={sourceId,memory:prior.memory,turns:[...(base?.turns??[]),...completed.map(turn=>({role:turn.role,text:turn.text!}))],
+  const history:ContinuousChatHistory={sourceId,memory:prior.memory,turns:[...(base?.turns??[]),...completed.map(turn=>({role:turn.role,text:turn.text!,provider:source.providers?.[turn.role]??'openaichatgpt' as const,model:source.models[turn.role]}))],
    messages:[...(base?.messages??[]),...prior.messages.map(message=>({afterTurn:(base?.turns.length??0)+completed.filter(turn=>turn.ordinal<=message.afterTurn).length,text:message.text}))]}
   if(!history.turns.length)throw Error('There are no completed replies to continue. Start a new conversation instead.')
   return this.create(owner,input,history,documents)
@@ -146,24 +150,26 @@ export class ContinuousChatService {
     const priorToken=prior&&this.db.prepare('SELECT consensus_token AS token FROM hadron_continuous_turns WHERE session_id=? AND ordinal=?').get(id,prior.ordinal)?.token
     const peer:ConsensusOffer|undefined=prior&&priorToken&&prior.role!==role&&!messages.some(message=>message.afterTurn>=prior.ordinal)?{token:priorToken,ordinal:prior.ordinal,role:prior.role,text:prior.text!}:undefined
     const consensusToken=randomUUID()
-    const all=[...base,...completed],memory=this.memory(id),through=memory?.throughTurn??0
+    const participants={a:{provider:input.providers?.a??'openaichatgpt',model:input.models.a},b:{provider:input.providers?.b??'openaichatgpt',model:input.models.b}}
+    const all=[...base,...completed.map(turn=>({...turn,...participants[turn.role]}))],memory=this.memory(id),through=memory?.throughTurn??0
     const remaining=all.length-through
     // Summarise five older replies at a time, keeping at least two recent replies verbatim.
     // Oversized historical continuations are processed in smaller bounded batches.
-    let compact=remaining>=7||(remaining>=3&&Buffer.byteLength(JSON.stringify(all.slice(through)))>36000)
+    let compact=!peer&&(remaining>=7||(remaining>=3&&Buffer.byteLength(JSON.stringify(all.slice(through)))>36000))
     let target=through,packet:ContinuousPromptPacket
     const userMessages=[...(history?.messages??[]),...messages.map(message=>({id:message.id,afterTurn:base.length+completed.filter(turn=>turn.ordinal<=message.afterTurn).length,text:message.text}))]
     if(compact){
-     const older:Array<{turn:number;speaker:string;text:string}>=[]
+     const older:ContinuousPromptPacket['transcript']=[]
      for(let index=through;index<Math.min(through+5,all.length-2);index++){
-      const candidate={turn:index+1,speaker:all[index].role,text:all[index].text!}
+      const candidate={turn:index+1,speaker:all[index].role,text:all[index].text!,provider:all[index].provider,model:all[index].model}
       if(Buffer.byteLength(JSON.stringify([...older,candidate]))>36000)break
       older.push(candidate);target=index+1
      }
      if(!older.length){this.state(id,'paused','context_budget');return}
      packet={kind:'continuous_memory',instruction:MEMORY_INSTRUCTION,goal:input.goal,previousMemory:memory??null,transcript:older,userMessages}
     }else packet={kind:'continuous_conversation',goal:input.goal,speaker:role,turn:all.length+1,memory:memory??null,consensus:consensusPacket(consensusToken,peer),
-      transcript:all.slice(through).map((turn,index)=>({turn:through+index+1,speaker:turn.role,text:turn.text})),userMessages}
+      transcript:all.slice(through).map((turn,index)=>({turn:through+index+1,speaker:turn.role,text:turn.text,provider:turn.provider,model:turn.model})),userMessages}
+    packet.participants=participants
     const projected=continuousInputContext(packet,key=>this.db.prepare('SELECT through_character AS through,text FROM hadron_continuous_input_memory WHERE session_id=? AND source_key=?').get(id,key))
     packet=projected.packet
     if(projected.part)compact=true
@@ -185,22 +191,24 @@ export class ContinuousChatService {
      const parsed=compact?{text:result.text,proposed:false,confirmed:false}:consensusReply(result.text,consensusToken,peer)
      // A new user instruction received while the peer was thinking invalidates
      // that confirmation. It must be considered by a subsequent turn.
-     const confirmed=parsed.confirmed&&!this.status(owner,id).messages.some(message=>message.afterTurn>=(prior?.ordinal??ordinal))
+     const fresh=!this.status(owner,id).messages.some(message=>message.afterTurn>=(prior?.ordinal??ordinal))
+     const finalCheck=!!peer&&!compact&&fresh
+     const confirmed=parsed.confirmed&&fresh
      const response=compact
       ?bounded(fitContinuousMemory(parsed.text),CONTINUOUS_MEMORY_MAX_BYTES)
-      :bounded(parsed.text+(confirmed?'\n\nConsensus reached — both agents agree on this conclusion.':''),12000)
+      :bounded(parsed.text+(confirmed?'\n\nConsensus reached — both agents agree on this conclusion.':finalCheck?'\n\nDiscussion paused after one final checking pass. Agreement was not confirmed; see the remaining concerns above.':''),12000)
      if(control.controller.signal.aborted)throw Error('Conversation turn stopped')
      this.db.exec('BEGIN IMMEDIATE')
      try{
      this.db.prepare("UPDATE hadron_continuous_turns SET state='completed',text=? WHERE session_id=? AND ordinal=? AND state='bound'").run(response,id,ordinal)
-      if(parsed.proposed)this.db.prepare('UPDATE hadron_continuous_turns SET consensus_token=? WHERE session_id=? AND ordinal=?').run(consensusToken,id,ordinal)
+      if(!compact&&(parsed.proposed||agreementCheckOffer(parsed.text)))this.db.prepare('UPDATE hadron_continuous_turns SET consensus_token=? WHERE session_id=? AND ordinal=?').run(consensusToken,id,ordinal)
       if(projected.part)this.db.prepare('INSERT INTO hadron_continuous_input_memory(session_id,source_key,through_character,text) VALUES (?,?,?,?) ON CONFLICT(session_id,source_key) DO UPDATE SET through_character=excluded.through_character,text=excluded.text').run(id,projected.part.key,projected.part.to,response)
       else if(compact)this.db.prepare('INSERT INTO hadron_continuous_memory(session_id,through_turn,text) VALUES (?,?,?) ON CONFLICT(session_id) DO UPDATE SET through_turn=excluded.through_turn,text=excluded.text').run(id,target,response)
       this.db.exec('COMMIT')
      }catch(error){this.db.exec('ROLLBACK');throw error}
      this.deps.checkpoint?.(owner,input,role,ordinal,response,'completed',binding.runId)
      this.db.prepare('UPDATE hadron_continuous_sessions SET revision=revision+1 WHERE id=?').run(id)
-     if(confirmed&&this.owned(owner,id).row.state==='running')this.state(id,'paused','consensus_reached')
+     if(finalCheck&&this.owned(owner,id).row.state==='running')this.state(id,'paused',confirmed?'consensus_reached':'final_check_complete')
     }catch(error){
      const code=error instanceof Error?/^Hadron ChatGPT temporarily unavailable \[(upstream_http_(?:503|429))\]$/.exec(error.message)?.[1]:undefined
      const failureCode=code??continuousFailure(error,control.controller.signal.aborted)

@@ -22,3 +22,13 @@ it('preserves a small latest drawing for follow-up edits and handles oversized p
  expect(context).toContain('excerpt omitted')
  expect(context.endsWith('New attachment stays intact.')).toBe(true)
 })
+
+it('carries recorded provider and model identity into cross-mode handovers without inferring it from the new selection',()=>{
+ const path:WorkspaceMessage[]=[{id:'q',parentId:null,role:'user',text:'Debate the proposal.',state:'completed'},
+ {id:'a',parentId:'q',role:'assistant',agent:'a',provider:'openaichatgpt',modelName:'gpt-model',text:'My proposal.',state:'completed'},
+ {id:'b',parentId:'a',role:'assistant',agent:'b',provider:'claudecode',modelName:'opus',text:'My counterargument.',state:'completed'}]
+ const text=workspaceHandoverContext(path,'Continue together.','a')
+ expect(text).toContain('Agent A: [ChatGPT (OpenAI) · gpt-model] My proposal.')
+ expect(text).toContain('Agent B: [Claude (Anthropic) · opus] My counterargument.')
+ expect(text).toContain('You: Debate the proposal.')
+})

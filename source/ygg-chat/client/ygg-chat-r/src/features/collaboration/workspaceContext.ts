@@ -10,7 +10,8 @@ export const workspaceHistorySize=(path:WorkspaceMessage[])=>path.reduce((size,m
 /** Bound only the transmitted copy, never saved messages or the current attachments. */
 export function workspaceHandoverContext(path:WorkspaceMessage[],current:string,agent:'a'|'b',limit=16000):string{
  if(current.length>limit)throw Error('The new attachments and instructions exceed this request’s limit. Attach a folder instead of supplying all file text.')
- const render=(message:WorkspaceMessage,text=message.text,context=message.context)=>`${message.role==='user'?'You':message.agent==='both'?'Agents A and B':'Agent '+(message.agent??agent).toUpperCase()}: ${text}${context?'\nAttached context: '+context:''}${message.note?'\nUser note: '+message.note:''}`
+ const identity=(message:WorkspaceMessage)=>message.role==='assistant'&&(message.provider||message.modelName)?`[${message.agent==='both'?'Combined reply; synthesis: ':''}${message.provider==='openaichatgpt'?'ChatGPT (OpenAI)':message.provider==='claudecode'?'Claude (Anthropic)':'provider not recorded'} · ${message.modelName??'model not recorded'}] `:''
+ const render=(message:WorkspaceMessage,text=message.text,context=message.context)=>`${message.role==='user'?'You':message.agent==='both'?'Agents A and B':'Agent '+(message.agent??agent).toUpperCase()}: ${identity(message)}${text}${context?'\nAttached context: '+context:''}${message.note?'\nUser note: '+message.note:''}`
  const full=[...path.map(message=>render(message)),current].filter(Boolean).join('\n\n')
  if(full.length<=limit)return full
  const budget=limit-current.length-(current?2:0)

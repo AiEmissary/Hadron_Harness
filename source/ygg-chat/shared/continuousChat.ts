@@ -8,7 +8,7 @@ export interface ContinuousContinuationInput {images?:import('./hadronImages.js'
  /** Omitted: the saved conversation's documents are kept. */
  documents?:import('./hadronDocuments.js').HadronDocument[];projectGrantId?:string;id:string;models:{a:string;b:string};providers?:ContinuousProviders;maxTurns:number;maxSeconds:number;instruction?:string}
 export interface ContinuousMemory {throughTurn:number;text:string}
-export interface ContinuousChatHistory {memory?:ContinuousMemory;sourceId:string;turns:Array<{role:'a'|'b';text:string}>;messages:Array<{afterTurn:number;text:string}>}
+export interface ContinuousChatHistory {memory?:ContinuousMemory;sourceId:string;turns:Array<{role:'a'|'b';text:string;provider?:'openaichatgpt'|'claudecode';model?:string}>;messages:Array<{afterTurn:number;text:string}>}
 export interface ContinuousChatView {
  folderActivity?:Array<{time:string;tool:string;state:string}>;
  memory?:ContinuousMemory;

@@ -117,13 +117,13 @@ it('ends after both agents explicitly agree on the same settled conclusion and s
  expect(calls[before].packet.consensus.peerProposal).toBeNull()
  expect(service.status('owner','after-consensus').turns).toHaveLength(2)
 })
-it('continues when the peer disagrees instead of treating one proposal or ordinary agreement as consensus',async()=>{
+it('pauses after one final check with unresolved concerns rather than claiming consensus',async()=>{
  consensusResponse=packet=>packet.turn===1?'My proposed conclusion.\n'+packet.consensus.proposeMarker:'I agree on that detail, but the user goal still has an unresolved requirement.'
  service.start('owner',{...input(),maxTurns:3});await wait(()=>service.status('owner','conversation').workersEnded)
- expect(calls).toHaveLength(3)
+ expect(calls).toHaveLength(2)
  expect(calls[1].packet.consensus.peerProposal).not.toBeNull()
- expect(calls[2].packet.consensus.peerProposal).toBeNull()
- expect(service.status('owner','conversation').reason).toBe('turn_budget')
+ expect(service.status('owner','conversation').reason).toBe('final_check_complete')
+ expect(service.status('owner','conversation').turns.at(-1)?.text).not.toContain('Consensus reached')
 })
 it('does not accept a stale confirmation when a new user instruction arrives during the confirming turn',async()=>{
  consensusResponse=packet=>{
@@ -440,7 +440,7 @@ it('sends readable attributed history, role-specific guidance, and persists the 
  await wait(()=>service.status('owner','conversation').workersEnded)
  expect(calls[0].prompt).toContain('Role: proposer.')
  expect(calls[1].prompt).toContain('Role: critic.')
- expect(calls[1].prompt).toContain('Agent A: (turn 1)\n> Agent a turn 1: evidence considered.')
+ expect(calls[1].prompt).toContain('Agent A: (turn 1)\nHost identity: ChatGPT (OpenAI) · model-a\n> Agent a turn 1: evidence considered.')
  expect(calls[1].prompt).toContain('You: (after turn 1) — current instruction shown in full above.')
  expect(calls[1].prompt.match(/Prioritise maintainability\./g)).toHaveLength(1)
  expect(calls[1].prompt.indexOf('Agent A: (turn 1)')).toBeLessThan(calls[1].prompt.indexOf('You: (after turn 1)'))
@@ -456,4 +456,31 @@ it('sends pictures to both continuous agents and retains them after reopening an
  const reopened=make();expect(reopened.status('owner','conversation').input.images).toEqual([fixtureImage])
  reopened.continueSaved('owner','conversation',{id:'continued',models:input().models,maxTurns:2,maxSeconds:60,instruction:'Check that picture again.'});await wait(()=>reopened.status('owner','continued').workersEnded)
  expect(calls.slice(2).every(call=>call.images?.[0]?.dataUrl===fixtureImage.dataUrl)).toBe(true);service=reopened
+})
+
+it('limits unmarked agreement to one final pass without guessing that consensus was reached',async()=>{
+ consensusResponse=packet=>packet.turn===1?'A proposal with a source reference.':packet.turn===2?'I agree. The cited evidence supports the proposal.':'The final check still needs stronger evidence.'
+ service.start('owner',{...input(),maxTurns:100});await wait(()=>service.status('owner','conversation').workersEnded)
+ expect(calls).toHaveLength(3);expect(calls[2].packet.consensus.peerProposal).not.toBeNull()
+ expect(service.status('owner','conversation').reason).toBe('final_check_complete')
+ expect(service.status('owner','conversation').turns.at(-1)?.text).not.toContain('Consensus reached')
+})
+it('keeps historical speaker provenance when the providers change in a saved continuation',async()=>{
+ claudeAdmitted=true
+ service.start('owner',{...input(),providers:{a:'openaichatgpt',b:'claudecode'},models:{a:'model-a',b:'haiku'},maxTurns:2})
+ await wait(()=>service.status('owner','conversation').workersEnded)
+ const before=calls.length
+ service.continueSaved('owner','conversation',{id:'switched',providers:{a:'claudecode',b:'openaichatgpt'},models:{a:'haiku',b:'model-b'},maxTurns:2,maxSeconds:60,instruction:'Check the previous debate.'})
+ await wait(()=>service.status('owner','switched').workersEnded)
+ const prompt=calls[before].prompt
+ expect(prompt).toContain('Agent A: Claude (Anthropic) · haiku')
+ expect(prompt).toContain('Agent A: (turn 1)\nHost identity: ChatGPT (OpenAI) · model-a')
+ expect(prompt).toContain('Agent B: (turn 2)\nHost identity: Claude (Anthropic) · haiku')
+})
+
+it('uses a real final checking reply rather than spending the pass on scheduled memory compaction',async()=>{
+ consensusResponse=packet=>packet.turn===7?'The goal is settled.\n'+packet.consensus.proposeMarker:packet.consensus.peerProposal?'I independently checked the conclusion.\n'+packet.consensus.peerProposal.confirmMarker:`Fresh evidence and question for turn ${packet.turn}.`
+ service.start('owner',{...input(),maxTurns:100});await wait(()=>service.status('owner','conversation').workersEnded)
+ expect(calls).toHaveLength(8);expect(calls[7].packet.kind).toBe('continuous_conversation')
+ expect(service.status('owner','conversation').reason).toBe('consensus_reached')
 })

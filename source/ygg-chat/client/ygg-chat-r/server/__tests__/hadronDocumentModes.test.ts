@@ -83,5 +83,14 @@ it('gives each continuous turn the document tool list and does not fail a turn t
  const result=await runHadronToolConversation({session,task:'Discuss chapter 1',signal:new AbortController().signal,generate:async()=>replies.shift()!} as any)
  expect(JSON.stringify(result)).toContain('over to you')
  expect(session.outcome?.incompleteReason).toBeUndefined()
- expect(continuousTurnToolSession(research,[]).maxRequests).toBe(4)
+ expect(continuousTurnToolSession(research,[]).maxRequests).toBe(8)
+})
+
+it('requires a relevant source attempt before a continuous contribution, including an honest failure report',async()=>{
+ const research=admitHadronToolSession({instructions:'Web tools',invoke:async()=>{throw Error('Source unavailable')}})
+ const session=continuousTurnToolSession(research,[])
+ await expect(runHadronToolConversation({session,task:'Check the claim',signal:new AbortController().signal,generate:async()=>JSON.stringify({answer:'Verified without checking.'})})).rejects.toThrow('without attempting')
+ const next=continuousTurnToolSession(research,[]);let turn=0
+ const answer=await runHadronToolConversation({session:next,task:'Check the claim',signal:new AbortController().signal,generate:async()=>++turn===1?JSON.stringify({tool:'web_read',arguments:{url:'https://example.com'}}):JSON.stringify({answer:'The source check failed; the claim remains unverified.'})})
+ expect(answer).toContain('unverified');expect(next.evidenceAttempted?.()).toBe(true)
 })
