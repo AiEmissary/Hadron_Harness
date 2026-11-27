@@ -1,6 +1,6 @@
-# Hadron Harness - Release 6.0.8
+# Hadron Harness - Release 6.0.9
 
-Install **Hadron-Harness-6.0.8-win-x64.exe** on Windows x64. The installer lets you choose a location and creates a desktop shortcut. Close the installed copy of Hadron before upgrading. Its saved chats, projects and account connections remain in `%APPDATA%\Hadron-Harness`; uninstall also preserves that data. The local test build uses this same profile, so close it before opening the installed app.
+Install **Hadron-Harness-6.0.9-win-x64.exe** on Windows x64. The installer lets you choose a location and creates a desktop shortcut. Close the installed copy of Hadron before upgrading. Its saved chats, projects and account connections remain in `%APPDATA%\Hadron-Harness`; uninstall also preserves that data. The local test build uses this same profile, so close it before opening the installed app.
 
 ## Using Hadron
 
@@ -20,7 +20,18 @@ ChatGPT defaults to the official Codex browser OAuth flow. Device-code sign-in i
 
 The custom Tool library is in **Settings > Agents and tools > Tool library**. The installed library is `%APPDATA%\Hadron-Harness\hadron-tools`. Normal file-reading, editing and coding tools are built in; they do not require you to add a custom tool. New custom tools are disabled until reviewed and enabled.
 
-## New in release 6.0.8
+## New in release 6.0.9
+
+- Clearer "Not finished" results. Each one now says how much is done, why it stopped and whether you need to act: "Waiting for your answer" shows the agent's question; "Partly done" says when a job could only read files (switch on Agent mode to have the changes made) or stopped early without needing you; a failed model request gives its real reason, such as a usage limit.
+- The reply label and the desktop notification say "Waiting for your answer" or "Partly done" instead of a bare "Not finished".
+- Work together in Chat (read-only) mode no longer fails, or stops the other agent, when an agent reports that file edits are still needed. Older saved runs of this kind are explained as a permissions mismatch.
+- Continuous conversations show "How this conversation ended": why it stopped, whether agreement was confirmed by Hadron's check, each agent's last position, failed attempts, and which of your messages got a reply. Hadron builds it from the saved replies without extra model requests.
+- Continuous conversations use opposing-role defaults, show which provider and model wrote each reply, require a source-check attempt and finish with one final checking pass before pausing.
+- Scanned PDF pages without real text are read with on-PC text recognition (OCR) instead of only being reported as needing it.
+- The main and floating windows run in Chromium's sandbox, and HTML shown in replies is sanitised again.
+- Test and lint fixes.
+
+## Included from release 6.0.8
 
 - Agents can read PDF and Microsoft Word files (.docx and older .doc) in shared folders, not just plain text. PDF text is laid out under "Page N" headings. Scanned PDFs without real text are reported as needing OCR.
 - The paperclip accepts older Word (.doc) files as well as PDF and .docx.

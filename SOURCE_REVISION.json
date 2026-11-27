@@ -8,9 +8,9 @@
     ".gitignore": "02c1193d4c294f4f661e2486ffc9353916e4a27d9860f78e7c546cd464dcf34a",
     "AGENTS.md": "2a115ff0eba9801464c2e72abd56e813fe62065f198e37625c3e4e456b9f4ec1",
     "GITHUB_BACKUP.md": "b7105eefed5be5583cadc04963d9ef96e1eb35e26a6de4febe789e86407f4176",
-    "README.md": "b747709964cbb5e16dc228a61afea72774e7230ccfed311cf29213bacd65a387",
+    "README.md": "1ca242aa703dcf30456249c795e7368d2ce62d60d9145704670e589e27b46986",
     "SOURCE_BUILD.md": "e3fe2ea83efb7bb015b44715bc003db460d644050b27d8096a0b500182eaa1a3",
-    "WINDOWS_RELEASE.md": "ba663e3e9bfec9ac4629ae7e8d00201ec430eba4fce2fcd7b218a55fdb4324c6",
+    "WINDOWS_RELEASE.md": "8927878480d69fb4adb8b177a1629c88e15c2781c7a7e5796ece98900a38d6b6",
     "distribution/licences/Electron-LICENSES.chromium.html": "a683de33a700d9b4989416e1cd394169154574e83773e009a71daf9dd8e1ab96",
     "distribution/licences/HADRON-AGPL-3.0.md": "3d12a5d2bf888f71f28fca688c89a97c83f91d54596b98bf5b435891a1e84ef9",
     "distribution/licences/NSIS-COPYING.txt": "3c8de989f6504d52f5f8dfafedb6668cd47201f5d01f1319570727c091425dd6",
@@ -1327,7 +1327,7 @@
     "source/ygg-chat/client/ygg-chat-r/docs/SUBAGENT_IMPLEMENTATION_PLAN.md": "71854e918951c8f66a87f9b7cca349b4dc75993f901b09f770e3a146150067b1",
     "source/ygg-chat/client/ygg-chat-r/docs/hadron-jpeg-attachments.md": "3f9419fa020b5cfcd02b9e7f28c289c93106014941cb68df2f7a7bf52fee5d29",
     "source/ygg-chat/client/ygg-chat-r/docs/hookInstruction.md": "53a2d313b968527ce04aa5609a5db34ac3d69746eda93918922e297268c18d91",
-    "source/ygg-chat/client/ygg-chat-r/electron-builder.json": "8d1907953b296bed7196f8abebd59c625186ab498478603bce5aaa4c1e2928ac",
+    "source/ygg-chat/client/ygg-chat-r/electron-builder.json": "9972cf428adc4e12c06491689e2379fc68da876717d23ba548b567909023dafe",
     "source/ygg-chat/client/ygg-chat-r/electron/UtilityToolRuntimeHost.ts": "ce29f1d4db3c8d0df8ebcf1a708c91acf0bc18d401789610068d52f5da8c7b55",
     "source/ygg-chat/client/ygg-chat-r/electron/browseWeb.ts": "4ec8c8f1294fba8a5b9ce127eadcf8d44fc4221691eba960facee8341702e751",
     "source/ygg-chat/client/ygg-chat-r/electron/electronHostAdapter.ts": "fbba888c6db84448ca00180660d173746bb32a7f716e60bde026ef5d5ce71650",
@@ -2838,6 +2838,6 @@
   },
   "product": "Hadron Harness",
   "scope": "Committed application sources and build materials; local account settings and personal data excluded",
-  "sourceRevision": "cc96b42d409221d33011e9967808689e492e5591",
-  "version": "6.0.8"
+  "sourceRevision": "a13a35b475581808197900e848bf87d77c4b0839",
+  "version": "6.0.9"
 }

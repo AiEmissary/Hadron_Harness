@@ -4,7 +4,7 @@ Source code and Windows releases for the Hadron Harness desktop application.
 
 [Download the latest Windows installer](https://github.com/AiEmissary/Hadron_Harness/releases/latest).
 
-Current release: **6.0.8**.
+Current release: **6.0.9**.
 
 - Questions and answers on the left, conversation branches on the right.
 - Agent A, Agent B, Work together and Continuous conversation.
