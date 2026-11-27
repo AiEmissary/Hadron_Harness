@@ -484,3 +484,50 @@ it('uses a real final checking reply rather than spending the pass on scheduled 
  expect(calls).toHaveLength(8);expect(calls[7].packet.kind).toBe('continuous_conversation')
  expect(service.status('owner','conversation').reason).toBe('consensus_reached')
 })
+
+it('builds a host-only closure on every stop without extra model requests or claimed agreement',async()=>{
+ consensusResponse=packet=>packet.turn===1?'My proposed conclusion.\n'+packet.consensus.proposeMarker:'I agree on that detail, but the user goal still has an unresolved requirement.'
+ hold=true;service.start('owner',{...input(),maxTurns:3});await wait(()=>calls.length===1)
+ expect(service.status('owner','conversation').closure).toBeUndefined()
+ hold=false;release();await wait(()=>service.status('owner','conversation').workersEnded)
+ const before=calls.length,view=service.status('owner','conversation')
+ expect(view.reason).toBe('final_check_complete')
+ expect(view.closure).toMatchObject({source:'host',stopReason:'final_check_complete',agreement:'not_confirmed',failedAttempts:0})
+ expect(view.closure!.lastPositions.map(item=>item.role)).toEqual(['a','b'])
+ expect(view.closure!.lastPositions[1].excerpt).toContain('unresolved requirement')
+ expect(view.closure!.note).toContain('not written or agreed by the agents')
+ expect(calls).toHaveLength(before)
+})
+it('closure reports confirmed agreement only after the host handshake, and lists unanswered user messages after a turn budget',async()=>{
+ consensusResponse=packet=>packet.consensus.peerProposal?'Checked.\n'+packet.consensus.peerProposal.confirmMarker:'Conclusion.\n'+packet.consensus.proposeMarker
+ service.start('owner',{...input(),maxTurns:100});await wait(()=>service.status('owner','conversation').workersEnded)
+ expect(service.status('owner','conversation').closure?.agreement).toBe('confirmed')
+ consensusResponse=undefined
+ service.start('owner',{...input(),id:'budget',workspaceId:'workspace-2',maxTurns:1});await wait(()=>service.status('owner','budget').workersEnded)
+ service.inject('owner','budget','late','Please also cover cost.')
+ const view=service.status('owner','budget')
+ expect(view.closure).toMatchObject({stopReason:'turn_budget',agreement:'not_confirmed'})
+ expect(view.closure!.userMessages).toEqual([{id:'late',afterTurn:1,status:'no_reply_after',excerpt:'Please also cover cost.'}])
+ expect(view.closure!.lastPositions).toHaveLength(1)
+})
+it('closure records stops by the user and provider failures with failed attempts counted',async()=>{
+ hold=true;service.start('owner',{...input(),maxTurns:4});await wait(()=>calls.length===1)
+ const stopped=await service.stop('owner','conversation')
+ expect(stopped.closure).toMatchObject({stopReason:'stopped_by_user',agreement:'not_confirmed'})
+ hold=false;failureMessage='unrecognised provider failure';rejections=1
+ service.start('owner',{...input(),id:'failing',workspaceId:'workspace-3'});await wait(()=>service.status('owner','failing').workersEnded)
+ const failed=service.status('owner','failing')
+ expect(failed.state).toBe('failed');expect(failed.closure?.failedAttempts).toBe(1);expect(failed.closure?.lastPositions).toEqual([])
+})
+it('closure reports repeated replies and an interrupted host restart without dispatching',async()=>{
+ consensusResponse=()=>'Same reply.'
+ service.start('owner',{...input(),maxTurns:10});await wait(()=>service.status('owner','conversation').workersEnded)
+ const repeated=service.status('owner','conversation')
+ expect(repeated.reason).toBe('repeated_replies');expect(repeated.closure).toMatchObject({stopReason:'repeated_replies',agreement:'not_confirmed'})
+ consensusResponse=undefined;hold=true
+ service.start('owner',{...input(),id:'restart',workspaceId:'workspace-4'});await wait(()=>calls.at(-1)?.packet.kind==='continuous_conversation'&&service.status('owner','restart').turns.length===1)
+ const before=calls.length,reopened=make()
+ expect(reopened.status('owner','restart').closure).toMatchObject({stopReason:'interrupted_host',agreement:'not_confirmed',lastPositions:[]})
+ expect(calls).toHaveLength(before)
+ hold=false;release()
+})

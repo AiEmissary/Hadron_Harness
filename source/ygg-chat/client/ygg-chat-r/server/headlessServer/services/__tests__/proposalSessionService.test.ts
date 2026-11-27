@@ -11,7 +11,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import {CODEX_FAILURE_REASONS} from '../../../auth/hadronCodexRuntime.js'
-import {HADRON_AGENT_INCOMPLETE,HADRON_COMPLETION_UNCONFIRMED,HADRON_AGENT_STALLED} from '../../../../../../shared/hadronWorkOutcome.js'
+import {HADRON_AGENT_INCOMPLETE,HADRON_COMPLETION_UNCONFIRMED,HADRON_AGENT_STALLED,HADRON_LEGACY_AGENT_INCOMPLETE,HADRON_READ_ONLY_UNFINISHED,hadronIncompleteMessage} from '../../../../../../shared/hadronWorkOutcome.js'
 
 function fixture(proposalText = 'Committed proposal') {
   const pending: Array<() => void> = []
@@ -39,9 +39,29 @@ it.each([HADRON_AGENT_INCOMPLETE,HADRON_COMPLETION_UNCONFIRMED,HADRON_AGENT_STAL
  try{
   expect((await observe(f.service.start('owner',f.input))).error).toBeTruthy()
   const before=f.generate.mock.calls.length,status=f.service.status('owner',f.input.sessionId)!
-  expect(status.error).toContain('has not finished its assigned work');expect(status.error).toContain(message)
+  expect(status.error).toContain('did not finish its part of the shared task');expect(status.error).toContain(message)
   expect(status.error).not.toContain('could not complete its reply')
   expect(f.generate).toHaveBeenCalledTimes(before)
+ }finally{f.service.stop('owner',f.input.sessionId);f.close()}
+})
+it.each([HADRON_LEGACY_AGENT_INCOMPLETE,HADRON_READ_ONLY_UNFINISHED])('explains a read-only run whose agent reported outstanding edits as a permissions mismatch, not a provider failure',async message=>{
+ const f=fixture();f.generate.mockRejectedValueOnce(new Error(message))
+ try{
+  await observe(f.service.start('owner',f.input))
+  const status=f.service.status('owner',f.input.sessionId)!
+  expect(status.error).toContain('read-only Work together run');expect(status.error).toContain('not a provider error')
+  expect(status.error).toContain('nothing is needed from you');expect(status.error).toContain('coding (Agent) mode')
+  expect(status.error).not.toContain('could not complete its reply')
+ }finally{f.service.stop('owner',f.input.sessionId);f.close()}
+})
+it('says plainly when a participant is waiting for the user',async()=>{
+ const message=hadronIncompleteMessage({incompleteReason:'agent_incomplete',kind:'needs_user',detail:'Choose a spending limit for the benchmark.'})
+ const f=fixture();f.generate.mockRejectedValueOnce(new Error(message))
+ try{
+  await observe(f.service.start('owner',f.input))
+  const status=f.service.status('owner',f.input.sessionId)!
+  expect(status.error).toContain('is waiting for you');expect(status.error).toContain('Choose a spending limit for the benchmark.')
+  expect(status.error).toContain('reply in this chat to continue')
  }finally{f.service.stop('owner',f.input.sessionId);f.close()}
 })
 it('explains a saved historical host timeout in participant feedback without replaying either provider',async()=>{

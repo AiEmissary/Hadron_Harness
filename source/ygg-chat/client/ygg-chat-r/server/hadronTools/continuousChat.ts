@@ -3,7 +3,7 @@ import {randomUUID} from 'node:crypto'
 import {continuousPrompt,type ContinuousPromptPacket} from './continuousPrompt.js'
 import {continuousInputContext} from './continuousInputContext.js'
 import {consensusPacket,consensusReply,agreementCheckOffer,type ConsensusOffer} from './continuousConsensus.js'
-import {CONTINUOUS_INPUT_MAX_BYTES,type ContinuousChatInput,type ContinuousChatView,type ContinuousChatHistory,type ContinuousContinuationInput} from '../../../../shared/continuousChat.js'
+import {CONTINUOUS_INPUT_MAX_BYTES,type ContinuousChatInput,type ContinuousChatView,type ContinuousClosure,type ContinuousChatHistory,type ContinuousContinuationInput} from '../../../../shared/continuousChat.js'
 interface Database {exec(sql:string):unknown;prepare(sql:string):any;close():void}
 export interface ContinuousBinding {runId:string;handle:string;streamId:string}
 interface Control {promise:Promise<void>;controller?:AbortController;handle?:string;ended:boolean;uncertain?:boolean}
@@ -243,10 +243,23 @@ export class ContinuousChatService {
  }
  status(owner:string,id:string):ContinuousChatView{
   const {row,input}=this.owned(owner,id),control=this.controls.get(id)
-  return {id,input,folderActivity:this.db.prepare('SELECT time,tool,state FROM hadron_continuous_folder_activity WHERE session_id=? ORDER BY rowid DESC LIMIT 200').all(id).reverse(),memory:this.memory(id),history:this.history(id),state:row.state,reason:row.reason,revision:row.revision,currentHost:row.instance_id===this.instance&&!!control,workersEnded:control?.ended??row.instance_id===this.instance,
+  const view:ContinuousChatView={id,input,folderActivity:this.db.prepare('SELECT time,tool,state FROM hadron_continuous_folder_activity WHERE session_id=? ORDER BY rowid DESC LIMIT 200').all(id).reverse(),memory:this.memory(id),history:this.history(id),state:row.state,reason:row.reason,revision:row.revision,currentHost:row.instance_id===this.instance&&!!control,workersEnded:control?.ended??row.instance_id===this.instance,
    canResume:!this.closing&&row.instance_id===this.instance&&['paused','failed'].includes(row.state)&&!!control?.ended,
    turns:this.db.prepare('SELECT ordinal,role,state,text,kind,run_id AS runId,error_code AS errorCode FROM hadron_continuous_turns WHERE session_id=? ORDER BY ordinal').all(id),
    messages:this.db.prepare('SELECT id,after_turn AS afterTurn,text FROM hadron_continuous_messages WHERE session_id=? ORDER BY rowid').all(id)}
+  return {...view,...this.closure(view)}
+ }
+ /** Ending record built by the host from saved rows. Uses no model request and claims no agreement
+  * beyond the host-verified consensus handshake. Recomputed on every read, so Resume cannot leave it stale. */
+ private closure(view:ContinuousChatView):{closure?:ContinuousClosure}{
+  if(['running','pause_requested','stop_requested'].includes(view.state))return {}
+  const tail=(text:string)=>{const chars=Array.from(text.trim());return chars.length>600?'…'+chars.slice(-600).join(''):chars.join('')}
+  const replies=view.turns.filter(turn=>turn.kind!=='memory'&&turn.state==='completed'&&turn.text!==null)
+  const lastPositions=(['a','b'] as const).flatMap(role=>{const turn=replies.filter(item=>item.role===role).at(-1);return turn?[{role,turn:turn.ordinal,excerpt:tail(turn.text!)}]:[]})
+  const userMessages=view.messages.map(message=>({id:message.id,afterTurn:message.afterTurn,status:replies.some(turn=>turn.ordinal>message.afterTurn)?'reply_followed' as const:'no_reply_after' as const,excerpt:tail(message.text)}))
+  return {closure:{source:'host',stopReason:view.reason??view.state,agreement:view.reason==='consensus_reached'?'confirmed':'not_confirmed',lastPositions,userMessages,
+   failedAttempts:view.turns.filter(turn=>turn.state==='failed').length,folderToolEvents:view.folderActivity?.length??0,
+   note:'Built by Hadron from the saved replies, not written or agreed by the agents. Web reads are not recorded here; check the replies for cited sources.'}}
  }
  recordFolder(owner:string,id:string,tool:string,state:string){
   this.owned(owner,id)

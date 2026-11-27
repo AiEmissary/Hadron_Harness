@@ -1,5 +1,5 @@
 import {helperHost,type HelperAssignment} from '../../hadronTools/helperHost.js'
-import {HADRON_AGENT_INCOMPLETE,HADRON_COMPLETION_UNCONFIRMED,HADRON_AGENT_STALLED} from '../../../../../shared/hadronWorkOutcome.js'
+import {hadronIncompleteMessage} from '../../../../../shared/hadronWorkOutcome.js'
 import { assertLegacyExecutionAllowed } from '../../hadronTools/executionGate.js'
 import type {
   HeadlessStreamEvent,
@@ -933,9 +933,9 @@ export class SubagentRunService {
 
       const incompleteReason=hadronToolSession?.outcome?.incompleteReason
       if(incompleteReason){
-        const message=incompleteReason==='context_limit'?'Not finished — the available context could not hold the task and its evidence. Saved work is available.':incompleteReason==='request_limit'?'Not finished — the tool request limit was reached before a final answer. Saved work is available.':incompleteReason==='time_limit'?'Not finished — the task time limit was reached before a final answer. Saved work is available.':incompleteReason==='completion_unconfirmed'?HADRON_COMPLETION_UNCONFIRMED:incompleteReason==='agent_stalled'?HADRON_AGENT_STALLED:HADRON_AGENT_INCOMPLETE
+        const message=hadronIncompleteMessage(hadronToolSession!.outcome!)
         this.runRepo.updateRun(runId,{status:'error',error:message,finalResponse:finalText,turnsUsed,toolCallsUsed})
-        this.streamingRunRepo.finish(subStreamId,{status:'error',endReason:'error',error:message,metadata:{subagent_run_id:runId,hadronIncompleteReason:incompleteReason}})
+        this.streamingRunRepo.finish(subStreamId,{status:'error',endReason:'error',error:message,metadata:{subagent_run_id:runId,hadronIncompleteReason:incompleteReason,...(hadronToolSession?.outcome?.kind?{hadronIncompleteKind:hadronToolSession.outcome.kind}:{})}})
         publishAndEmit({type:'error',subagentRunId:runId,lineageId:request.lineageId??null,error:message,provider})
         return
       }

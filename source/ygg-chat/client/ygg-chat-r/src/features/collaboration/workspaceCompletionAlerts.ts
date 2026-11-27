@@ -1,6 +1,6 @@
 import type {WorkspaceSession} from './workspaceSession'
 import {completionAlertText,type CompletionAlert,type CompletionAlertMode} from '../../../../../shared/hadronCompletion'
-import {isHadronIncompleteRecord} from '../../../../../shared/hadronWorkOutcome'
+import {isHadronIncompleteRecord,hadronOutcomeNeedsUser} from '../../../../../shared/hadronWorkOutcome'
 const key='hadron:completion-alerts'
 export function completionAlertMode():CompletionAlertMode{
  try{const value=localStorage.getItem(key);return value==='off'||value==='voice'?value:'ping'}catch{return'ping'}
@@ -29,7 +29,7 @@ export function watchWorkspaceCompletions(session:WorkspaceSession,notify:(input
    const id=armed.get(chat.id);if(!id)continue;armed.delete(chat.id)
    const message=chat.messages.findLast(item=>item.role==='assistant')
    if(!message||!['completed','failed','stopped'].includes(message.state))continue
-   const outcome=message.state==='stopped'?'stopped':message.state==='failed'||isHadronIncompleteRecord(message.text)?'failed':'completed'
+   const outcome=message.state==='stopped'?'stopped':message.state==='failed'&&hadronOutcomeNeedsUser(session.getSnapshot().errors?.[chat.id])?'needs_input':message.state==='failed'||isHadronIncompleteRecord(message.text)?'failed':'completed'
    const identity=chat.id+':'+id;if(announced.has(identity))continue;announced.add(identity)
    if(announced.size>200)announced.delete(announced.values().next().value!)
    try{void Promise.resolve(notify({id,projectId:chat.projectId,chatId:chat.id,agent:chat.workType==='individual'?chat.agent:'both',outcome})).catch(()=>{})}catch{/* Notification-only failure. */}

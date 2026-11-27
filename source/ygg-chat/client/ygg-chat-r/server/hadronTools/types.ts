@@ -1,6 +1,7 @@
 import {setTimeout as recoveryDelay} from 'node:timers/promises'
 import {createHash} from 'node:crypto'
 import {containsRawToolInvocation} from '../../../../shared/toolOutput.js'
+import type {HadronRunOutcome} from '../../../../shared/hadronWorkOutcome.js'
 import {boundedToolReceipt,compactToolTranscript,isOversizedContextError,toolContextBudget,toolContextTokens,type ToolTranscriptEntry} from './toolContext.js'
 /** A capability supplied only by trusted in-process Hadron admission, never a request field. */
 export interface HadronToolSession {
@@ -20,7 +21,7 @@ export interface HadronToolSession {
   deadlineAt?:number
   /** Trusted optional same-provider helper; shares the existing helper quota and cancellation. */
   condense?(text:string,signal:AbortSignal):Promise<string>
-  outcome?:{incompleteReason?:'context_limit'|'request_limit'|'time_limit'|'agent_incomplete'|'completion_unconfirmed'|'agent_stalled'}
+  outcome?:HadronRunOutcome
   requireEvidenceAttempt?: boolean
   evidenceAttempted?(): boolean
   evidenceInstruction?:string
@@ -86,7 +87,7 @@ export async function runHadronToolConversation(input: {
     }
     const evidence = transcript.filter(item => item.role === 'tool_evidence' || item.role === 'host_memory')
     if (!evidence.length) throw new Error('Expected a tool request or final answer within the request budget. Reply began: ' + snippet)
-    outcome.incompleteReason = 'agent_incomplete'
+    outcome.incompleteReason = 'agent_incomplete'; outcome.kind = 'unusable_reply'
     return 'Not finished — the agent twice replied in a format Hadron could not use, so Hadron stopped before a final answer. No operation was run from those replies. Earlier operations may already have changed files. Saved evidence follows; it does not establish completion.\n\nLast reply began:\n```text\n' + snippet.replace(/```/g, "'''") + '\n```\n\n' + evidence.slice(-8).map((item, index) => 'Operation ' + (index + 1) + ':\n```json\n' + JSON.stringify(item.content).slice(0, 1200) + '\n```').join('\n\n')
   }
   const progress=new Set<string>()
@@ -103,7 +104,7 @@ export async function runHadronToolConversation(input: {
     }
     if (input.session.requireCompletionStatus && finished!==true) {
       if(finished===false){
-        if(blocker){outcome.incompleteReason='agent_incomplete';return answer+'\n\nAgent-reported blocker: '+blocker}
+        if(blocker){outcome.incompleteReason='agent_incomplete';outcome.kind='needs_user';outcome.detail=blocker;return answer+'\n\nAgent-reported blocker: '+blocker}
         stalledReports=progress.size===partialProgress?stalledReports+1:0
         partialProgress=progress.size
         if(canCorrect&&stalledReports<2){
@@ -119,7 +120,11 @@ export async function runHadronToolConversation(input: {
         return undefined
       }
       outcome.incompleteReason='completion_unconfirmed'
-    } else if (finished===false&&!input.session.assessmentOnly) outcome.incompleteReason='agent_incomplete'
+    } else if (finished===false&&!input.session.assessmentOnly) {
+      // Without required completion status this session has no file-changing tools, so unfinished work means it needed more access, unless the agent asked the user for something.
+      outcome.incompleteReason='agent_incomplete'
+      if(blocker){outcome.kind='needs_user';outcome.detail=blocker}else if(input.session.execution!=='agent')outcome.kind='read_only'
+    }
     return answer
   }
   const maximum=input.session.maxRequests??8
@@ -172,8 +177,8 @@ export async function runHadronToolConversation(input: {
       // An Agent run with saved work ends as Not finished instead of being discarded. After eligible bounded recovery, the user can continue.
       const evidence=transcript.filter(item=>item.role==='tool_evidence'||item.role==='host_memory')
       if(input.session.execution==='agent'&&evidence.length){
-        outcome.incompleteReason='agent_incomplete'
         const reason=((error instanceof Error?error.message:'').replace('no host retry was made',providerRetries?'no further retry was made':'no host retry was made')).slice(0,400)||'No reason was available.'
+        outcome.incompleteReason='agent_incomplete';outcome.kind='request_failed';outcome.detail=reason
         return 'Not finished — the model request failed before a final answer'+(providerRetries?` after ${providerRetries} bounded recovery attempts.`:', and no automatic retry was made.')+' Reason: '+reason+'\nEarlier operations may already have changed files. Saved evidence follows; it does not establish completion. Continue to resume from it.\n\n'+evidence.slice(-8).map((item,index)=>'Operation '+(index+1)+':\n```json\n'+JSON.stringify(item.content).slice(0,1200)+'\n```').join('\n\n')
       }
       if(providerRetries)throw Error(`The model request still failed after ${providerRetries} bounded recovery attempts. `+(error instanceof Error?error.message.replace('no host retry was made','no further retry was made'):'No reason was available.'))

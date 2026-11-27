@@ -9,7 +9,14 @@ export interface ContinuousContinuationInput {images?:import('./hadronImages.js'
  documents?:import('./hadronDocuments.js').HadronDocument[];projectGrantId?:string;id:string;models:{a:string;b:string};providers?:ContinuousProviders;maxTurns:number;maxSeconds:number;instruction?:string}
 export interface ContinuousMemory {throughTurn:number;text:string}
 export interface ContinuousChatHistory {memory?:ContinuousMemory;sourceId:string;turns:Array<{role:'a'|'b';text:string;provider?:'openaichatgpt'|'claudecode';model?:string}>;messages:Array<{afterTurn:number;text:string}>}
+/** Host-built record of how a stopped conversation ended. Derived from saved rows without any model request;
+ * it is never an agent-agreed summary. Absent while a worker may still be running. */
+export interface ContinuousClosure {source:'host';stopReason:string;agreement:'confirmed'|'not_confirmed';
+ lastPositions:Array<{role:'a'|'b';turn:number;excerpt:string}>;
+ userMessages:Array<{id:string;afterTurn:number;status:'reply_followed'|'no_reply_after';excerpt:string}>;
+ failedAttempts:number;folderToolEvents:number;note:string}
 export interface ContinuousChatView {
+ closure?:ContinuousClosure;
  folderActivity?:Array<{time:string;tool:string;state:string}>;
  memory?:ContinuousMemory;
  id:string;input:ContinuousChatInput;state:string;reason:string|null;revision:number;workersEnded:boolean;canResume:boolean;currentHost?:boolean;history?:ContinuousChatHistory;

@@ -1,5 +1,6 @@
 import {expect,it,vi} from 'vitest'
 import {runHadronToolConversation,admitHadronToolSession,withHadronAssessment,type HadronToolSession} from '../hadronTools/types.js'
+import {hadronIncompleteMessage,hadronAgentOutcomeFailure,hadronOutcomeNeedsUser,HADRON_READ_ONLY_UNFINISHED} from '../../../../shared/hadronWorkOutcome.js'
 
 const controller=()=>new AbortController().signal
 it('keeps an assessment limitation without converting it to an implementation failure or weakening evidence requirements',async()=>{
@@ -93,4 +94,19 @@ it('honours Stop during the outcome correction before another request or operati
  const current=session(),stop=new AbortController(),generate=vi.fn(async()=>{stop.abort();return JSON.stringify({answer:'Partial findings.'})})
  await expect(runHadronToolConversation({session:current,task:'Investigate',signal:stop.signal,generate})).rejects.toThrow()
  expect(generate).toHaveBeenCalledOnce();expect(current.invoke).not.toHaveBeenCalled()
+})
+
+it('records why unfinished work stopped so the message says whether the user must act',async()=>{
+ const readOnly=admitHadronToolSession({instructions:'Read only',invoke:vi.fn()})
+ await runHadronToolConversation({session:readOnly,task:'Implement',signal:controller(),generate:async()=>JSON.stringify({answer:'Findings; edits remain.',finished:false})})
+ expect(readOnly.outcome).toEqual({incompleteReason:'agent_incomplete',kind:'read_only'})
+ expect(hadronIncompleteMessage(readOnly.outcome!)).toBe(HADRON_READ_ONLY_UNFINISHED)
+ const asking=session()
+ await runHadronToolConversation({session:asking,task:'Implement',signal:controller(),generate:async()=>JSON.stringify({answer:'Step 1 done.',finished:false,blocked:true,blocker:'Which spending limit should the benchmark use?'})})
+ expect(asking.outcome).toMatchObject({incompleteReason:'agent_incomplete',kind:'needs_user',detail:'Which spending limit should the benchmark use?'})
+ const message=hadronIncompleteMessage(asking.outcome!)
+ expect(message).toMatch(/^Waiting for you/);expect(message).toContain('Which spending limit should the benchmark use?')
+ expect(hadronOutcomeNeedsUser(message)).toBe(true);expect(hadronAgentOutcomeFailure(message)).toBe(message)
+ expect(hadronIncompleteMessage({incompleteReason:'agent_incomplete'})).toMatch(/^Partly done .*did not say it needs anything from you/)
+ expect(hadronAgentOutcomeFailure('Some provider error')).toBeUndefined()
 })

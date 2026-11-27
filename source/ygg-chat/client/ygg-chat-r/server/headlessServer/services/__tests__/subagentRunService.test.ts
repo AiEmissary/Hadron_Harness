@@ -255,7 +255,7 @@ describe('SubagentRunService', () => {
     const child=await service.spawnDetached(baseRequest({tools:[],autoApprove:false,operationMode:'plan',lineageId:null,rootPath:null}),{signal:new AbortController().signal,toolPolicy:'none',toolSession,onPrepared:()=>{}})
     expect((await service.waitForTerminal(child.handle!))?.status).toBe('error')
     expect(runRepo.runs.get(child.runId)).toMatchObject({status:'error',final_response:expect.stringContaining('Saved partial findings; assigned work remains.')})
-    expect(runRepo.runs.get(child.runId).error).toContain(finished===false?'agent reported':'did not confirm')
+    expect(runRepo.runs.get(child.runId).error).toContain(finished===false?'Waiting for you — the agent paused':'Unclear whether finished')
     expect(streamingRunRepo.finishCalls.at(-1)).toMatchObject({status:'error',metadata:{hadronIncompleteReason:finished===false?'agent_incomplete':'completion_unconfirmed'}})
     expect(generate).toHaveBeenCalledTimes(finished===false?1:2)
   })

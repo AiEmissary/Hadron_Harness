@@ -1554,7 +1554,7 @@ const announcedCompletions=new Set<string>(),completionNotices=new Set<Notificat
 authHandle('completion-alert:ping',()=>{projectDraftOwner();shell.beep()})
 authHandle('completion-alert:notify',(_event,input:CompletionAlert,mode:'ping'|'voice')=>{
  const owner=projectDraftOwner()
- if(!input||typeof input!=='object'||!['a','b','both'].includes(input.agent)||!['completed','failed','stopped'].includes(input.outcome)||!['ping','voice'].includes(mode)||[input.id,input.projectId,input.chatId].some(value=>typeof value!=='string'||!value||value.length>160))throw Error('Invalid completion alert')
+ if(!input||typeof input!=='object'||!['a','b','both'].includes(input.agent)||!['completed','failed','stopped','needs_input'].includes(input.outcome)||!['ping','voice'].includes(mode)||[input.id,input.projectId,input.chatId].some(value=>typeof value!=='string'||!value||value.length>160))throw Error('Invalid completion alert')
  const target=mainWindow;if(!target||target.isDestroyed())return false
  const key=owner+':'+input.chatId+':'+input.id
  if(announcedCompletions.has(key))return false

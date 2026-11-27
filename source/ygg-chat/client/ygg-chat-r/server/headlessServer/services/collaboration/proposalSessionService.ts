@@ -14,7 +14,7 @@ import { freezeSharedContinuation, readProposalConfig } from './sharedContinuati
 import { CollaborationReview } from './collaborationReview.js'
 import {withHadronToolDeadline,withHadronAssessment} from '../../../hadronTools/types.js'
 import {hadronTimeFailure} from './timeFailure.js'
-import {hadronAgentOutcomeFailure} from '../../../../../../shared/hadronWorkOutcome.js'
+import {hadronAgentOutcomeFailure,hadronOutcomeNeedsUser,HADRON_READ_ONLY_UNFINISHED,HADRON_LEGACY_AGENT_INCOMPLETE} from '../../../../../../shared/hadronWorkOutcome.js'
 
 export interface ProposalSessionDeps {
   sessions: CollaborationRepo
@@ -150,7 +150,16 @@ export class ProposalSessionService {
     const failureReason=workIncomplete??hadronTimeFailure(failedRunError,failedRun?.created_at,failedRun?.updated_at)??Object.values(failedSelection?.provider==='claudecode'?CLAUDE_FAILURE_REASONS:CODEX_FAILURE_REASONS).find(reason=>failedRunError.startsWith(reason))
     const failedPhase=failedStage?.stage_id.startsWith('review_')?'review':failedStage?.stage_id==='verification'?'verification':failedStage?.stage_id==='final'?'combined answer':'reply'
     const stoppedPeers=participants.filter(participant=>participant.participant_id!==failedParticipant?.participant_id&&participant.run_id&&this.deps.runs.getRunById(participant.run_id)?.status==='aborted')
-    const participantFailure=failedSelection?`Agent ${failedSelection.id.toUpperCase()} (${failedSelection.provider==='claudecode'?'Claude':'ChatGPT'}) ${workIncomplete?'has not finished its assigned work.':claudeSignIn?'needs you to reconnect Claude because its sign-in expired or could not be refreshed. Open the chat setup pop-up and reconnect Claude.':`could not complete its ${failedPhase}.`}${failureReason?' Reason: '+failureReason:''}${stoppedPeers.length?' '+stoppedPeers.map(peer=>'Agent '+peer.participant_id.toUpperCase()).join(' and ')+' was stopped when the shared task failed.':''} Your question is saved; no combined answer was produced.`:undefined
+    const needsUser=hadronOutcomeNeedsUser(workIncomplete)
+    // Older saved records: in a read-only run an "unfinished" proposal only meant the requested edits were outside that run's access.
+    const readOnlyRun=input.projectMode!=='agent'&&!failedStage&&(workIncomplete===HADRON_READ_ONLY_UNFINISHED||
+      workIncomplete===HADRON_LEGACY_AGENT_INCOMPLETE&&!(failedRun?.final_response??'').startsWith('Not finished'))
+    const peers=stoppedPeers.map(peer=>'Agent '+peer.participant_id.toUpperCase()).join(' and ')
+    const peerNote=!stoppedPeers.length?'':workIncomplete?` ${peers} ${stoppedPeers.length>1?'were':'was'} stopped only because a combined answer needs every agent's part; ${stoppedPeers.length>1?'they':'it'} did not fail.`:` ${peers} ${stoppedPeers.length>1?'were':'was'} stopped when the shared task failed.`
+    const who=failedSelection?`Agent ${failedSelection.id.toUpperCase()} (${failedSelection.provider==='claudecode'?'Claude':'ChatGPT'})`:''
+    const participantFailure=!failedSelection?undefined:readOnlyRun
+      ?`${who} answered, but reported that the request needs file edits or tests this read-only Work together run cannot do, so Hadron stopped the run. This is a permissions mismatch, not a provider error, and nothing is needed from you to fix it. To have the changes made, start the request again with coding (Agent) mode on.${peerNote} Your question and each agent's saved reply are kept; no combined answer was produced.`
+      :`${who} ${needsUser?'is waiting for you.':workIncomplete?'did not finish its part of the shared task.':claudeSignIn?'needs you to reconnect Claude because its sign-in expired or could not be refreshed. Open the chat setup pop-up and reconnect Claude.':`could not complete its ${failedPhase}.`}${failureReason?' '+(workIncomplete?'':'Reason: ')+failureReason:''}${peerNote} Your question is saved; no combined answer was produced.`
     return { schemaVersion: 1, sessionId, conversationId: row.conversation_id,
       ...(input.parentSessionId ? { parentSessionId: input.parentSessionId } : {}),
       phase: 'independent_proposals', status: workflow?.status ?? row.status, revision: row.revision + (workflow?.revision ?? 0),
@@ -253,7 +262,10 @@ export class ProposalSessionService {
       toolSession:(participantId:string)=>{
         const authorize=()=>{checkDeadline();this.deps.sessions.assertRunning(input.sessionId,ownerId);this.authorize(ownerId,input)}
         const session=input.projectGrantId ? this.deps.projectSession!(ownerId,executionInput,'proposal_'+participantId,authorize) : this.deps.researchSession?.(ownerId,executionInput,'proposal_'+participantId,authorize)
-        return session?withHadronToolDeadline(input.projectMode==='agent'&&participantId!=='a'?withHadronAssessment(session):session,deadlineAt):undefined
+        // Only Agent A in coding mode implements. Every other stage (all stages of a read-only run) is an assessment:
+        // reporting that the overall request still needs edits is a valid finished assessment, not a failed participant.
+        const implementer=input.projectMode==='agent'&&participantId==='a'
+        return session?withHadronToolDeadline(implementer?session:withHadronAssessment(session),deadlineAt):undefined
       },
       validateAnchor: () => { this.deps.sessions.assertRunning(input.sessionId, ownerId); validateAnchor() },
       onPrepared: (participantId, child) => {

@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState,type ReactNode} from 'react'
 import {createPortal} from 'react-dom'
-import {isHadronIncompleteRecord} from '../../../../../shared/hadronWorkOutcome'
+import {isHadronIncompleteRecord,HADRON_NEEDS_USER_PREFIX} from '../../../../../shared/hadronWorkOutcome'
 import {ArrowDown,ArrowUp,Copy,GitBranch,MessageSquare,MoreHorizontal,Paperclip,Pencil,Share2,Square,Trash2} from 'lucide-react'
 import type {ParticipantOption} from '../../features/collaboration/setup'
 import {workspaceTranscriptPath,type WorkspaceChat,type WorkspaceMessage} from '../../features/collaboration/unifiedWorkspace'
@@ -201,7 +201,7 @@ export function UnifiedChatSurface(props:UnifiedChatSurfaceProps){
       {!message.activity?.length?<p>Waiting for the provider to report progress.</p>:<ul>{message.activity.map((item,index)=><li key={index}>{item.time&&Number.isFinite(Date.parse(item.time))&&<time dateTime={item.time}>{new Date(item.time).toLocaleTimeString()} · </time>}{item.label}{!item.label.endsWith(item.state)?` · ${item.state}`:''}</li>)}</ul>}
      </details>}
      {message.state==='running'&&<span role='status' className='hadron-v2-working'>{chat.jobState==='unknown'?'Checking saved task…':'Working…'}</span>}
-     {(message.state==='failed'||message.role==='assistant'&&message.state==='completed'&&isHadronIncompleteRecord(message.text))&&<strong role='status' className='hadron-v2-not-finished'>Not finished</strong>}
+     {(message.state==='failed'||message.role==='assistant'&&message.state==='completed'&&isHadronIncompleteRecord(message.text))&&<strong role='status' className='hadron-v2-not-finished'>{message.state==='failed'&&message.id===path.at(-1)?.id&&props.error?.startsWith(HADRON_NEEDS_USER_PREFIX)?'Waiting for your answer':message.state==='failed'&&message.id===path.at(-1)?.id&&props.error?.startsWith('Partly done')?'Partly done':'Not finished'}</strong>}
      {message.state==='stopped'&&<strong role='status' className='hadron-v2-not-finished'>Not finished · Stopped</strong>}
      {message.role==='assistant'&&message.state==='completed'&&message.id===path.at(-1)?.id&&!isHadronIncompleteRecord(message.text)&&<strong role='status' className='hadron-v2-done'>✓ Done</strong>}
      </>}
